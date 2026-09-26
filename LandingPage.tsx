@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithMicrosoft, loginAsDemoUser } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithMicrosoft } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -21,27 +21,7 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
 
-  const demoRoles: { id: UserRole; title: string; name: string; icon: string; desc: string }[] = [
-    { id: 'property_manager', title: 'Property Manager', name: 'Alex Morgan', icon: '🏢', desc: 'Full portfolio, screening & financial control' },
-    { id: 'landlord', title: 'Landlord / Owner', name: 'Sarah Sterling', icon: '🏠', desc: 'Property ROI, tenant leases & payouts' },
-    { id: 'tenant', title: 'Tenant Resident', name: 'David Chen', icon: '🛋️', desc: 'Rent payments, maintenance & community' },
-    { id: 'technician', title: 'Contractor / Tech', name: 'Marcus Vance', icon: '🔧', desc: 'Work orders, field dispatched & invoicing' },
-    { id: 'admin', title: 'System Admin', name: 'System Admin', icon: '🛡️', desc: 'Audit logs, security & access governance' }
-  ];
-
-  const handleQuickDemoLogin = async (role: UserRole) => {
-    try {
-      setLoading(true);
-      await loginAsDemoUser(role);
-      navigate('/dashboard');
-    } catch (err: any) {
-      console.error('Demo login error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOAuthLogin = async (providerName: 'google' | 'microsoft', isSignUp = false) => {
+    const handleOAuthLogin = async (providerName: 'google' | 'microsoft', isSignUp = false) => {
     try {
       setAuthError('');
       setLoading(true);
@@ -57,8 +37,7 @@ export default function LandingPage() {
       }
       console.warn("Authentication notice:", error);
       // Fallback seamlessly to demo user
-      await loginAsDemoUser(selectedRole);
-      navigate('/dashboard');
+      setAuthError('Authentication failed. Please check your credentials or try again.');
     } finally {
       setLoading(false);
     }
@@ -73,8 +52,7 @@ export default function LandingPage() {
       navigate('/dashboard');
     } catch (error: any) {
       console.warn("Signup error fallback:", error);
-      await loginAsDemoUser(selectedRole, email, name || email.split('@')[0]);
-      navigate('/dashboard');
+      setAuthError('Authentication failed. Please check your credentials or try again.');
     } finally {
       setLoading(false);
     }
@@ -89,33 +67,18 @@ export default function LandingPage() {
       navigate('/dashboard');
     } catch (error: any) {
       console.warn("Login fallback:", error);
-      await loginAsDemoUser('property_manager', email);
-      navigate('/dashboard');
+      setAuthError('Authentication failed. Please check your credentials or try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const pricingTiers = [
-    {
-      name: 'Basic',
-      price: '$49',
-      description: 'Perfect for small landlords and independent owners.',
-      features: ['Up to 50 units', 'All app features included', 'Full Tenant & Landlord portals', 'Standard support']
-    },
-    {
-      name: 'Pro',
-      price: '$149',
-      description: 'Advanced tools for growing property management teams.',
-      features: ['Up to 250 units', 'All app features included', 'Full Vendor & PM portals', 'Priority support'],
-      popular: true
-    },
-    {
-      name: 'Enterprise',
-      price: 'Custom',
-      description: 'Comprehensive solution for large-scale operations.',
-      features: ['Unlimited units', 'All app features included', 'Custom integration setup', 'Dedicated account manager']
-    }
+    { name: 'Free', price: '$0', description: 'A real free plan for small landlords getting started.', features: ['Up to 5 properties', '2 users', 'Tenant & lease management', 'Maintenance & work orders', 'Basic financial tracking', 'Basic reports', 'Data export'] },
+    { name: 'Starter', price: '$9', description: 'Affordable property management for small portfolios.', features: ['Up to 25 properties', '5 users', 'Everything in Free', 'Financial tracking', 'Lease automation', 'Vendor management', 'Automated reminders'] },
+    { name: 'Pro', price: '$19', description: 'For independent property managers and growing portfolios.', features: ['Up to 100 properties', '10 users', 'CRM & prospecting', 'Advanced analytics', 'Workflow automation', 'AI assistant', 'Integrations & API'], popular: true },
+    { name: 'Business', price: '$39', description: 'For small property management companies.', features: ['Up to 500 properties', '25 users', 'Multi-property operations', 'Advanced permissions', 'Custom workflows', 'Higher AI limits', 'Priority support'] },
+    { name: 'Enterprise', price: '$79', description: 'Unlimited property management without enterprise pricing.', features: ['Unlimited properties', 'Unlimited users', 'Custom roles', 'White-label options', 'Custom integrations', 'Advanced AI agents', 'Dedicated support'] }
   ];
 
   return (
@@ -131,7 +94,7 @@ export default function LandingPage() {
               <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">PropFlow</span>
             </div>
             <div className="hidden md:flex items-center space-x-6">
-              <a href="#demo-access" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Demo Portals</a>
+              <a href="#demo-access" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Features</a>
               <a href="#pricing" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">Pricing</a>
               <button 
                 onClick={toggleTheme} 
@@ -166,7 +129,7 @@ export default function LandingPage() {
         {/* Mobile menu */}
         {isMenuOpen && (
           <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-4 space-y-3">
-            <a href="#demo-access" onClick={() => setIsMenuOpen(false)} className="block py-1 text-slate-600 dark:text-slate-300">Demo Portals</a>
+            <a href="#demo-access" onClick={() => setIsMenuOpen(false)} className="block py-1 text-slate-600 dark:text-slate-300">Features</a>
             <a href="#pricing" onClick={() => setIsMenuOpen(false)} className="block py-1 text-slate-600 dark:text-slate-300">Pricing</a>
             <div className="pt-2 flex flex-col space-y-2">
               <button onClick={() => { setIsMenuOpen(false); setIsLoginModalOpen(true); }} className="w-full text-center py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 font-medium">Log In</button>
@@ -191,7 +154,7 @@ export default function LandingPage() {
         
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button 
-            onClick={() => handleQuickDemoLogin('property_manager')}
+            onClick={() => setIsSignUpModalOpen(true)}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-7 py-3.5 rounded-xl font-bold text-base shadow-lg shadow-primary-600/25 transition-all"
           >
             <span>Launch Manager Portal</span>
@@ -207,15 +170,15 @@ export default function LandingPage() {
       </div>
 
       {/* Quick Interactive Role Showcase / 1-Click Launch */}
-      <div id="demo-access" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
-                <UserCheck className="h-4 w-4" /> Instant Live Demo
+                <UserCheck className="h-4 w-4" /> 
               </div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                Explore Portals by Persona
+                Built for every property role
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Click any role to test and preview all integrated capabilities instantly with zero setup.
@@ -231,7 +194,7 @@ export default function LandingPage() {
             {demoRoles.map((role) => (
               <button
                 key={role.id}
-                onClick={() => handleQuickDemoLogin(role.id)}
+                onClick={() => setIsSignUpModalOpen(true)}
                 className="group text-left p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-primary-500 dark:hover:border-primary-500 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between"
               >
                 <div>
@@ -271,7 +234,7 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{tier.name}</h3>
                 <div className="mt-4 flex items-baseline text-4xl font-extrabold text-slate-900 dark:text-white">
                   {tier.price}
-                  {tier.price !== 'Custom' && <span className="ml-1 text-lg font-medium text-slate-500 dark:text-slate-400">/mo</span>}
+                  {true && <span className="ml-1 text-lg font-medium text-slate-500 dark:text-slate-400">/mo</span>}
                 </div>
                 <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 flex-1">{tier.description}</p>
                 <ul className="mt-6 space-y-3 mb-8 text-sm">
@@ -283,7 +246,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <button 
-                  onClick={() => handleQuickDemoLogin('property_manager')} 
+                  onClick={() => setIsSignUpModalOpen(true)} 
                   className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-colors ${tier.popular ? 'bg-primary-600 text-white hover:bg-primary-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                 >
                   Get Started
@@ -312,7 +275,7 @@ export default function LandingPage() {
             {/* Quick Demo Selector inside Modal */}
             <div className="mb-6 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                ⚡ 1-Click Quick Demo Sign-In:
+                ⚡ 1-Click 
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {[
@@ -326,7 +289,7 @@ export default function LandingPage() {
                   <button
                     key={role.id}
                     type="button"
-                    onClick={() => handleQuickDemoLogin(role.id as UserRole)}
+                    onClick={() => setIsSignUpModalOpen(true)}
                     className="py-1.5 px-2 bg-white dark:bg-slate-750 hover:bg-primary-50 dark:hover:bg-primary-950 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors text-center"
                   >
                     {role.label}
@@ -351,7 +314,7 @@ export default function LandingPage() {
                   type="email" 
                   required 
                   value={email} 
-                  placeholder="alex.pm@propflow.io"
+                  placeholder="your@email.com"
                   onChange={(e) => setEmail(e.target.value)} 
                   className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" 
                 />
