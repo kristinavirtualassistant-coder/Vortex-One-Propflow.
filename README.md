@@ -43,7 +43,7 @@
 | :--- | :--- |
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4, Motion, Lucide Icons, Recharts |
 | **Backend / API** | Node.js, Express, tsx, esbuild |
-| **Authentication & Realtime** | Firebase Auth & Firestore, with built-in instant demo simulation fallback |
+| **Authentication & Realtime** | Firebase Auth & Firestore, without fabricated demo data |
 | **AI Integration** | Google GenAI SDK (`@google/genai`) with Gemini models |
 | **Database** | PostgreSQL / Drizzle ORM |
 
@@ -93,17 +93,10 @@ npm start
 
 ---
 
-## 🔑 Demo Personas & Instant Sign-In
+## 🔐 Authentication
 
-For testing and demonstration, you can log in with one click as any of the built-in personas directly from the landing page or login modal:
+PropFlow does not ship with fabricated user accounts, demo personas, sample properties, or seeded portfolio records. User and property data must be created by authenticated users or loaded from connected production data sources.
 
-- **Property Manager**: `alex.pm@propflow.io`
-- **Landlord**: `sarah.landlord@propflow.io`
-- **Tenant**: `david.tenant@propflow.io`
-- **Technician**: `marcus.tech@propflow.io`
-- **Admin**: `admin@propflow.io`
-
----
 
 ## 🔒 Security & Best Practices
 - **Server-Side API Keys**: All AI and third-party API credentials remain strictly server-side.
