@@ -1,0 +1,6 @@
+{
+  "name": "PropFlow",
+  "description": "An all-in-one property management platform featuring maintenance tracking, role-based portals, and real-time analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

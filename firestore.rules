@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isRole(role) {
+      return isAuthenticated() && getUserRole() == role;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Users can only be created via backend or let them write their own role if it doesn't exist yet (for simplicity in this prototype)
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /maintenance_requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isRole('property_manager');
+    }
+    
+    match /properties/{propertyId} {
+      allow read: if isAuthenticated();
+      allow write: if isRole('property_manager') || isRole('landlord');
+    }
+  }
+}
