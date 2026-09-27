@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { doc, updateDoc, getDoc } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 import { Camera, Upload, CheckCircle2 } from 'lucide-react';
 
 export default function UserSettings() {
