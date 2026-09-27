@@ -53,7 +53,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const loadSession = async () => {
-    const token = getStoredSession();
+    let token = getStoredSession();
+
+    // OAuth callbacks return a short-lived application session in the URL.
+    // Consume it once, persist it for the normal session flow, and remove it
+    // from the address bar so the token is not left in browser history.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const callbackSession = params.get('session');
+      if (callbackSession) {
+        token = callbackSession;
+        window.localStorage.setItem('vortex_one_session', callbackSession);
+        const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch {
+      // Fall back to the existing stored session.
+    }
+
     if (!token) {
       setLoading(false);
       return;
