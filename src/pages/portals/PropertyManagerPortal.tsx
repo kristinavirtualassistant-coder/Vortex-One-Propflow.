@@ -133,10 +133,8 @@ export default function PropertyManagerPortal({ activeTab = 'dashboard' }: { act
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
             <h3 className="font-bold text-slate-900 dark:text-white mb-4">New Inquiries</h3>
             <div className="space-y-3">
-              {[
-                { name: 'Sarah Connor', email: 'sarah.c@example.com', property: 'Skyline Apt 4B', date: '2h ago' },
-                { name: 'John Smith', email: 'jsmith88@example.com', property: 'Oakwood #12', date: '5h ago' }
-              ].map((lead, i) => (
+              {[] .map((lead, i) => (
+
                 <div key={i} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
                   <div className="flex justify-between items-start mb-1">
                     <span className="font-semibold text-sm text-slate-900 dark:text-white">{lead.name}</span>
