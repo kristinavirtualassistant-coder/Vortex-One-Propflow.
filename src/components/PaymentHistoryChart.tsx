@@ -2,20 +2,8 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function PaymentHistoryChart() {
-  const data = [
-    { month: 'Sep', amount: 1450 },
-    { month: 'Oct', amount: 1450 },
-    { month: 'Nov', amount: 1450 },
-    { month: 'Dec', amount: 1450 },
-    { month: 'Jan', amount: 1450 },
-    { month: 'Feb', amount: 1450 },
-    { month: 'Mar', amount: 1450 },
-    { month: 'Apr', amount: 1450 },
-    { month: 'May', amount: 1450 },
-    { month: 'Jun', amount: 1450 },
-    { month: 'Jul', amount: 1450 },
-    { month: 'Aug', amount: 1450 },
-  ];
+  const data: any[] = [];
+
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-6">
