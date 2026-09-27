@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Zap, Droplet, Flame, Plus, Loader2 } from 'lucide-react';
