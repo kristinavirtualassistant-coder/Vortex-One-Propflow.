@@ -20,17 +20,7 @@ export default function ActivityFeedWidget() {
         ...doc.data()
       }));
       
-      if (logs.length === 0) {
-        setActivities([
-          { id: '1', action: 'payment_received', description: 'Rent payment of $1,450 received from Alice Smith (Apt 4B)', timestamp: new Date(Date.now() - 1000 * 60 * 15), user: 'System' },
-          { id: '2', action: 'maintenance_updated', description: 'Bob Johnson marked "Leaky Faucet" as In Progress', timestamp: new Date(Date.now() - 1000 * 60 * 45), user: 'Bob Johnson' },
-          { id: '3', action: 'lease_signed', description: 'New lease signed for Suite 102', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), user: 'Charlie Davis' },
-          { id: '4', action: 'vendor_added', description: 'Acme Plumbing Co. added to Vendor Directory', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5), user: 'Admin' },
-          { id: '5', action: 'alert', description: 'Missed payment alert triggered for Unit 7C', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), user: 'System' },
-        ]);
-      } else {
-        setActivities(logs);
-      }
+      setActivities(logs);
       setLoading(false);
     });
 
