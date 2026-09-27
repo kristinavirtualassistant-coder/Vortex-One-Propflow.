@@ -88,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
           name: firebaseUser.displayName || 'User',
-          role: 'property_manager',
+          role: 'tenant',
           profileComplete: false,
         });
       }
@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: credential.user.uid,
         email: credential.user.email || email,
         name,
-        role: 'property_manager',
+        role: _role === 'tenant' ? 'tenant' : 'property_manager',
         profileComplete: false,
       }, { merge: true });
     }
