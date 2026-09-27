@@ -1,7 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db, microsoftProvider, signInWithPopup, googleSignIn } from '../lib/firebase';
 
 export type UserRole = 'tenant' | 'landlord' | 'property_manager' | 'technician' | 'sales' | 'admin';
 
@@ -22,7 +19,7 @@ export interface AuthUser {
 }
 
 interface AuthContextType {
-  user: AuthUser | User | null;
+  user: AuthUser | null;
   userData: UserData | null;
   loading: boolean;
   isDemoMode: boolean;
@@ -35,107 +32,96 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+const getStoredSession = () => {
+  try {
+    return window.localStorage.getItem('vortex_one_session');
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let unsubscribeDoc: (() => void) | null = null;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (unsubscribeDoc) {
-        unsubscribeDoc();
-        unsubscribeDoc = null;
-      }
-
-      if (!firebaseUser) {
-        setUser(null);
-        setUserData(null);
-        setLoading(false);
-        return;
-      }
-
-      setUser(firebaseUser);
-
-      try {
-        const docRef = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (!docSnap.exists()) {
-          const role: UserRole = 'property_manager';
-
-          const newUserData: UserData = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || 'User',
-            role,
-            profileComplete: false,
-          };
-
-          await setDoc(docRef, newUserData);
-          setUserData(newUserData);
-        } else {
-          setUserData(docSnap.data() as UserData);
-        }
-
-        unsubscribeDoc = onSnapshot(docRef, (snapshot) => {
-          if (snapshot.exists()) setUserData(snapshot.data() as UserData);
-        });
-      } catch (error) {
-        console.error('Unable to load user profile:', error);
-        setUserData({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          name: firebaseUser.displayName || 'User',
-          role: 'tenant',
-          profileComplete: false,
-        });
-      }
-
+  const loadSession = async () => {
+    const token = getStoredSession();
+    if (!token) {
       setLoading(false);
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeDoc) unsubscribeDoc();
-    };
-  }, []);
-
-  const loginWithEmail = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
-  };
-
-  const signupWithEmail = async (email: string, password: string, _role: UserRole, name?: string) => {
-    const credential = await createUserWithEmailAndPassword(auth, email, password);
-
-    if (name) {
-      await setDoc(doc(db, 'users', credential.user.uid), {
-        uid: credential.user.uid,
-        email: credential.user.email || email,
-        name,
-        role: _role === 'tenant' ? 'tenant' : 'property_manager',
-        profileComplete: false,
-      }, { merge: true });
+      return;
     }
 
     try {
-      await sendEmailVerification(credential.user);
-    } catch (error) {
-      console.warn('Verification email could not be sent:', error);
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Session expired');
+      const data = await response.json();
+      setUser({
+        uid: data.user.uid,
+        email: data.user.email,
+        displayName: data.user.name,
+        emailVerified: true,
+      });
+      setUserData(data.user);
+    } catch {
+      window.localStorage.removeItem('vortex_one_session');
+      setUser(null);
+      setUserData(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loginWithGoogle = async (_isSignUp = false, _role: UserRole = 'property_manager') => {
-    await googleSignIn();
+  useEffect(() => {
+    void loadSession();
+  }, []);
+
+  const authenticate = async (url: string, body: Record<string, unknown>) => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Authentication failed');
+
+    window.localStorage.setItem('vortex_one_session', payload.session.id);
+    setUser({
+      uid: payload.user.uid,
+      email: payload.user.email,
+      displayName: payload.user.name,
+      emailVerified: true,
+    });
+    setUserData(payload.user);
   };
 
-  const loginWithMicrosoft = async (_isSignUp = false, _role: UserRole = 'property_manager') => {
-    await signInWithPopup(auth, microsoftProvider);
+  const loginWithEmail = async (email: string, password: string) => {
+    await authenticate('/api/auth/login', { email, password });
+  };
+
+  const signupWithEmail = async (email: string, password: string, role: UserRole, name?: string) => {
+    await authenticate('/api/auth/signup', { email, password, role, name });
+  };
+
+  const loginWithGoogle = async () => {
+    throw new Error('Google sign-in is not enabled yet. Use email and password to create your account.');
+  };
+
+  const loginWithMicrosoft = async () => {
+    throw new Error('Microsoft sign-in is not enabled yet. Use email and password to create your account.');
   };
 
   const logout = async () => {
-    await signOut(auth);
+    const token = getStoredSession();
+    if (token) {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
+    window.localStorage.removeItem('vortex_one_session');
     setUser(null);
     setUserData(null);
   };
