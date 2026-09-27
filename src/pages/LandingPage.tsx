@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-  const { loginWithEmail, signupWithEmail } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithMicrosoft } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -147,7 +147,10 @@ export default function LandingPage() {
             {!isLoginOpen && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />}
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email address" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
             <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
-            <button disabled={loading} onClick={isLoginOpen ? handleEmailLogin : handleSignup} className="mt-4 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold disabled:opacity-50">{loading ? 'Please wait…' : isLoginOpen ? 'Sign In' : 'Create Account'}</button>
+            <button disabled={loading} onClick={isLoginOpen ? handleEmailLogin : handleSignup} className="mt-4 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold disabled:opacity-50">{loading ? 'Please wait…' : isLoginOpen ? 'Sign In' : 'Create Account'}</button>            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithGoogle(!isLoginOpen, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Google.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold disabled:opacity-50">Google</button>
+              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithMicrosoft(!isLoginOpen, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Microsoft.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold disabled:opacity-50">Microsoft</button>
+            </div>
             <button onClick={isLoginOpen ? openSignup : openLogin} className="mt-5 text-sm text-primary-600 font-semibold">{isLoginOpen ? 'Need an account? Create one' : 'Already have an account? Sign in'}</button>
           </div>
         </div>
