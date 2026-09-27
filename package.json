@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "vortex-one-propflow",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -19,8 +19,6 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
     "express": "^4.22.2",
-    "firebase": "^12.17.0",
-    "firebase-admin": "^14.2.0",
     "lucide-react": "^1.27.0",
     "motion": "^12.23.24",
     "pg": "^8.22.0",
