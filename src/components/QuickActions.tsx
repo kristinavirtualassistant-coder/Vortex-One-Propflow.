@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { db, storage } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../lib/dataClient';
+import { collection, addDoc, serverTimestamp } from '../lib/dataClient';
+import { ref, uploadBytesResumable, getDownloadURL } from '../lib/storageClient';
 import { GoogleWorkspaceService } from '../lib/workspace';
 import {
   Plus,
