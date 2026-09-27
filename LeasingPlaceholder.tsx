@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileSignature, FolderArchive, ShieldCheck, FileText, Upload, Globe, Bot, Search, ExternalLink } from 'lucide-react';
-import { GoogleWorkspaceService } from '../lib/workspace';
+import { GoogleWorkspaceService } from './src/lib/workspace';
 import DocumentManager from './DocumentManager';
 
 export default function LeasingPlaceholder() {
