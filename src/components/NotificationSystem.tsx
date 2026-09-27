@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, onSnapshot, orderBy, limit } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, CheckCircle, Clock, AlertTriangle, X, Info } from 'lucide-react';
 import { format } from 'date-fns';
