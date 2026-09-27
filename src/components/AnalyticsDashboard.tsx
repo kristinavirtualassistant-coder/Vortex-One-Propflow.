@@ -34,18 +34,6 @@ import {
   FileText
 } from 'lucide-react';
 
-// Mock historical data for trends if Firestore collection has limited items
-const defaultMonthlyMetrics = [
-  { month: 'Jan', occupancy: 91, revenue: 42000, maintenanceCost: 2800, budget: 3500, submittedRequests: 12, resolvedRequests: 10 },
-  { month: 'Feb', occupancy: 92, revenue: 42500, maintenanceCost: 3100, budget: 3500, submittedRequests: 18, resolvedRequests: 14 },
-  { month: 'Mar', occupancy: 90, revenue: 41800, maintenanceCost: 4200, budget: 3500, submittedRequests: 24, resolvedRequests: 21 },
-  { month: 'Apr', occupancy: 93, revenue: 43200, maintenanceCost: 2900, budget: 3500, submittedRequests: 15, resolvedRequests: 13 },
-  { month: 'May', occupancy: 95, revenue: 44100, maintenanceCost: 2500, budget: 3500, submittedRequests: 14, resolvedRequests: 15 },
-  { month: 'Jun', occupancy: 96, revenue: 44800, maintenanceCost: 3600, budget: 3500, submittedRequests: 20, resolvedRequests: 18 },
-  { month: 'Jul', occupancy: 96, revenue: 45000, maintenanceCost: 4500, budget: 3500, submittedRequests: 29, resolvedRequests: 22 },
-  { month: 'Aug', occupancy: 97, revenue: 45800, maintenanceCost: 2100, budget: 3500, submittedRequests: 16, resolvedRequests: 16 }
-];
-
 const COLORS = ['#3b82f6', '#f97316', '#ef4444', '#10b981'];
 
 export default function AnalyticsDashboard() {
@@ -310,16 +298,17 @@ export default function AnalyticsDashboard() {
   
   // Real-time Urgency Distribution
   const urgencyStats = [
-    { name: 'Routine', value: requests.filter(r => (r.urgency || r.priority) === 'routine').length || 10 },
-    { name: 'High', value: requests.filter(r => (r.urgency || r.priority) === 'high').length || 6 },
-    { name: 'Urgent', value: requests.filter(r => (r.urgency || r.priority) === 'urgent' || (r.urgency || r.priority) === 'emergency').length || 4 }
+    { name: 'Routine', value: requests.filter(r => (r.urgency || r.priority) === 'routine').length },
+    { name: 'High', value: requests.filter(r => (r.urgency || r.priority) === 'high').length },
+    { name: 'Urgent', value: requests.filter(r => (r.urgency || r.priority) === 'urgent' || (r.urgency || r.priority) === 'emergency').length }
   ];
 
-  const currentOccupancy = 96.4;
-  const totalRentCollected = 45800;
-  const averageResolutionDays = 2.4;
+  const currentOccupancy = null;
+  const totalRentCollected = null;
+  const averageResolutionDays = null;
 
-  const chartData = selectedTimeframe === '6m' ? defaultMonthlyMetrics.slice(2) : defaultMonthlyMetrics;
+  // Financial and occupancy metrics are intentionally unavailable until backed by verified records.
+  const chartData: any[] = [];
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
@@ -365,9 +354,6 @@ export default function AnalyticsDashboard() {
             className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All Properties Portfolio</option>
-            <option value="skyline">Skyline Heights Apartments</option>
-            <option value="sunset">Sunset Boulevard Manor</option>
-            <option value="oakwood">Oakwood Villas</option>
           </select>
 
           {/* Export Actions */}
@@ -398,7 +384,7 @@ export default function AnalyticsDashboard() {
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Portfolio Occupancy</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{currentOccupancy}%</span>
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{currentOccupancy == null ? "N/A" : `${currentOccupancy}%`}</span>
               <span className="text-xs font-bold text-emerald-500 flex items-center gap-0.5">
                 <TrendingUp className="w-3 h-3" /> +1.2%
               </span>
@@ -414,7 +400,7 @@ export default function AnalyticsDashboard() {
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Monthly Gross Revenue</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">${totalRentCollected.toLocaleString()}</span>
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{totalRentCollected == null ? "N/A" : `${totalRentCollected.toLocaleString()}`}</span>
               <span className="text-xs font-bold text-emerald-500 flex items-center gap-0.5">
                 <TrendingUp className="w-3 h-3" /> +4.8%
               </span>
@@ -446,7 +432,7 @@ export default function AnalyticsDashboard() {
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">Avg Resolution Speed</span>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{averageResolutionDays} Days</span>
+              <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{averageResolutionDays == null ? "N/A" : `${averageResolutionDays} Days`}</span>
               <span className="text-xs font-bold text-emerald-500 flex items-center gap-0.5">
                 <TrendingDown className="w-3 h-3" /> -0.5d
               </span>
