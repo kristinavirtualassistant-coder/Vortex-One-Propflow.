@@ -2,12 +2,8 @@ import React from 'react';
 import { Calendar, AlertCircle } from 'lucide-react';
 
 export default function LeaseExpirationsWidget() {
-  const expiringLeases = [
-    { unit: 'Apartment 4B', tenant: 'Alice Smith', expiry: '2026-08-31', daysLeft: 29 },
-    { unit: 'Suite 102', tenant: 'Bob Johnson', expiry: '2026-09-15', daysLeft: 44 },
-    { unit: 'Unit 7C', tenant: 'Charlie Davis', expiry: '2026-09-30', daysLeft: 59 },
-    { unit: 'Townhouse 1', tenant: 'Diana Prince', expiry: '2026-10-15', daysLeft: 74 },
-  ];
+  const expiringLeases: any[] = [];
+
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
