@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Calendar, ClipboardCheck, Smartphone, Clock, UserCheck, ExternalLink, Loader2, Link, Filter, Plus, MoreHorizontal, Search } from 'lucide-react';
-import { GoogleWorkspaceService } from '../lib/workspace';
-import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { GoogleWorkspaceService } from './src/lib/workspace';
+import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, updateDoc, doc } from './src/lib/dataClient';
+import { db } from './src/lib/dataClient';
 
 export default function MaintenanceDashboard() {
   const [formCreating, setFormCreating] = useState(false);
