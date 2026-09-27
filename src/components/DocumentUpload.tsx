@@ -86,7 +86,7 @@ export default function DocumentUpload() {
         },
         (error) => {
           console.error("Upload failed:", error);
-          setUploadError('Failed to upload file to Firebase Storage.');
+          setUploadError('Failed to upload file to application storage.');
           setIsUploading(false);
         },
         async () => {
@@ -161,7 +161,7 @@ export default function DocumentUpload() {
             Secure Document Storage
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Store lease agreements and maintenance receipts directly on Google Cloud/Firebase Storage.
+            Store lease agreements and maintenance receipts directly on Google Cloud/application storage.
           </p>
         </div>
 
