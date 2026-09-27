@@ -91,23 +91,12 @@ export default function UserSettings() {
     }
   };
 
-  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Fake upload for demonstration since no storage bucket setup was requested.
-      // Ideally we would use Firebase Storage here.
-      const fakeUrl = URL.createObjectURL(file);
-      setDocuments(prev => [...prev, { name: file.name, type: documentType, url: fakeUrl }]);
-    }
+  const handleDocumentUpload = (_e: React.ChangeEvent<HTMLInputElement>) => {
+    alert('Document storage is not configured yet. No file was uploaded.');
   };
   
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Fake upload
-      const fakeUrl = URL.createObjectURL(file);
-      setFormData(prev => ({ ...prev, logoUrl: fakeUrl }));
-    }
+  const handleLogoUpload = (_e: React.ChangeEvent<HTMLInputElement>) => {
+    alert('Logo storage is not configured yet. No file was uploaded.');
   };
 
   return (
