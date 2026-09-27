@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { and, eq, gt } from "drizzle-orm";
-import { db, createPool } from "./src/db/index.js";
+import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { financialMetrics, sessions, users } from "./src/db/schema.js";
 import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
 
@@ -135,7 +135,7 @@ const oauthAuthorizationUrl = (provider: 'google' | 'microsoft', state: string) 
 };
 
 
-export async function createApp() {
+export function createApp() {
   const app = express();
   const PORT = 3000;
 
@@ -162,6 +162,7 @@ export async function createApp() {
 
   const completeOAuth = async (provider: 'google' | 'microsoft', req: express.Request, res: express.Response) => {
     try {
+      await ensureDatabaseReady();
       const code = String(req.query.code || '');
       const state = String(req.query.state || '');
       if (!code || !state) return res.status(400).send('Missing OAuth authorization response.');
@@ -220,6 +221,7 @@ export async function createApp() {
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
+      await ensureDatabaseReady();
       const { email, password, role, name } = req.body ?? {};
       if (!email || !password || !name) return res.status(400).json({ error: "Name, email, and password are required" });
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
@@ -254,6 +256,7 @@ export async function createApp() {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
+      await ensureDatabaseReady();
       const { email, password } = req.body ?? {};
       if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
@@ -286,16 +289,6 @@ export async function createApp() {
   });
 
   const pool = createPool();
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider text NOT NULL DEFAULT 'password'");
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider_subject text");
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url text");
-  await pool.query("CREATE INDEX IF NOT EXISTS users_auth_provider_subject_idx ON users(auth_provider, auth_provider_subject)");
-  await pool.query("CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now())");
-  await pool.query("CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id)");
-  await pool.query("CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at)");
-  await pool.query("CREATE TABLE IF NOT EXISTS financial_metrics (id serial PRIMARY KEY, month text NOT NULL, revenue integer NOT NULL, occupancy_rate integer NOT NULL)");
-  await pool.query("CREATE TABLE IF NOT EXISTS app_records (id text PRIMARY KEY, owner_uid text NOT NULL, collection text NOT NULL, data jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now())");
-  await pool.query("CREATE INDEX IF NOT EXISTS app_records_owner_collection_idx ON app_records(owner_uid, collection)");
 
   app.get("/api/data/:collection", requireAuth, async (req, res) => {
     try {
