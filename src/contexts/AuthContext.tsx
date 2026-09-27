@@ -31,7 +31,6 @@ interface AuthContextType {
   signupWithEmail: (email: string, password: string, role: UserRole, name?: string) => Promise<void>;
   loginWithGoogle: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithMicrosoft: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
-  switchRole: (newRole: UserRole) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -64,9 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const docSnap = await getDoc(docRef);
 
         if (!docSnap.exists()) {
-          const pendingRole = sessionStorage.getItem('signupRole') as UserRole | null;
-          const role = pendingRole || 'property_manager';
-          sessionStorage.removeItem('signupRole');
+          const role: UserRole = 'property_manager';
 
           const newUserData: UserData = {
             uid: firebaseUser.uid,
@@ -109,8 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const signupWithEmail = async (email: string, password: string, role: UserRole, name?: string) => {
-    sessionStorage.setItem('signupRole', role);
+  const signupWithEmail = async (email: string, password: string, _role: UserRole, name?: string) => {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
 
     if (name) {
@@ -118,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: credential.user.uid,
         email: credential.user.email || email,
         name,
-        role,
+        role: 'property_manager',
         profileComplete: false,
       }, { merge: true });
     }
@@ -130,21 +126,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginWithGoogle = async (isSignUp = false, role: UserRole = 'property_manager') => {
-    if (isSignUp) sessionStorage.setItem('signupRole', role);
+  const loginWithGoogle = async (_isSignUp = false, _role: UserRole = 'property_manager') => {
     await googleSignIn();
   };
 
-  const loginWithMicrosoft = async (isSignUp = false, role: UserRole = 'property_manager') => {
-    if (isSignUp) sessionStorage.setItem('signupRole', role);
+  const loginWithMicrosoft = async (_isSignUp = false, _role: UserRole = 'property_manager') => {
     await signInWithPopup(auth, microsoftProvider);
-  };
-
-  const switchRole = async (newRole: UserRole) => {
-    if (!userData) return;
-    const updated = { ...userData, role: newRole };
-    setUserData(updated);
-    await setDoc(doc(db, 'users', userData.uid), { role: newRole }, { merge: true });
   };
 
   const logout = async () => {
@@ -164,7 +151,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signupWithEmail,
       loginWithGoogle,
       loginWithMicrosoft,
-      switchRole,
     }}>
       {!loading && children}
     </AuthContext.Provider>
