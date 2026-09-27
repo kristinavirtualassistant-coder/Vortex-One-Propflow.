@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import crypto from "node:crypto";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { and, eq, gt } from "drizzle-orm";
 import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
@@ -458,16 +457,10 @@ export function createApp() {
 }
 
 if (!process.env.VERCEL) {
-  const app = await createApp();
-
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
-  }
+  const app = createApp();
+  const distPath = path.join(process.cwd(), 'dist');
+  app.use(express.static(distPath));
+  app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
   app.listen(process.env.PORT || PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${process.env.PORT || PORT}`);
