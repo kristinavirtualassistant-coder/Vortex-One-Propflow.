@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, orderBy, limit, onSnapshot } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 import { Activity, CreditCard, Wrench, UserPlus, CheckCircle, FileText, AlertCircle } from 'lucide-react';
 
 export default function ActivityFeedWidget() {
