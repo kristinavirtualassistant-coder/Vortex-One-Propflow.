@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { db, storage } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
+import { storage } from '../lib/storageClient';
 import { collection, addDoc, serverTimestamp } from '../lib/dataClient';
 import { ref, uploadBytesResumable, getDownloadURL } from '../lib/storageClient';
 import { GoogleWorkspaceService } from '../lib/workspace';
