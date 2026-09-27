@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Briefcase, Phone, Mail, MapPin, Search, Plus, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
 
