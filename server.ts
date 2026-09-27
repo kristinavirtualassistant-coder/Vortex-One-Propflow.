@@ -464,9 +464,9 @@ export async function createApp() {
   return app;
 }
 
-const app = await createApp();
-
 if (!process.env.VERCEL) {
+  const app = await createApp();
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
@@ -481,4 +481,4 @@ if (!process.env.VERCEL) {
   });
 }
 
-export default app;
+export default createApp;
