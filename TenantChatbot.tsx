@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { collection, query, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, getDocs } from './src/lib/dataClient';
+import { db } from './src/lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
 import { Send, Bot, User, FileText, Loader2, X } from 'lucide-react';
 import Markdown from 'react-markdown';
