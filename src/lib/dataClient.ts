@@ -57,3 +57,5 @@ export const deleteDoc = async (ref: { collection: string; id: string }) =>
 
 export const getAccessToken = async () => { try { return window.localStorage.getItem('vortex_one_session'); } catch { return null; } };
 export const googleSignIn = async () => { throw new Error('Google Workspace OAuth is not configured in this application.'); };
+
+export const getDoc = async (ref: { collection: string; id: string }) => { const snapshot = await runQuery({ collection: ref.collection, constraints: [] }); const found = snapshot.docs.find(item => item.id === String(ref.id)); return { exists: () => Boolean(found), id: ref.id, data: () => found?.data() || {} }; };
