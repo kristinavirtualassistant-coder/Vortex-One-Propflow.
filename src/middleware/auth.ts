@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
-import { db } from '../db/index.js';
+import { db, ensureDatabaseReady } from '../db/index.js';
 import { sessions, users } from '../db/schema.js';
 
 export interface AuthRequest extends Request {
@@ -15,6 +15,7 @@ export interface AuthRequest extends Request {
 }
 
 export const createSession = async (userId: number) => {
+  await ensureDatabaseReady();
   const id = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
   await db.insert(sessions).values({ id, userId, expiresAt });
@@ -22,6 +23,7 @@ export const createSession = async (userId: number) => {
 };
 
 export const deleteSession = async (sessionId: string) => {
+  await ensureDatabaseReady();
   await db.delete(sessions).where(eq(sessions.id, sessionId));
 };
 
@@ -34,6 +36,7 @@ export const requireAuth = async (
   if (!token) return res.status(401).json({ error: 'Unauthorized: Missing session token' });
 
   try {
+    await ensureDatabaseReady();
     const rows = await db
       .select({
         sessionId: sessions.id,
