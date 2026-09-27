@@ -4,12 +4,11 @@ import * as schema from './schema.js';
 
 const { Pool } = pg;
 
-// Add global connection pool caching to persist across hot-reloads
 declare global {
   var _postgresPool: pg.Pool | undefined;
+  var _databaseReadyPromise: Promise<void> | undefined;
 }
 
-// Function to create or retrieve the connection pool.
 export const createPool = () => {
   if (!global._postgresPool) {
     global._postgresPool = new Pool({
@@ -21,7 +20,6 @@ export const createPool = () => {
       connectionTimeoutMillis: 15000,
     });
 
-    // Prevent unhandled pool-level errors from crashing the application
     global._postgresPool.on('error', (err) => {
       console.error('Unexpected error on idle SQL pool client:', err);
     });
@@ -29,8 +27,29 @@ export const createPool = () => {
   return global._postgresPool;
 };
 
-// Create or retrieve the pool instance.
 const pool = createPool();
 
-// Initialize Drizzle with the pool and schema.
 export const db = drizzle(pool, { schema });
+
+const runDatabaseMigrations = async () => {
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider text NOT NULL DEFAULT 'password'");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider_subject text");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url text");
+  await pool.query("CREATE INDEX IF NOT EXISTS users_auth_provider_subject_idx ON users(auth_provider, auth_provider_subject)");
+  await pool.query("CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now())");
+  await pool.query("CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id)");
+  await pool.query("CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at)");
+  await pool.query("CREATE TABLE IF NOT EXISTS financial_metrics (id serial PRIMARY KEY, month text NOT NULL, revenue integer NOT NULL, occupancy_rate integer NOT NULL)");
+  await pool.query("CREATE TABLE IF NOT EXISTS app_records (id text PRIMARY KEY, owner_uid text NOT NULL, collection text NOT NULL, data jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now())");
+  await pool.query("CREATE INDEX IF NOT EXISTS app_records_owner_collection_idx ON app_records(owner_uid, collection)");
+};
+
+export const ensureDatabaseReady = () => {
+  if (!global._databaseReadyPromise) {
+    global._databaseReadyPromise = runDatabaseMigrations().catch((error) => {
+      global._databaseReadyPromise = undefined;
+      throw error;
+    });
+  }
+  return global._databaseReadyPromise;
+};
