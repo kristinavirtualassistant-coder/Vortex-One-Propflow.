@@ -258,6 +258,10 @@ async function startServer() {
   });
 
   const pool = createPool();
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider text NOT NULL DEFAULT 'password'");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider_subject text");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url text");
+  await pool.query("CREATE INDEX IF NOT EXISTS users_auth_provider_subject_idx ON users(auth_provider, auth_provider_subject)");
   await pool.query("CREATE TABLE IF NOT EXISTS app_records (id text PRIMARY KEY, owner_uid text NOT NULL, collection text NOT NULL, data jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now())");
   await pool.query("CREATE INDEX IF NOT EXISTS app_records_owner_collection_idx ON app_records(owner_uid, collection)");
 
