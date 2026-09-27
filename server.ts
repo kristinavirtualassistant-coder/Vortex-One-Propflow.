@@ -18,12 +18,177 @@ const ai = new GoogleGenAI({
 });
 
 const hashPassword = (password: string) => crypto.createHash('sha256').update(password).digest('hex');
+const oauthClientId = (provider: 'google' | 'microsoft') =>
+  provider === 'google' ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
+const oauthClientSecret = (provider: 'google' | 'microsoft') =>
+  provider === 'google' ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET;
+const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
+  `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
+
+const oauthStates = new Map<string, { provider: 'google' | 'microsoft'; role: string; expiresAt: number }>();
+const createOAuthState = (provider: 'google' | 'microsoft', role: string) => {
+  const state = crypto.randomBytes(32).toString('hex');
+  oauthStates.set(state, { provider, role, expiresAt: Date.now() + 10 * 60 * 1000 });
+  return state;
+};
+const consumeOAuthState = (state: string) => {
+  const item = oauthStates.get(state);
+  oauthStates.delete(state);
+  return item && item.expiresAt > Date.now() ? item : null;
+};
+
+const socialPasswordHash = (provider: string, subject: string) =>
+  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER || 'vortex-one-social-auth'}`);
+
+const exchangeOAuthCode = async (provider: 'google' | 'microsoft', code: string) => {
+  const body = new URLSearchParams({
+    client_id: oauthClientId(provider) || '',
+    client_secret: oauthClientSecret(provider) || '',
+    code,
+    grant_type: 'authorization_code',
+    redirect_uri: oauthCallbackUrl(provider),
+    scope: provider === 'google' ? 'openid email profile' : 'openid profile email User.Read',
+  });
+  const endpoint = provider === 'google'
+    ? 'https://oauth2.googleapis.com/token'
+    : 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const payload = await response.json() as Record<string, unknown>;
+  if (!response.ok || !payload.access_token) {
+    throw new Error(String(payload.error_description || payload.error || 'OAuth token exchange failed'));
+  }
+  return String(payload.access_token);
+};
+
+const getOAuthProfile = async (provider: 'google' | 'microsoft', accessToken: string) => {
+  const endpoint = provider === 'google'
+    ? 'https://openidconnect.googleapis.com/v1/userinfo'
+    : 'https://graph.microsoft.com/oidc/userinfo';
+  const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error(`Unable to retrieve ${provider} account profile`);
+  const data = await response.json() as Record<string, unknown>;
+  return {
+    subject: String(data.sub || ''),
+    email: String(data.email || data.preferred_username || '').trim().toLowerCase(),
+    name: String(data.name || data.given_name || data.email || 'Vortex One User').trim(),
+    avatarUrl: String(data.picture || ''),
+  };
+};
+
+const oauthAuthorizationUrl = (provider: 'google' | 'microsoft', state: string) => {
+  const clientId = oauthClientId(provider);
+  if (!clientId || !oauthClientSecret(provider) || !process.env.APP_URL) {
+    throw new Error(`${provider} OAuth is not configured`);
+  }
+  if (provider === 'google') {
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: oauthCallbackUrl(provider),
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      prompt: 'select_account',
+    });
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  }
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: oauthCallbackUrl(provider),
+    response_type: 'code',
+    response_mode: 'query',
+    scope: 'openid profile email User.Read',
+    state,
+  });
+  return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+};
+
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
+
+
+  app.get("/api/auth/google/start", (req, res) => {
+    try {
+      const state = createOAuthState('google', String(req.query.role || 'property_manager'));
+      return res.redirect(oauthAuthorizationUrl('google', state));
+    } catch (error: any) {
+      return res.status(503).send(error.message || 'Google OAuth is not configured');
+    }
+  });
+
+  app.get("/api/auth/microsoft/start", (req, res) => {
+    try {
+      const state = createOAuthState('microsoft', String(req.query.role || 'property_manager'));
+      return res.redirect(oauthAuthorizationUrl('microsoft', state));
+    } catch (error: any) {
+      return res.status(503).send(error.message || 'Microsoft OAuth is not configured');
+    }
+  });
+
+  const completeOAuth = async (provider: 'google' | 'microsoft', req: express.Request, res: express.Response) => {
+    try {
+      const code = String(req.query.code || '');
+      const state = String(req.query.state || '');
+      if (!code || !state) return res.status(400).send('Missing OAuth authorization response.');
+      const stateData = consumeOAuthState(state);
+      if (!stateData || stateData.provider !== provider) return res.status(400).send('Invalid or expired OAuth state.');
+
+      const accessToken = await exchangeOAuthCode(provider, code);
+      const profile = await getOAuthProfile(provider, accessToken);
+      if (!profile.subject || !profile.email) return res.status(400).send('Provider did not return a usable email identity.');
+
+      const existingBySubject = await db.select().from(users).where(eq(users.authProviderSubject, profile.subject)).limit(1);
+      const existingByEmail = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
+      let account: any = existingBySubject[0] || existingByEmail[0];
+
+      if (account && account.authProvider !== 'password' && account.authProvider !== provider) {
+        return res.status(409).send('This email is already linked to a different sign-in provider.');
+      }
+
+      if (!account) {
+        const uid = crypto.randomUUID();
+        const created = await db.insert(users).values({
+          uid,
+          email: profile.email,
+          passwordHash: socialPasswordHash(provider, profile.subject),
+          name: profile.name,
+          role: stateData.role,
+          profileComplete: 0,
+          authProvider: provider,
+          authProviderSubject: profile.subject,
+          avatarUrl: profile.avatarUrl || null,
+        }).returning({ id: users.id, uid: users.uid, email: users.email, name: users.name, role: users.role });
+        account = created[0];
+      } else {
+        const updated = await db.update(users)
+          .set({
+            authProvider: provider,
+            authProviderSubject: profile.subject,
+            avatarUrl: profile.avatarUrl || account.avatarUrl || null,
+            name: profile.name || account.name,
+          })
+          .where(eq(users.id, account.id))
+          .returning({ id: users.id, uid: users.uid, email: users.email, name: users.name, role: users.role });
+        account = updated[0];
+      }
+
+      const session = await createSession(account.id);
+      return res.redirect(`/auth/callback?session=${encodeURIComponent(session.id)}`);
+    } catch (error: any) {
+      console.error(`${provider} OAuth callback error:`, error);
+      return res.status(500).send(error.message || 'Unable to complete social sign-in');
+    }
+  };
+
+  app.get("/api/auth/google/callback", (req, res) => completeOAuth('google', req, res));
+  app.get("/api/auth/microsoft/callback", (req, res) => completeOAuth('microsoft', req, res));
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
