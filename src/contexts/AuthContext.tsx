@@ -40,6 +40,13 @@ const getStoredSession = () => {
   }
 };
 
+const startOAuth = (provider: 'google' | 'microsoft', role?: UserRole, isSignUp?: boolean) => {
+  const params = new URLSearchParams();
+  if (role) params.set('role', role);
+  if (isSignUp) params.set('mode', 'signup');
+  window.location.assign(`/api/auth/${provider}/start?${params.toString()}`);
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -105,12 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authenticate('/api/auth/signup', { email, password, role, name });
   };
 
-  const loginWithGoogle = async () => {
-    throw new Error('Google sign-in is not enabled yet. Use email and password to create your account.');
+  const loginWithGoogle = async (_isSignUp = false, role?: UserRole) => {
+    startOAuth('google', role, _isSignUp);
   };
 
-  const loginWithMicrosoft = async () => {
-    throw new Error('Microsoft sign-in is not enabled yet. Use email and password to create your account.');
+  const loginWithMicrosoft = async (_isSignUp = false, role?: UserRole) => {
+    startOAuth('microsoft', role, _isSignUp);
   };
 
   const logout = async () => {
