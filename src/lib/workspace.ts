@@ -1,4 +1,4 @@
-import { getAccessToken } from './firebase';
+import { getAccessToken } from './dataClient';
 
 export class GoogleWorkspaceService {
   private static async request(endpoint: string, options: RequestInit = {}) {
