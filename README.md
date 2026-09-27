@@ -43,7 +43,7 @@
 | :--- | :--- |
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4, Motion, Lucide Icons, Recharts |
 | **Backend / API** | Node.js, Express, tsx, esbuild |
-| **Authentication & Realtime** | Firebase Auth & Firestore, without fabricated demo data |
+| **Authentication & Realtime** | PostgreSQL-backed sessions and application data API, without fabricated demo data |
 | **AI Integration** | Google GenAI SDK (`@google/genai`) with Gemini models |
 | **Database** | PostgreSQL / Drizzle ORM |
 
