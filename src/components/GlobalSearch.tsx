@@ -32,42 +32,6 @@ export default function GlobalSearch() {
         const queryText = searchQuery.toLowerCase();
         const searchResults: any[] = [];
 
-        // Mock Properties
-        const mockProperties = [
-          { id: 'p1', name: 'Apartment 4B', address: '123 Main St' },
-          { id: 'p2', name: 'Suite 102', address: '456 Oak Ave' },
-          { id: 'p3', name: 'Unit 7C', address: '789 Pine Rd' },
-        ];
-        
-        mockProperties.forEach(p => {
-          if (p.name.toLowerCase().includes(queryText) || p.address.toLowerCase().includes(queryText)) {
-            searchResults.push({
-              type: 'property',
-              id: p.id,
-              title: p.name,
-              subtitle: p.address
-            });
-          }
-        });
-
-        // Mock Tenants
-        const mockTenants = [
-          { id: 't1', name: 'Alice Smith', unit: 'Apartment 4B' },
-          { id: 't2', name: 'Bob Johnson', unit: 'Suite 102' },
-          { id: 't3', name: 'Charlie Davis', unit: 'Unit 7C' },
-        ];
-
-        mockTenants.forEach(t => {
-          if (t.name.toLowerCase().includes(queryText) || t.unit.toLowerCase().includes(queryText)) {
-            searchResults.push({
-              type: 'tenant',
-              id: t.id,
-              title: t.name,
-              subtitle: `Tenant - ${t.unit}`
-            });
-          }
-        });
-
         // Real Maintenance Requests (fetch limited)
         const q = query(collection(db, 'maintenance_requests'), limit(50));
         const reqSnapshot = await getDocs(q);
