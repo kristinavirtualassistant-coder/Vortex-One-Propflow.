@@ -194,7 +194,7 @@ export default function QuickActions() {
         },
         (error) => {
           console.error("Upload failed:", error);
-          setUploadError('Failed to upload file to Firebase Storage.');
+          setUploadError('Failed to upload file to application storage.');
           setIsUploadingDoc(false);
         },
         async () => {
