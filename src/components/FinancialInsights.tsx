@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, onSnapshot, orderBy } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { TrendingUp, Download, Loader2 } from 'lucide-react';
 import { GoogleWorkspaceService } from '../lib/workspace';
