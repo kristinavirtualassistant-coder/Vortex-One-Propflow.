@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc } from './src/lib/dataClient';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from './src/lib/storageClient';
-import { db, storage } from './src/lib/dataClient';
+import { db } from './src/lib/dataClient';
+import { storage } from './src/lib/storageClient';
 import { useAuth } from '../contexts/AuthContext';
 import { FileText, Upload, Trash2, Download, Search, X, Loader2, File, FileImage, FileCode, CheckCircle, AlertCircle } from 'lucide-react';
 
