@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Building2, User, Wrench, X, Loader2 } from 'lucide-react';
-import { collection, query, getDocs, limit } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, getDocs, limit } from '../lib/dataClient';
+import { db } from '../lib/dataClient';
 
 export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
