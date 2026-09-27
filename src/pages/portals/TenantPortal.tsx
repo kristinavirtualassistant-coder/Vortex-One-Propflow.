@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, query, where, onSnapshot, serverTimestamp, orderBy } from '../../lib/dataClient';
-import { db } from '../../lib/firebase';
+import { db } from '../../lib/dataClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Clock, CheckCircle, AlertTriangle, X, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
