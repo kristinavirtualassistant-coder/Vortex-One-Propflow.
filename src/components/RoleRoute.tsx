@@ -53,8 +53,7 @@ export default function RoleRoute({ allowedRoles, children }: RoleRouteProps) {
             >
               <ArrowLeft className="w-4 h-4" /> Go to My Dashboard
             </button>
-
-v>
+          </div>
         </div>
       </div>
     );
