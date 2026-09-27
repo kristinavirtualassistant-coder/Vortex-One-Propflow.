@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, serverTimestamp, orderBy } from '../../lib/dataClient';
-import { db } from '../../lib/firebase';
+import { db } from '../../lib/dataClient';
 import { Wrench, MapPin, Clock, AlertTriangle, CheckCircle, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 
