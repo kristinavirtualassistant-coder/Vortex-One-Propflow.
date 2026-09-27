@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../contexts/AuthContext';
-import { ShieldAlert, ArrowLeft, Users } from 'lucide-react';
+import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
 interface RoleRouteProps {
   allowedRoles: UserRole[];
@@ -9,7 +9,7 @@ interface RoleRouteProps {
 }
 
 export default function RoleRoute({ allowedRoles, children }: RoleRouteProps) {
-  const { user, userData, loading, switchRole } = useAuth();
+  const { user, userData, loading } = useAuth();
 
   if (loading) {
     return (
@@ -54,32 +54,7 @@ export default function RoleRoute({ allowedRoles, children }: RoleRouteProps) {
               <ArrowLeft className="w-4 h-4" /> Go to My Dashboard
             </button>
 
-            {/* Quick switcher in demo/testing to facilitate grading/reviewing */}
-            {allowedRoles.length > 0 && (
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-                <p className="text-xs text-slate-400 mb-3 font-medium flex items-center justify-center gap-1.5">
-                  <Users className="w-3.5 h-3.5" /> Testing: Quick Switch Role
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {allowedRoles.map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => {
-                        switchRole(role);
-                        // Refresh to apply role change
-                        setTimeout(() => {
-                          window.location.reload();
-                        }, 200);
-                      }}
-                      className="px-3 py-1.5 text-xs font-semibold capitalize rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border border-transparent hover:border-indigo-100"
-                    >
-                      {role.replace(/_/g, ' ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+v>
         </div>
       </div>
     );
