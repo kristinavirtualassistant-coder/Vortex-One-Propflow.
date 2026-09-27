@@ -21,7 +21,7 @@ async function startServer() {
 
   app.use(express.json());
 
-  app.get("/api/metrics", async (req, res) => {
+  app.get("/api/metrics", requireAuth, async (req, res) => {
     try {
       const data = await db.select().from(financialMetrics);
       res.json(data);
@@ -31,7 +31,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/gemini/chat", async (req, res) => {
+  app.post("/api/gemini/chat", requireAuth, async (req, res) => {
     try {
       const { history, message, options, systemInstruction } = req.body;
       
@@ -83,7 +83,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/maintenance/analyze", async (req, res) => {
+  app.post("/api/maintenance/analyze", requireAuth, async (req, res) => {
     try {
       const { description } = req.body;
       if (!description || !description.trim()) {
