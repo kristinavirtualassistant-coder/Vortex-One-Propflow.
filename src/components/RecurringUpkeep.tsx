@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
+import { db } from '../lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
 import {
   collection,
@@ -11,7 +11,7 @@ import {
   updateDoc,
   doc,
   deleteDoc
-} from 'firebase/firestore';
+} from '../lib/dataClient';
 import {
   Calendar,
   Plus,
