@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { and, eq, gt } from "drizzle-orm";
-import { db } from "./src/db/index.js";
+import { db, createPool } from "./src/db/index.js";
 import { financialMetrics, sessions, users } from "./src/db/schema.js";
 import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
 
@@ -90,6 +90,96 @@ async function startServer() {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
     if (token) await deleteSession(token);
     res.status(204).end();
+  });
+
+  const pool = createPool();
+  await pool.query("CREATE TABLE IF NOT EXISTS app_records (id text PRIMARY KEY, owner_uid text NOT NULL, collection text NOT NULL, data jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now())");
+  await pool.query("CREATE INDEX IF NOT EXISTS app_records_owner_collection_idx ON app_records(owner_uid, collection)");
+
+  app.get("/api/data/:collection", requireAuth, async (req, res) => {
+    try {
+      const collection = String(req.params.collection);
+      if (collection === "users") {
+        const result = await pool.query("SELECT id, uid, email, name, role FROM users");
+        let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
+        const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
+        for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
+        const orderBy = String(req.query.orderBy || "");
+        const order = String(req.query.order || "asc");
+        if (orderBy) records.sort((a: any, b: any) => String(a.data?.[orderBy] ?? "").localeCompare(String(b.data?.[orderBy] ?? "")));
+        if (order === "desc") records.reverse();
+        const max = Number(req.query.limit || 0); if (max > 0) records = records.slice(0, max);
+        return res.json({ records });
+      }
+      const result = await pool.query("SELECT id, data, created_at FROM app_records WHERE owner_uid = $1 AND collection = $2", [req.user!.uid, collection]);
+      let records = result.rows.map((row: any) => ({ id: row.id, data: row.data || {}, createdAt: row.created_at }));
+      const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
+      for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
+      const orderBy = String(req.query.orderBy || "");
+      const order = String(req.query.order || "asc");
+      if (orderBy) records.sort((a: any, b: any) => String(a.data?.[orderBy] ?? "").localeCompare(String(b.data?.[orderBy] ?? "")));
+      if (order === "desc") records.reverse();
+      const max = Number(req.query.limit || 0); if (max > 0) records = records.slice(0, max);
+      return res.json({ records });
+    } catch (error: any) { console.error("Data read error:", error); return res.status(500).json({ error: error.message || "Unable to read records" }); }
+  });
+
+  app.post("/api/data/:collection", requireAuth, async (req, res) => {
+    try {
+      const id = crypto.randomUUID();
+      const collection = String(req.params.collection);
+      if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
+      await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, $3, $4::jsonb)", [id, req.user!.uid, collection, JSON.stringify(req.body?.data || {})]);
+      return res.status(201).json({ id });
+    } catch (error: any) { console.error("Data create error:", error); return res.status(500).json({ error: error.message || "Unable to create record" }); }
+  });
+
+  app.patch("/api/data/:collection/:id", requireAuth, async (req, res) => {
+    try {
+      const result = await pool.query("UPDATE app_records SET data = data || $1::jsonb WHERE id = $2 AND owner_uid = $3 AND collection = $4 RETURNING id", [JSON.stringify(req.body?.data || {}), String(req.params.id), req.user!.uid, String(req.params.collection)]);
+      if (!result.rows.length) return res.status(404).json({ error: "Record not found" });
+      return res.json({ id: String(req.params.id) });
+    } catch (error: any) { console.error("Data update error:", error); return res.status(500).json({ error: error.message || "Unable to update record" }); }
+  });
+
+  app.delete("/api/data/:collection/:id", requireAuth, async (req, res) => {
+    try {
+      await pool.query("DELETE FROM app_records WHERE id = $1 AND owner_uid = $2 AND collection = $3", [String(req.params.id), req.user!.uid, String(req.params.collection)]);
+      return res.status(204).end();
+    } catch (error: any) { console.error("Data delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete record" }); }
+  });
+
+  app.post("/api/storage", requireAuth, async (req, res) => {
+    try {
+      const { path: storagePath, name, type, data } = req.body || {};
+      if (!storagePath || !data) return res.status(400).json({ error: "File path and data are required" });
+      if (Buffer.byteLength(String(data), "utf8") > 5000000) return res.status(413).json({ error: "File is too large for this upload path." });
+      const id = crypto.randomUUID();
+      const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
+      await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, '_storage', $3::jsonb)", [id, req.user!.uid, JSON.stringify(record)]);
+      return res.status(201).json({ id, downloadURL: "/api/storage/" + encodeURIComponent(String(storagePath)) });
+    } catch (error: any) { console.error("Storage upload error:", error); return res.status(500).json({ error: error.message || "Unable to upload file" }); }
+  });
+
+  app.get("/api/storage/:path", requireAuth, async (req, res) => {
+    try {
+      const storagePath = decodeURIComponent(String(req.params.path));
+      const result = await pool.query("SELECT data FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2 ORDER BY created_at DESC LIMIT 1", [req.user!.uid, storagePath]);
+      if (!result.rows.length) return res.status(404).send("File not found");
+      const record: any = result.rows[0].data;
+      const match = String(record.data).match(/^data:([^;]+);base64,(.+)$/s);
+      if (!match) return res.status(500).send("Stored file is invalid");
+      res.setHeader("Content-Type", record.type || match[1]);
+      return res.send(Buffer.from(match[2], "base64"));
+    } catch (error: any) { console.error("Storage download error:", error); return res.status(500).send("Unable to download file"); }
+  });
+
+  app.delete("/api/storage/:path", requireAuth, async (req, res) => {
+    try {
+      const storagePath = decodeURIComponent(String(req.params.path));
+      await pool.query("DELETE FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2", [req.user!.uid, storagePath]);
+      return res.status(204).end();
+    } catch (error: any) { console.error("Storage delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete file" }); }
   });
 
   app.get("/api/metrics", requireAuth, async (_req, res) => {
