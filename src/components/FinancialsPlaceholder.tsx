@@ -18,30 +18,8 @@ export default function FinancialsPlaceholder() {
       .catch(err => console.error('Error fetching metrics', err));
   }, []);
 
-  const paymentHistory = [
-    { id: 'INV-2023-104', date: 'Oct 01, 2023', amount: '$1,500.00', tenant: 'Alice Smith', unit: 'Apt 4B', status: 'Paid', method: 'ACH Transfer' },
-    { id: 'INV-2023-105', date: 'Oct 01, 2023', amount: '$1,200.00', tenant: 'Bob Johnson', unit: 'Apt 2A', status: 'Pending', method: 'Credit Card' },
-    { id: 'INV-2023-106', date: 'Oct 02, 2023', amount: '$1,800.00', tenant: 'Charlie Brown', unit: 'Apt 5C', status: 'Late', method: 'Manual Entry' },
-    { id: 'INV-2023-107', date: 'Sep 01, 2023', amount: '$1,500.00', tenant: 'Alice Smith', unit: 'Apt 4B', status: 'Paid', method: 'ACH Transfer' },
-    { id: 'INV-2023-108', date: 'Sep 01, 2023', amount: '$1,200.00', tenant: 'Bob Johnson', unit: 'Apt 2A', status: 'Paid', method: 'Credit Card' },
-  ];
+  const paymentHistory: any[] = [];
 
-  const handleExport = async () => {
-    if (metrics.length === 0) return;
-    setExporting(true);
-    setSheetUrl(null);
-    try {
-      const headers = ['Month', 'Revenue ($)', 'Occupancy Rate (%)'];
-      const rows = metrics.map(m => [m.month, m.revenue.toString(), m.occupancyRate.toString()]);
-      const url = await GoogleWorkspaceService.exportToSheets(`Financial Metrics Export - ${new Date().toLocaleDateString()}`, headers, rows);
-      setSheetUrl(url);
-    } catch (error) {
-      console.error('Export failed', error);
-      alert('Failed to export to Google Sheets. Have you connected Workspace?');
-    } finally {
-      setExporting(false);
-    }
-  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
