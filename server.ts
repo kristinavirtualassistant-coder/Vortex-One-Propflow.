@@ -146,6 +146,12 @@ export function createApp() {
       const state = createOAuthState('google', String(req.query.role || 'property_manager'));
       return res.redirect(oauthAuthorizationUrl('google', state));
     } catch (error: any) {
+      const missing = [
+        !process.env.APP_URL ? 'APP_URL' : null,
+        !process.env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID' : null,
+        !process.env.GOOGLE_CLIENT_SECRET ? 'GOOGLE_CLIENT_SECRET' : null,
+      ].filter(Boolean);
+      console.error('Google OAuth configuration check failed', { missing });
       return res.status(503).send(error.message || 'Google OAuth is not configured');
     }
   });
