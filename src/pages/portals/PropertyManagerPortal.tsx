@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, orderBy } from '../../lib/dataClient';
-import { db } from '../../lib/firebase';
+import { db } from '../../lib/dataClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Users, CheckCircle, Clock, AlertTriangle, Building2, Percent, TrendingUp, CalendarDays } from 'lucide-react';
 import { GoogleWorkspaceService } from '../../lib/workspace';
