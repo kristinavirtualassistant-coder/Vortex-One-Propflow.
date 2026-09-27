@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, updateDoc, doc } from './src/lib/dataClient';
+import { db } from './src/lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
-import { GoogleWorkspaceService } from '../lib/workspace';
+import { GoogleWorkspaceService } from './src/lib/workspace';
 import { Wrench, Loader2, CheckCircle, Clock, AlertTriangle, Plus, Search, Filter, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
