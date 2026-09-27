@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { db } from './src/lib/dataClient';
+import { collection, getDocs } from './src/lib/dataClient';
 import { Search, Mail, Phone, MapPin, Building, Filter, User } from 'lucide-react';
 
 export default function GlobalDirectory() {
