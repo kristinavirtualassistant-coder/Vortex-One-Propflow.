@@ -25,16 +25,44 @@ const oauthClientSecret = (provider: 'google' | 'microsoft') =>
 const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
   `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
 
-const oauthStates = new Map<string, { provider: 'google' | 'microsoft'; role: string; expiresAt: number }>();
+const oauthStateSecret = () =>
+  process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER || 'vortex-one-oauth-state-fallback';
+
 const createOAuthState = (provider: 'google' | 'microsoft', role: string) => {
-  const state = crypto.randomBytes(32).toString('hex');
-  oauthStates.set(state, { provider, role, expiresAt: Date.now() + 10 * 60 * 1000 });
-  return state;
+  const payload = Buffer.from(JSON.stringify({
+    provider,
+    role,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    nonce: crypto.randomBytes(24).toString('hex'),
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', oauthStateSecret()).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
 };
+
 const consumeOAuthState = (state: string) => {
-  const item = oauthStates.get(state);
-  oauthStates.delete(state);
-  return item && item.expiresAt > Date.now() ? item : null;
+  const [payload, signature] = state.split('.');
+  if (!payload || !signature) return null;
+
+  const expected = crypto.createHmac('sha256', oauthStateSecret()).update(payload).digest('base64url');
+  const receivedBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (
+    receivedBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+  ) return null;
+
+  try {
+    const item = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      provider: 'google' | 'microsoft';
+      role: string;
+      expiresAt: number;
+      nonce: string;
+    };
+    if (!item.nonce || item.expiresAt <= Date.now()) return null;
+    return item;
+  } catch {
+    return null;
+  }
 };
 
 const socialPasswordHash = (provider: string, subject: string) =>
@@ -180,7 +208,7 @@ async function startServer() {
       }
 
       const session = await createSession(account.id);
-      return res.redirect(`/auth/callback?session=${encodeURIComponent(session.id)}`);
+      return res.redirect(`/dashboard?session=${encodeURIComponent(session.id)}`);
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error);
       return res.status(500).send(error.message || 'Unable to complete social sign-in');
