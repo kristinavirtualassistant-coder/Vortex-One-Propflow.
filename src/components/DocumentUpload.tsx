@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, where } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../lib/firebase';
+import { collection, addDoc, query, onSnapshot, orderBy, serverTimestamp, deleteDoc, doc, where } from '../lib/dataClient';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from '../lib/storageClient';
+import { db, storage } from '../lib/dataClient';
 import { useAuth } from '../contexts/AuthContext';
 import {
   FileText,
