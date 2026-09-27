@@ -52,9 +52,9 @@ export default function FinancialsPlaceholder() {
             </div>
             <h3 className="font-bold text-slate-900 dark:text-white">Rent Collection</h3>
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">$42,500.00</div>
+          <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">N/A</div>
           <p className="text-sm text-slate-500 flex items-center gap-1">
-            <TrendingUp className="h-4 w-4 text-emerald-500" /> +12% from last month
+            <TrendingUp className="h-4 w-4 text-emerald-500" /> Verified payment data required
           </p>
           <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-3">
             <div className="flex justify-between text-sm">
@@ -71,8 +71,8 @@ export default function FinancialsPlaceholder() {
             </div>
             <h3 className="font-bold text-slate-900 dark:text-white">Outstanding Invoices</h3>
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">$3,200.00</div>
-          <p className="text-sm text-slate-500">4 tenants with late fees</p>
+          <div className="text-3xl font-extrabold text-slate-900 dark:text-white mb-2">N/A</div>
+          <p className="text-sm text-slate-500">Verified invoice data required</p>
           <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-3">
             <button className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 hover:underline">
               Send Reminders
