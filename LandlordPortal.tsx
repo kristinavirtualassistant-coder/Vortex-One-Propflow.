@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, orderBy } from './src/lib/dataClient';
-import { db } from '../../lib/dataClient';
+import { db } from './src/lib/dataClient';
 import { Building2, DollarSign, TrendingUp, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
