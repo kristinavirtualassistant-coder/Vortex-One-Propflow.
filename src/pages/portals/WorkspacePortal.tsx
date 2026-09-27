@@ -12,7 +12,7 @@ import {
   TableProperties,
   ArrowRight
 } from 'lucide-react';
-import { getAccessToken, googleSignIn } from '../../lib/firebase';
+import { getAccessToken, googleSignIn } from '../../lib/dataClient';
 
 const integrations = [
   { id: 'drive', name: 'Google Drive', icon: HardDrive, color: 'text-blue-500', desc: 'Manage your property documents securely.' },
