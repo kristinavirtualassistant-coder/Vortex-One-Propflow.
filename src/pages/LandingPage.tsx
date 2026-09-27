@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithMicrosoft } = useAuth();
+  const { loginWithEmail, signupWithEmail } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -49,22 +49,6 @@ export default function LandingPage() {
     }
   };
 
-  const handleOAuth = async (provider: 'google' | 'microsoft') => {
-    resetError();
-    setLoading(true);
-    try {
-      if (provider === 'google') await loginWithGoogle(false, selectedRole);
-      else await loginWithMicrosoft(false, selectedRole);
-      navigate('/dashboard');
-    } catch (error: any) {
-      if (error?.code !== 'auth/popup-closed-by-user') {
-        setAuthError(error?.message || 'Unable to complete authentication.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const openSignup = () => {
     setIsLoginOpen(false);
     setIsSignupOpen(true);
@@ -98,9 +82,7 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-5">
             <a href="#pricing" className="text-sm font-medium hover:text-primary-600">Pricing</a>
-            <button onClick={toggleTheme} className="p-2 rounded-lg text-slate-500" aria-label="Toggle theme">
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+            <button onClick={toggleTheme} className="p-2 rounded-lg text-slate-500" aria-label="Toggle theme">{isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
             <button onClick={openLogin} className="text-sm font-semibold px-3 py-2">Log In</button>
             <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="bg-primary-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">Create Account</button>
           </div>
@@ -117,28 +99,16 @@ export default function LandingPage() {
           </div>
         )}
       </nav>
-
       <main>
         <section className="max-w-5xl mx-auto px-4 py-24 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 text-xs font-semibold">
-            Vortex One
-          </div>
-          <h1 className="mt-6 text-4xl sm:text-6xl font-extrabold tracking-tight">
-            One platform for modern property operations.
-          </h1>
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">
-            Manage properties, people, maintenance, workflows, reporting, and operations from one connected workspace.
-          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 text-xs font-semibold">Vortex One</div>
+          <h1 className="mt-6 text-4xl sm:text-6xl font-extrabold tracking-tight">One platform for modern property operations.</h1>
+          <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">Manage properties, people, maintenance, workflows, reporting, and operations from one connected workspace.</p>
           <div className="mt-9 flex flex-col sm:flex-row justify-center gap-4">
-            <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="inline-flex items-center justify-center gap-2 bg-primary-600 text-white px-7 py-3.5 rounded-xl font-bold">
-              Create your account <ArrowRight className="h-4 w-4" />
-            </button>
-            <button onClick={openLogin} className="px-7 py-3.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold">
-              Sign in
-            </button>
+            <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="inline-flex items-center justify-center gap-2 bg-primary-600 text-white px-7 py-3.5 rounded-xl font-bold">Create your account <ArrowRight className="h-4 w-4" /></button>
+            <button onClick={openLogin} className="px-7 py-3.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold">Sign in</button>
           </div>
         </section>
-
         <section id="pricing" className="bg-slate-100/70 dark:bg-slate-900/50 py-20">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center mb-12">
@@ -151,9 +121,7 @@ export default function LandingPage() {
                   <h3 className="text-xl font-bold">{tier.name}</h3>
                   <div className="mt-3 text-4xl font-extrabold">{tier.price}<span className="text-base font-medium text-slate-500">/mo</span></div>
                   <p className="mt-3 text-sm text-slate-500 flex-1">{tier.description}</p>
-                  <ul className="mt-6 space-y-3 text-sm">
-                    {tier.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-primary-500 mt-0.5 shrink-0" />{feature}</li>)}
-                  </ul>
+                  <ul className="mt-6 space-y-3 text-sm">{tier.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-primary-500 mt-0.5 shrink-0" />{feature}</li>)}</ul>
                   <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="mt-7 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold">Get Started</button>
                 </div>
               ))}
@@ -161,7 +129,6 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-
       {(isLoginOpen || isSignupOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-7 max-w-md w-full relative">
@@ -169,39 +136,19 @@ export default function LandingPage() {
             <h2 className="text-2xl font-bold">{isLoginOpen ? 'Sign in' : 'Create your account'}</h2>
             <p className="mt-1 text-sm text-slate-500">{isLoginOpen ? 'Use your Vortex One PropFlow account.' : 'Create a real account. No demo accounts are provided.'}</p>
             {authError && <div className="mt-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{authError}</div>}
-
             {!isLoginOpen && (
               <div className="mt-5">
                 <label className="block text-sm font-medium mb-2">Primary role</label>
                 <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as UserRole)} className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent">
-                  <option value="property_manager">Property Manager</option>
-                  <option value="landlord">Landlord / Owner</option>
-                  <option value="tenant">Tenant</option>
-                  <option value="technician">Technician</option>
-                  <option value="sales">Sales</option>
-                  <option value="admin">Admin</option>
+                  <option value="property_manager">Property Manager</option><option value="landlord">Landlord / Owner</option><option value="tenant">Tenant</option><option value="technician">Technician</option><option value="sales">Sales</option><option value="admin">Admin</option>
                 </select>
               </div>
             )}
-
-            {!isLoginOpen && (
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
-            )}
+            {!isLoginOpen && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />}
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email address" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
             <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
-
-            <button disabled={loading} onClick={isLoginOpen ? handleEmailLogin : handleSignup} className="mt-4 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold disabled:opacity-50">
-              {loading ? 'Please wait…' : isLoginOpen ? 'Sign In' : 'Create Account'}
-            </button>
-
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <button disabled={loading} onClick={() => handleOAuth('google')} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm font-medium">Continue with Google</button>
-              <button disabled={loading} onClick={() => handleOAuth('microsoft')} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm font-medium">Continue with Microsoft</button>
-            </div>
-
-            <button onClick={isLoginOpen ? openSignup : openLogin} className="mt-5 text-sm text-primary-600 font-semibold">
-              {isLoginOpen ? 'Need an account? Create one' : 'Already have an account? Sign in'}
-            </button>
+            <button disabled={loading} onClick={isLoginOpen ? handleEmailLogin : handleSignup} className="mt-4 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold disabled:opacity-50">{loading ? 'Please wait…' : isLoginOpen ? 'Sign In' : 'Create Account'}</button>
+            <button onClick={isLoginOpen ? openSignup : openLogin} className="mt-5 text-sm text-primary-600 font-semibold">{isLoginOpen ? 'Need an account? Create one' : 'Already have an account? Sign in'}</button>
           </div>
         </div>
       )}
