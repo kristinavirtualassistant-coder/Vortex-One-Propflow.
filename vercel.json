@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "buildCommand": "npm run build",
+  "rewrites": [
+    {
+      "source": "/:path((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
