@@ -5,6 +5,7 @@ import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
+import { localDb } from "./src/db/localDb.js";
 import { financialMetrics, sessions, users } from "./src/db/schema.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
@@ -305,7 +306,7 @@ export function createApp() {
       const newUser = await db.insert(users).values({
         uid,
         email: normalizedEmail,
-        passwordHash: hashPassword(password),
+        passwordHash: await hashPassword(password),
         name: String(name).trim(),
         role: role || 'property_manager',
         profileComplete: 0,
