@@ -73,8 +73,12 @@ const runDatabaseMigrations = async () => {
   }
 
   // Session IDs are now stored as SHA-256 hashes of random browser tokens.
-  // Existing sessions are intentionally invalidated during the transition.
-  await pool.query("DELETE FROM sessions");
+  // Invalidate legacy sessions once, rather than on every application restart.
+  await pool.query("CREATE TABLE IF NOT EXISTS app_migrations (id text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())");
+  const migration = await pool.query(
+    "INSERT INTO app_migrations(id) VALUES('auth_cookie_sessions_v1') ON CONFLICT DO NOTHING RETURNING id"
+  );
+  if (migration.rowCount) await pool.query("DELETE FROM sessions");
 };
 
 export const ensureDatabaseReady = async () => {
