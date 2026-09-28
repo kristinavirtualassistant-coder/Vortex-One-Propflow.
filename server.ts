@@ -670,6 +670,26 @@ export function createApp() {
     }
   });
 
+  app.post("/api/property-leads", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Lead persistence requires PostgreSQL/PostGIS." });
+      const propertyId = Number(req.body?.propertyId);
+      const score = Math.max(0, Math.min(Number(req.body?.score || 0), 100));
+      const reasons = Array.isArray(req.body?.reasons) ? req.body.reasons : [];
+      if (!Number.isInteger(propertyId) || propertyId < 1) return res.status(400).json({ error: "Valid propertyId is required" });
+      const pool = createPool();
+      const result = await pool.query(
+        "INSERT INTO property_leads(user_id,property_id,score,reasons) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(user_id,property_id) DO UPDATE SET score=EXCLUDED.score,reasons=EXCLUDED.reasons RETURNING *",
+        [req.user!.id, propertyId, score, JSON.stringify(reasons)]
+      );
+      return res.status(201).json({ lead: result.rows[0] });
+    } catch (error: any) {
+      console.error("Property lead error:", error);
+      return res.status(500).json({ error: error.message || "Unable to save property lead" });
+    }
+  });
+
   app.get("/api/properties/:id", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
