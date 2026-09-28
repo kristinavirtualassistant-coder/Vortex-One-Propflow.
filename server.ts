@@ -620,6 +620,163 @@ export function createApp() {
     } catch (error: any) { console.error("Storage delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete file" }); }
   });
 
+  // Property Intelligence API
+  app.get("/api/properties/search", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Property search requires PostgreSQL/PostGIS." });
+
+      const pool = createPool();
+      const params: any[] = [];
+      const where: string[] = [];
+      const q = String(req.query.q || "").trim();
+      const state = String(req.query.state || "").trim();
+      const county = String(req.query.county || "").trim();
+      const postalCode = String(req.query.postalCode || "").trim();
+      const propertyType = String(req.query.propertyType || "").trim();
+      const minValue = Number(req.query.minValue || 0);
+      const maxValue = Number(req.query.maxValue || 0);
+      const minBeds = Number(req.query.minBeds || 0);
+      const vacant = req.query.vacant === "true";
+      const taxDelinquent = req.query.taxDelinquent === "true";
+      const preForeclosure = req.query.preForeclosure === "true";
+      const foreclosure = req.query.foreclosure === "true";
+      const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+
+      if (q) {
+        params.push("%" + q + "%");
+        where.push("(address_line1 ILIKE $" + params.length + " OR city ILIKE $" + params.length + " OR apn ILIKE $" + params.length + ")");
+      }
+      if (state) { params.push(state); where.push("state = $" + params.length); }
+      if (county) { params.push(county); where.push("county = $" + params.length); }
+      if (postalCode) { params.push(postalCode); where.push("postal_code = $" + params.length); }
+      if (propertyType) { params.push(propertyType); where.push("property_type = $" + params.length); }
+      if (minValue > 0) { params.push(minValue); where.push("COALESCE(estimated_value, assessed_value) >= $" + params.length); }
+      if (maxValue > 0) { params.push(maxValue); where.push("COALESCE(estimated_value, assessed_value) <= $" + params.length); }
+      if (minBeds > 0) { params.push(minBeds); where.push("COALESCE(bedrooms,0) >= $" + params.length); }
+      if (vacant) where.push("vacancy_status = 'vacant'");
+      if (taxDelinquent) where.push("tax_delinquent = true");
+      if (preForeclosure) where.push("pre_foreclosure = true");
+      if (foreclosure) where.push("foreclosure = true");
+
+      const sql = "SELECT p.id, p.apn, p.fips, p.state, p.county, p.address_line1, p.city, p.postal_code, p.property_type, p.bedrooms, p.bathrooms, p.living_sqft, p.lot_sqft, p.year_built, p.assessed_value, p.estimated_value, p.estimated_rent, p.last_sale_price, p.last_sale_date, p.latitude, p.longitude, p.vacancy_status, p.owner_occupied, p.tax_delinquent, p.pre_foreclosure, p.foreclosure, p.probate, p.lien_count, p.mortgage_balance, COALESCE(json_agg(json_build_object('ownerId', o.id, 'name', o.canonical_name, 'type', o.owner_type, 'mailingAddress', o.mailing_address)) FILTER (WHERE o.id IS NOT NULL), '[]') AS owners FROM properties p LEFT JOIN property_owner_links pol ON pol.property_id = p.id LEFT JOIN property_owners o ON o.id = pol.owner_id" +
+        (where.length ? " WHERE " + where.join(" AND ") : "") +
+        " GROUP BY p.id ORDER BY p.updated_at DESC LIMIT " + String(limit);
+      const result = await pool.query(sql, params);
+      return res.json({ count: result.rowCount, properties: result.rows });
+    } catch (error: any) {
+      console.error("Property search error:", error);
+      return res.status(500).json({ error: error.message || "Unable to search properties" });
+    }
+  });
+
+  app.post("/api/property-leads", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Lead persistence requires PostgreSQL/PostGIS." });
+      const propertyId = Number(req.body?.propertyId);
+      const score = Math.max(0, Math.min(Number(req.body?.score || 0), 100));
+      const reasons = Array.isArray(req.body?.reasons) ? req.body.reasons : [];
+      if (!Number.isInteger(propertyId) || propertyId < 1) return res.status(400).json({ error: "Valid propertyId is required" });
+      const pool = createPool();
+      const result = await pool.query(
+        "INSERT INTO property_leads(user_id,property_id,score,reasons) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(user_id,property_id) DO UPDATE SET score=EXCLUDED.score,reasons=EXCLUDED.reasons RETURNING *",
+        [req.user!.id, propertyId, score, JSON.stringify(reasons)]
+      );
+      return res.status(201).json({ lead: result.rows[0] });
+    } catch (error: any) {
+      console.error("Property lead error:", error);
+      return res.status(500).json({ error: error.message || "Unable to save property lead" });
+    }
+  });
+
+  app.get("/api/properties/:id", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Property intelligence requires PostgreSQL/PostGIS." });
+      const pool = createPool();
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid property id" });
+      const property = await pool.query(
+        "SELECT p.*, COALESCE(json_agg(json_build_object('ownerId',o.id,'name',o.canonical_name,'type',o.owner_type,'mailingAddress',o.mailing_address)) FILTER (WHERE o.id IS NOT NULL),'[]') AS owners FROM properties p LEFT JOIN property_owner_links pol ON pol.property_id=p.id LEFT JOIN property_owners o ON o.id=pol.owner_id WHERE p.id=$1 GROUP BY p.id",
+        [id]
+      );
+      if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
+      const sources = await pool.query("SELECT * FROM property_sources WHERE property_id=$1 ORDER BY retrieved_at DESC", [id]);
+      return res.json({ property: property.rows[0], sources: sources.rows });
+    } catch (error: any) {
+      console.error("Property detail error:", error);
+      return res.status(500).json({ error: error.message || "Unable to retrieve property" });
+    }
+  });
+
+  app.post("/api/properties/import", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Property imports require PostgreSQL/PostGIS." });
+      const records = Array.isArray(req.body?.records) ? req.body.records : [];
+      if (!records.length) return res.status(400).json({ error: "records array is required" });
+      if (records.length > 5000) return res.status(413).json({ error: "Import limited to 5,000 records per request." });
+
+      const pool = createPool();
+      let inserted = 0;
+      let updated = 0;
+      for (const input of records) {
+        const r = input || {};
+        const owner = r.owner || {};
+        const source = r.source || {};
+        let propertyId: number;
+        if (r.apn && r.fips) {
+          const existing = await pool.query("SELECT id FROM properties WHERE apn=$1 AND fips=$2 LIMIT 1", [String(r.apn), String(r.fips)]);
+          if (existing.rows.length) {
+            propertyId = Number(existing.rows[0].id);
+            await pool.query(
+              "UPDATE properties SET state=$1,county=$2,address_line1=$3,city=$4,postal_code=$5,property_type=$6,bedrooms=$7,bathrooms=$8,living_sqft=$9,lot_sqft=$10,year_built=$11,assessed_value=$12,estimated_value=$13,estimated_rent=$14,last_sale_price=$15,last_sale_date=$16,latitude=$17,longitude=$18,vacancy_status=$19,owner_occupied=$20,tax_delinquent=$21,pre_foreclosure=$22,foreclosure=$23,probate=$24,lien_count=$25,mortgage_balance=$26,raw_data=$27::jsonb,updated_at=now() WHERE id=$28",
+              [r.state||null,r.county||null,r.addressLine1||null,r.city||null,r.postalCode||null,r.propertyType||null,r.bedrooms??null,r.bathrooms??null,r.livingSqft??null,r.lotSqft??null,r.yearBuilt??null,r.assessedValue??null,r.estimatedValue??null,r.estimatedRent??null,r.lastSalePrice??null,r.lastSaleDate||null,r.latitude??null,r.longitude??null,r.vacancyStatus||null,r.ownerOccupied??null,Boolean(r.taxDelinquent),Boolean(r.preForeclosure),Boolean(r.foreclosure),Boolean(r.probate),Number(r.lienCount||0),r.mortgageBalance??null,JSON.stringify(r),propertyId]
+            );
+            updated++;
+          } else {
+            const created = await pool.query(
+              "INSERT INTO properties (apn,fips,state,county,address_line1,city,postal_code,property_type,bedrooms,bathrooms,living_sqft,lot_sqft,year_built,assessed_value,estimated_value,estimated_rent,last_sale_price,last_sale_date,latitude,longitude,vacancy_status,owner_occupied,tax_delinquent,pre_foreclosure,foreclosure,probate,lien_count,mortgage_balance,raw_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29) RETURNING id",
+              [r.apn,r.fips,r.state||null,r.county||null,r.addressLine1||null,r.city||null,r.postalCode||null,r.propertyType||null,r.bedrooms??null,r.bathrooms??null,r.livingSqft??null,r.lotSqft??null,r.yearBuilt??null,r.assessedValue??null,r.estimatedValue??null,r.estimatedRent??null,r.lastSalePrice??null,r.lastSaleDate||null,r.latitude??null,r.longitude??null,r.vacancyStatus||null,r.ownerOccupied??null,Boolean(r.taxDelinquent),Boolean(r.preForeclosure),Boolean(r.foreclosure),Boolean(r.probate),Number(r.lienCount||0),r.mortgageBalance??null,JSON.stringify(r)]
+            );
+            propertyId = Number(created.rows[0].id);
+            inserted++;
+          }
+        } else {
+          const created = await pool.query(
+            "INSERT INTO properties (state,county,address_line1,city,postal_code,property_type,bedrooms,bathrooms,living_sqft,lot_sqft,year_built,assessed_value,estimated_value,estimated_rent,latitude,longitude,raw_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id",
+            [r.state||null,r.county||null,r.addressLine1||null,r.city||null,r.postalCode||null,r.propertyType||null,r.bedrooms??null,r.bathrooms??null,r.livingSqft??null,r.lotSqft??null,r.yearBuilt??null,r.assessedValue??null,r.estimatedValue??null,r.estimatedRent??null,r.latitude??null,r.longitude??null,JSON.stringify(r)]
+          );
+          propertyId = Number(created.rows[0].id);
+          inserted++;
+        }
+
+        if (owner.canonicalName) {
+          const normalizedName = String(owner.canonicalName).trim().toLowerCase().replace(/\s+/g, " ");
+          let ownerId: number | null = null;
+          const existingOwner = await pool.query("SELECT id FROM property_owners WHERE normalized_name=$1 LIMIT 1", [normalizedName]);
+          if (existingOwner.rows.length) ownerId = Number(existingOwner.rows[0].id);
+          else {
+            const createdOwner = await pool.query(
+              "INSERT INTO property_owners (canonical_name,owner_type,normalized_name,mailing_address,city,state,postal_code,source,source_record_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
+              [String(owner.canonicalName),owner.ownerType||"person",normalizedName,owner.mailingAddress||null,owner.city||null,owner.state||null,owner.postalCode||null,source.source||null,source.sourceRecordId||null]
+            );
+            ownerId = Number(createdOwner.rows[0].id);
+          }
+          await pool.query("INSERT INTO property_owner_links(property_id,owner_id,role,source) VALUES($1,$2,'owner',$3) ON CONFLICT DO NOTHING",[propertyId,ownerId,source.source||null]);
+        }
+
+        await pool.query("INSERT INTO property_sources(property_id,source,source_record_id,effective_date,confidence,record_hash) VALUES($1,$2,$3,$4,$5,$6)",
+          [propertyId,source.source||"unknown",source.sourceRecordId||null,source.effectiveDate||null,source.confidence??null,crypto.createHash("sha256").update(JSON.stringify(r)).digest("hex")]);
+      }
+      return res.status(201).json({ inserted, updated, total: records.length });
+    } catch (error: any) {
+      console.error("Property import error:", error);
+      return res.status(500).json({ error: error.message || "Unable to import properties" });
+    }
+  });
+
   app.get("/api/metrics", requireAuth, async (_req, res) => {
     try {
       if (global._isUsingLocalFallback) {
