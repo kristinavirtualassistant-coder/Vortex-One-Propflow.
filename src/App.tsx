@@ -7,20 +7,7 @@ import Dashboard from './pages/Dashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
-const OAuthSessionBridge = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const session = params.get('session');
-    if (!session || !location.pathname.startsWith('/auth/callback')) return;
-    window.localStorage.setItem('vortex_one_session', session);
-    navigate('/dashboard', { replace: true });
-  }, [location, navigate]);
-
-  return null;
-};
+const OAuthSessionBridge = () => null;
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
