@@ -65,12 +65,18 @@ npm install
 
 ### 3. Environment Configuration
 
-Create a `.env` file based on `.env.example`:
+Create a `.env` file based on `.env.example`.
+
+For hosted deployments, configure PostgreSQL with either `DATABASE_URL` or the complete `SQL_*` settings. Do not use `127.0.0.1` or `localhost` for the production database target.
+
+Example:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
-DATABASE_URL=postgresql://user:password@localhost:5432/propflow
+DATABASE_URL=postgresql://user:password@host:5432/propflow
+APP_URL=https://vortexone-propflow.vercel.app
 ```
+
 
 ### 4. Running the Development Server
 
