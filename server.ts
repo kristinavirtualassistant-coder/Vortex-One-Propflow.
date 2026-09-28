@@ -2,11 +2,12 @@ import express from "express";
 import path from "path";
 import crypto from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
+import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { financialMetrics, sessions, users } from "./src/db/schema.js";
-import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
-import { localDb } from "./src/db/localDb.js";
+import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
+
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -17,7 +18,6 @@ const ai = new GoogleGenAI({
   }
 });
 
-const hashPassword = (password: string) => crypto.createHash('sha256').update(password).digest('hex');
 const oauthClientId = (provider: 'google' | 'microsoft') =>
   provider === 'google' ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
 const oauthClientSecret = (provider: 'google' | 'microsoft') =>
@@ -65,7 +65,7 @@ const consumeOAuthState = (state: string) => {
   }
 };
 
-const socialPasswordHash = (provider: string, subject: string) =>
+const socialPasswordHash = async (provider: string, subject: string) =>
   hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER || 'vortex-one-social-auth'}`);
 
 const exchangeOAuthCode = async (provider: 'google' | 'microsoft', code: string) => {
@@ -192,7 +192,7 @@ export function createApp() {
         const created = await db.insert(users).values({
           uid,
           email: profile.email,
-          passwordHash: socialPasswordHash(provider, profile.subject),
+          passwordHash: await socialPasswordHash(provider, profile.subject),
           name: profile.name,
           role: stateData.role,
           profileComplete: 0,
@@ -215,7 +215,8 @@ export function createApp() {
       }
 
       const session = await createSession(account.id);
-      return res.redirect(`/dashboard?session=${encodeURIComponent(session.id)}`);
+      setSessionCookie(res, session.token, session.expiresAt);
+      return res.redirect('/dashboard');
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error);
       return res.status(500).send(error.message || 'Unable to complete social sign-in');
@@ -264,7 +265,7 @@ export function createApp() {
           id: Math.floor(Math.random() * 1000000),
           uid,
           email: normalizedEmail,
-          passwordHash: hashPassword(password),
+          passwordHash: await hashPassword(password),
           name: String(name).trim(),
           role: role || 'property_manager',
           profileComplete: 0,
@@ -349,7 +350,8 @@ export function createApp() {
       });
 
       const session = await createSession(newUser[0].id);
-      return res.status(201).json({ user: newUser[0], session });
+      setSessionCookie(res, session.token, session.expiresAt);
+      return res.status(201).json({ user: newUser[0] });
     } catch (error: any) {
       console.error("Signup error:", error);
       return res.status(500).json({ error: error.message || "Unable to create account" });
@@ -363,35 +365,29 @@ export function createApp() {
       if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
-
-      if (global._isUsingLocalFallback) {
-        const user = localDb.getUsers().find(u => u.email === normalizedEmail);
-        if (!user || user.passwordHash !== hashPassword(String(password))) {
-          return res.status(401).json({ error: "Invalid email or password" });
-        }
-        const session = {
-          id: crypto.randomBytes(32).toString('hex'),
-          userId: user.id,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-        };
-        localDb.saveSession(session);
-        return res.json({ user, session });
-      }
-
       const rows = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
       const user = rows[0];
-      if (!user || user.passwordHash !== hashPassword(String(password))) {
-        return res.status(401).json({ error: "Invalid email or password" });
+
+      if (!user) return res.status(401).json({ error: "Invalid email or password" });
+
+      const verification = await verifyPassword(String(password), user.passwordHash);
+      if (!verification.valid) return res.status(401).json({ error: "Invalid email or password" });
+
+      // Transparently upgrade legacy SHA-256 password hashes after a successful login.
+      if (verification.needsRehash) {
+        await db.update(users)
+          .set({ passwordHash: await hashPassword(String(password)) })
+          .where(eq(users.id, user.id));
       }
 
       const session = await createSession(user.id);
+      setSessionCookie(res, session.token, session.expiresAt);
       return res.json({
         user: { id: user.id, uid: user.uid, email: user.email, name: user.name, role: user.role },
-        session,
       });
     } catch (error: any) {
       console.error("Login error:", error);
-      return res.status(500).json({ error: error.message || "Unable to sign in" });
+      return res.status(503).json({ error: error.message || "Authentication service unavailable" });
     }
   });
 
@@ -472,9 +468,16 @@ export function createApp() {
   });
 
   app.post("/api/auth/logout", requireAuth, async (req, res) => {
-    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-    if (token) await deleteSession(token);
-    res.status(204).end();
+    try {
+      const token = getSessionToken(req);
+      if (token) await deleteSession(token);
+      clearSessionCookie(res);
+      return res.status(204).end();
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      clearSessionCookie(res);
+      return res.status(204).end();
+    }
   });
 
   const pool = createPool();
@@ -871,15 +874,24 @@ const isDirectRun = process.argv[1] && (
 );
 
 if (!process.env.VERCEL && isDirectRun) {
-  const app = createApp();
-  const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  const start = async () => {
+    try {
+      await ensureDatabaseReady();
+      const app = createApp();
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
-  const listenPort = 3000;
-  app.listen(listenPort, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${listenPort}`);
-  });
+      const listenPort = 3000;
+      app.listen(listenPort, "0.0.0.0", () => {
+        console.log(`Server running on http://0.0.0.0:${listenPort}`);
+      });
+    } catch (error) {
+      console.error('Vortex One startup aborted: PostgreSQL is required.', error);
+      process.exitCode = 1;
+    }
+  };
+  void start();
 }
 
 export default createApp;
