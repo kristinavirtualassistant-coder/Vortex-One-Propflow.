@@ -8,14 +8,16 @@ import { financialMetrics, sessions, users } from "./src/db/schema.js";
 import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
 import { localDb } from "./src/db/localDb.js";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'vortex-one-propflow',
-    }
-  }
-});
+const ai = process.env.GEMINI_API_KEY
+  ? new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'vortex-one-propflow',
+        }
+      }
+    })
+  : null;
 
 const hashPassword = (password: string) => crypto.createHash('sha256').update(password).digest('hex');
 const oauthClientId = (provider: 'google' | 'microsoft') =>
@@ -580,6 +582,7 @@ export function createApp() {
 
       if (config.tools) config.toolConfig = { includeServerSideToolInvocations: true };
 
+      if (!ai) return res.status(503).json({ error: "Gemini AI is not configured" });
       const chat = ai.chats.create({ model, config, history: history || [] });
       const streamResponse = await chat.sendMessageStream({ message });
 
@@ -601,6 +604,8 @@ export function createApp() {
     try {
       const { description } = req.body;
       if (!description || !description.trim()) return res.status(400).json({ error: "Description is required" });
+
+      if (!ai) return res.status(503).json({ error: "Gemini AI is not configured" });
 
       const response = await ai.models.generateContent({
         model: "gemini-3.8-flash",
