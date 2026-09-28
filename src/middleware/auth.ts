@@ -125,8 +125,8 @@ export const requireAuth = async (
   res: Response,
   next: NextFunction
 ) => {
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return res.status(401).json({ error: 'Unauthorized: Missing session token' });
+  const token = getSessionToken(req);
+  if (!token) return res.status(401).json({ error: 'Unauthorized: Missing session cookie' });
 
   try {
     await ensureDatabaseReady();
