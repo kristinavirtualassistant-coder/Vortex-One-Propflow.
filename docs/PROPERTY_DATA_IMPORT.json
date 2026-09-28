@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "fields": {
+    "apn": "string",
+    "fips": "string",
+    "state": "string",
+    "county": "string",
+    "addressLine1": "string",
+    "city": "string",
+    "postalCode": "string",
+    "propertyType": "string",
+    "bedrooms": "number",
+    "bathrooms": "number",
+    "livingSqft": "integer",
+    "lotSqft": "integer",
+    "yearBuilt": "integer",
+    "assessedValue": "number",
+    "estimatedValue": "number",
+    "estimatedRent": "number",
+    "lastSalePrice": "number",
+    "lastSaleDate": "ISO-8601",
+    "latitude": "number",
+    "longitude": "number",
+    "vacancyStatus": "string",
+    "ownerOccupied": "boolean",
+    "taxDelinquent": "boolean",
+    "preForeclosure": "boolean",
+    "foreclosure": "boolean",
+    "probate": "boolean",
+    "lienCount": "integer",
+    "mortgageBalance": "number",
+    "owner": {
+      "canonicalName": "string",
+      "ownerType": "person|entity",
+      "mailingAddress": "string",
+      "city": "string",
+      "state": "string",
+      "postalCode": "string"
+    },
+    "source": {
+      "source": "string",
+      "sourceRecordId": "string",
+      "effectiveDate": "ISO-8601",
+      "confidence": "number"
+    }
+  }
+}
