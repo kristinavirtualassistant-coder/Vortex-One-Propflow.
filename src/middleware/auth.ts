@@ -3,7 +3,6 @@ import crypto from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
 import { db, ensureDatabaseReady } from '../db/index.js';
 import { sessions, users } from '../db/schema.js';
-import { localDb } from '../db/localDb.js';
 
 declare global {
   namespace Express {
@@ -61,21 +60,64 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const createSession = async (userId: number) => {
-  await ensureDatabaseReady();
-  const id = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-  await db.insert(sessions).values({ id, userId, expiresAt });
-  return { id, expiresAt };
+const hashSessionToken = (token: string) =>
+  crypto.createHash('sha256').update(token).digest('hex');
+
+export const sessionCookieName = () =>
+  process.env.NODE_ENV === 'production' || process.env.VERCEL
+    ? '__Host-vortex_session'
+    : 'vortex_session';
+
+const parseCookies = (header: string | undefined) =>
+  Object.fromEntries(
+    (header || '')
+      .split(';')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => {
+        const index = part.indexOf('=');
+        return index === -1
+          ? [part, '']
+          : [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+      }),
+  );
+
+export const getSessionToken = (req: Request) =>
+  parseCookies(req.headers.cookie)[sessionCookieName()] || null;
+
+export const setSessionCookie = (res: Response, token: string, expiresAt: Date) => {
+  const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+  const cookieName = sessionCookieName();
+  const prefix = `${cookieName}=${encodeURIComponent(token)}`;
+  const attributes = [
+    'Path=/',
+    `Max-Age=${Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))}`,
+    'HttpOnly',
+    'SameSite=Lax',
+    ...(secure ? ['Secure'] : []),
+  ];
+  res.setHeader('Set-Cookie', [`${prefix}; ${attributes.join('; ')}`]);
 };
 
-export const deleteSession = async (sessionId: string) => {
+export const clearSessionCookie = (res: Response) => {
+  const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+  const attributes = ['Path=/', 'Max-Age=0', 'HttpOnly', 'SameSite=Lax', ...(secure ? ['Secure'] : [])];
+  res.setHeader('Set-Cookie', [`${sessionCookieName()}=; ${attributes.join('; ')}`]);
+};
+
+export const createSession = async (userId: number) => {
   await ensureDatabaseReady();
-  if (global._isUsingLocalFallback) {
-    localDb.deleteSession(sessionId);
-    return;
-  }
-  await db.delete(sessions).where(eq(sessions.id, sessionId));
+  const token = crypto.randomBytes(32).toString('hex');
+  const id = hashSessionToken(token);
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+  await db.insert(sessions).values({ id, userId, expiresAt });
+  return { token, expiresAt };
+};
+
+export const deleteSession = async (token: string) => {
+  await ensureDatabaseReady();
+  const id = hashSessionToken(token);
+  await db.delete(sessions).where(eq(sessions.id, id));
 };
 
 export const requireAuth = async (
@@ -88,15 +130,8 @@ export const requireAuth = async (
 
   try {
     await ensureDatabaseReady();
-    if (global._isUsingLocalFallback) {
-      const session = localDb.getSessions().find(s => s.id === token && new Date(s.expiresAt) > new Date());
-      if (!session) return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
-      const user = localDb.getUsers().find(u => u.id === session.userId);
-      if (!user) return res.status(401).json({ error: 'Unauthorized: User not found' });
-      req.user = user;
-      return next();
-    }
 
+    const sessionId = hashSessionToken(token);
     const rows = await db
       .select({
         sessionId: sessions.id,
@@ -124,7 +159,7 @@ export const requireAuth = async (
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.userId, users.id))
-      .where(and(eq(sessions.id, token), gt(sessions.expiresAt, new Date())))
+      .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, new Date())))
       .limit(1);
 
     if (!rows.length) return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
@@ -154,6 +189,6 @@ export const requireAuth = async (
     return next();
   } catch (error) {
     console.error('Error verifying application session:', error);
-    return res.status(500).json({ error: 'Authentication service unavailable' });
+    return res.status(503).json({ error: 'Authentication service unavailable. PostgreSQL is required.' });
   }
 };
