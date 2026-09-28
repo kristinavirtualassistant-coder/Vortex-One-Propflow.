@@ -140,7 +140,28 @@ export function createApp() {
   const app = express();
   const PORT = 3000;
 
+  app.disable('x-powered-by');
   app.use(express.json());
+
+  app.get("/api/health", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ status: "ok", service: "vortex-one-propflow" });
+  });
+
+  app.get("/api/ready", async (_req, res) => {
+    try {
+      await ensureDatabaseReady();
+      res.setHeader("Cache-Control", "no-store");
+      return res.json({ status: "ready", database: "postgresql" });
+    } catch (error: any) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(503).json({
+        status: "not_ready",
+        database: "postgresql",
+        error: error?.message || "Database unavailable",
+      });
+    }
+  });
 
 
   app.get("/api/auth/google/start", (req, res) => {
