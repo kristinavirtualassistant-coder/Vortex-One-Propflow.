@@ -57,7 +57,7 @@ export default function WorkspacePortal() {
         </div>
         <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Connect Workspace</h2>
         <p className="text-slate-600 dark:text-slate-400 mb-8 text-lg">
-          Link your Google Workspace to seamlessly sync documents, calendars, emails, and communications directly into PropFlow.
+          Link your Google Workspace to seamlessly sync documents, calendars, emails, and communications directly into Propflow.
         </p>
         <button 
           onClick={handleConnect}

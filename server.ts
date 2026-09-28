@@ -6,6 +6,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { financialMetrics, sessions, users } from "./src/db/schema.js";
 import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
+import { localDb } from "./src/db/localDb.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -227,11 +228,75 @@ export function createApp() {
   app.post("/api/auth/signup", async (req, res) => {
     try {
       await ensureDatabaseReady();
-      const { email, password, role, name } = req.body ?? {};
+      const {
+        email,
+        password,
+        role,
+        name,
+        phone,
+        companyName,
+        portfolioSize,
+        primaryMarket,
+        currentAddress,
+        monthlyIncome,
+        employmentStatus,
+        moveInDate,
+        occupantsCount,
+        hasPets,
+        tradeSpecialty,
+        hourlyRate,
+        propertyTypes,
+        managementFee,
+        serviceRadius,
+        emergencyDispatch
+      } = req.body ?? {};
       if (!email || !password || !name) return res.status(400).json({ error: "Name, email, and password are required" });
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
+
+      if (global._isUsingLocalFallback) {
+        const existing = localDb.getUsers().find(u => u.email === normalizedEmail);
+        if (existing) return res.status(409).json({ error: "An account with that email already exists" });
+
+        const uid = crypto.randomUUID();
+        const newUser = {
+          id: Math.floor(Math.random() * 1000000),
+          uid,
+          email: normalizedEmail,
+          passwordHash: hashPassword(password),
+          name: String(name).trim(),
+          role: role || 'property_manager',
+          profileComplete: 0,
+          phone: phone ? String(phone).trim() : null,
+          companyName: companyName ? String(companyName).trim() : null,
+          portfolioSize: portfolioSize ? String(portfolioSize).trim() : null,
+          primaryMarket: primaryMarket ? String(primaryMarket).trim() : null,
+          currentAddress: currentAddress ? String(currentAddress).trim() : null,
+          monthlyIncome: monthlyIncome ? String(monthlyIncome).trim() : null,
+          employmentStatus: employmentStatus ? String(employmentStatus).trim() : null,
+          moveInDate: moveInDate ? String(moveInDate).trim() : null,
+          occupantsCount: occupantsCount ? Number(occupantsCount) : null,
+          hasPets: hasPets ? String(hasPets).trim() : null,
+          tradeSpecialty: tradeSpecialty ? String(tradeSpecialty).trim() : null,
+          hourlyRate: hourlyRate ? String(hourlyRate).trim() : null,
+          propertyTypes: propertyTypes ? String(propertyTypes).trim() : null,
+          managementFee: managementFee ? String(managementFee).trim() : null,
+          serviceRadius: serviceRadius ? String(serviceRadius).trim() : null,
+          emergencyDispatch: emergencyDispatch ? String(emergencyDispatch).trim() : null,
+        };
+
+        localDb.saveUser(newUser);
+        const session = {
+          id: crypto.randomBytes(32).toString('hex'),
+          userId: newUser.id,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        };
+        localDb.saveSession(session);
+
+        return res.status(201).json({ user: newUser, session });
+      }
+
       const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).limit(1);
       if (existing.length) return res.status(409).json({ error: "An account with that email already exists" });
 
@@ -243,12 +308,44 @@ export function createApp() {
         name: String(name).trim(),
         role: role || 'property_manager',
         profileComplete: 0,
+        phone: phone ? String(phone).trim() : null,
+        companyName: companyName ? String(companyName).trim() : null,
+        portfolioSize: portfolioSize ? String(portfolioSize).trim() : null,
+        primaryMarket: primaryMarket ? String(primaryMarket).trim() : null,
+        currentAddress: currentAddress ? String(currentAddress).trim() : null,
+        monthlyIncome: monthlyIncome ? String(monthlyIncome).trim() : null,
+        employmentStatus: employmentStatus ? String(employmentStatus).trim() : null,
+        moveInDate: moveInDate ? String(moveInDate).trim() : null,
+        occupantsCount: occupantsCount ? Number(occupantsCount) : null,
+        hasPets: hasPets ? String(hasPets).trim() : null,
+        tradeSpecialty: tradeSpecialty ? String(tradeSpecialty).trim() : null,
+        hourlyRate: hourlyRate ? String(hourlyRate).trim() : null,
+        propertyTypes: propertyTypes ? String(propertyTypes).trim() : null,
+        managementFee: managementFee ? String(managementFee).trim() : null,
+        serviceRadius: serviceRadius ? String(serviceRadius).trim() : null,
+        emergencyDispatch: emergencyDispatch ? String(emergencyDispatch).trim() : null,
       }).returning({
         id: users.id,
         uid: users.uid,
         email: users.email,
         name: users.name,
         role: users.role,
+        phone: users.phone,
+        companyName: users.companyName,
+        portfolioSize: users.portfolioSize,
+        primaryMarket: users.primaryMarket,
+        currentAddress: users.currentAddress,
+        monthlyIncome: users.monthlyIncome,
+        employmentStatus: users.employmentStatus,
+        moveInDate: users.moveInDate,
+        occupantsCount: users.occupantsCount,
+        hasPets: users.hasPets,
+        tradeSpecialty: users.tradeSpecialty,
+        hourlyRate: users.hourlyRate,
+        propertyTypes: users.propertyTypes,
+        managementFee: users.managementFee,
+        serviceRadius: users.serviceRadius,
+        emergencyDispatch: users.emergencyDispatch,
       });
 
       const session = await createSession(newUser[0].id);
@@ -266,6 +363,21 @@ export function createApp() {
       if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
+
+      if (global._isUsingLocalFallback) {
+        const user = localDb.getUsers().find(u => u.email === normalizedEmail);
+        if (!user || user.passwordHash !== hashPassword(String(password))) {
+          return res.status(401).json({ error: "Invalid email or password" });
+        }
+        const session = {
+          id: crypto.randomBytes(32).toString('hex'),
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        };
+        localDb.saveSession(session);
+        return res.json({ user, session });
+      }
+
       const rows = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
       const user = rows[0];
       if (!user || user.passwordHash !== hashPassword(String(password))) {
@@ -298,6 +410,15 @@ export function createApp() {
   app.get("/api/data/:collection", requireAuth, async (req, res) => {
     try {
       const collection = String(req.params.collection);
+      if (global._isUsingLocalFallback) {
+        if (collection === "users") {
+          const records = localDb.getUsers().map(u => ({ id: u.id, data: u }));
+          return res.json({ records });
+        }
+        const records = localDb.getRecords(collection, req.user!.uid);
+        return res.json({ records: records.map(r => ({ id: r.id, data: r.data, createdAt: r.created_at })) });
+      }
+
       if (collection === "users") {
         const result = await pool.query("SELECT id, uid, email, name, role FROM users");
         let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
@@ -325,8 +446,14 @@ export function createApp() {
 
   app.post("/api/data/:collection", requireAuth, async (req, res) => {
     try {
-      const id = crypto.randomUUID();
       const collection = String(req.params.collection);
+      if (global._isUsingLocalFallback) {
+        if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
+        const rec = localDb.addRecord(collection, req.user!.uid, req.body?.data || {});
+        return res.status(201).json({ id: rec.id });
+      }
+
+      const id = crypto.randomUUID();
       if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
       await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, $3, $4::jsonb)", [id, req.user!.uid, collection, JSON.stringify(req.body?.data || {})]);
       return res.status(201).json({ id });
@@ -335,7 +462,14 @@ export function createApp() {
 
   app.patch("/api/data/:collection/:id", requireAuth, async (req, res) => {
     try {
-      const result = await pool.query("UPDATE app_records SET data = data || $1::jsonb WHERE id = $2 AND owner_uid = $3 AND collection = $4 RETURNING id", [JSON.stringify(req.body?.data || {}), String(req.params.id), req.user!.uid, String(req.params.collection)]);
+      const collection = String(req.params.collection);
+      if (global._isUsingLocalFallback) {
+        const rec = localDb.updateRecord(String(req.params.id), collection, req.user!.uid, req.body?.data || {});
+        if (!rec) return res.status(404).json({ error: "Record not found" });
+        return res.json({ id: rec.id });
+      }
+
+      const result = await pool.query("UPDATE app_records SET data = data || $1::jsonb WHERE id = $2 AND owner_uid = $3 AND collection = $4 RETURNING id", [JSON.stringify(req.body?.data || {}), String(req.params.id), req.user!.uid, collection]);
       if (!result.rows.length) return res.status(404).json({ error: "Record not found" });
       return res.json({ id: String(req.params.id) });
     } catch (error: any) { console.error("Data update error:", error); return res.status(500).json({ error: error.message || "Unable to update record" }); }
@@ -343,7 +477,13 @@ export function createApp() {
 
   app.delete("/api/data/:collection/:id", requireAuth, async (req, res) => {
     try {
-      await pool.query("DELETE FROM app_records WHERE id = $1 AND owner_uid = $2 AND collection = $3", [String(req.params.id), req.user!.uid, String(req.params.collection)]);
+      const collection = String(req.params.collection);
+      if (global._isUsingLocalFallback) {
+        localDb.deleteRecord(String(req.params.id), collection, req.user!.uid);
+        return res.status(204).end();
+      }
+
+      await pool.query("DELETE FROM app_records WHERE id = $1 AND owner_uid = $2 AND collection = $3", [String(req.params.id), req.user!.uid, collection]);
       return res.status(204).end();
     } catch (error: any) { console.error("Data delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete record" }); }
   });
@@ -353,6 +493,13 @@ export function createApp() {
       const { path: storagePath, name, type, data } = req.body || {};
       if (!storagePath || !data) return res.status(400).json({ error: "File path and data are required" });
       if (Buffer.byteLength(String(data), "utf8") > 5000000) return res.status(413).json({ error: "File is too large for this upload path." });
+
+      if (global._isUsingLocalFallback) {
+        const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
+        const rec = localDb.addRecord('_storage', req.user!.uid, record);
+        return res.status(201).json({ id: rec.id, downloadURL: "/api/storage/" + encodeURIComponent(String(storagePath)) });
+      }
+
       const id = crypto.randomUUID();
       const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
       await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, '_storage', $3::jsonb)", [id, req.user!.uid, JSON.stringify(record)]);
@@ -363,6 +510,17 @@ export function createApp() {
   app.get("/api/storage/:path", requireAuth, async (req, res) => {
     try {
       const storagePath = decodeURIComponent(String(req.params.path));
+      if (global._isUsingLocalFallback) {
+        const records = localDb.getRecords('_storage', req.user!.uid);
+        const matchRec = [...records].reverse().find(r => r.data?.path === storagePath);
+        if (!matchRec) return res.status(404).send("File not found");
+        const record = matchRec.data;
+        const match = String(record.data).match(/^data:([^;]+);base64,(.+)$/s);
+        if (!match) return res.status(500).send("Stored file is invalid");
+        res.setHeader("Content-Type", record.type || match[1]);
+        return res.send(Buffer.from(match[2], "base64"));
+      }
+
       const result = await pool.query("SELECT data FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2 ORDER BY created_at DESC LIMIT 1", [req.user!.uid, storagePath]);
       if (!result.rows.length) return res.status(404).send("File not found");
       const record: any = result.rows[0].data;
@@ -376,6 +534,15 @@ export function createApp() {
   app.delete("/api/storage/:path", requireAuth, async (req, res) => {
     try {
       const storagePath = decodeURIComponent(String(req.params.path));
+      if (global._isUsingLocalFallback) {
+        const records = localDb.getRecords('_storage', req.user!.uid);
+        const matchRec = records.find(r => r.data?.path === storagePath);
+        if (matchRec) {
+          localDb.deleteRecord(matchRec.id, '_storage', req.user!.uid);
+        }
+        return res.status(204).end();
+      }
+
       await pool.query("DELETE FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2", [req.user!.uid, storagePath]);
       return res.status(204).end();
     } catch (error: any) { console.error("Storage delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete file" }); }
@@ -383,6 +550,9 @@ export function createApp() {
 
   app.get("/api/metrics", requireAuth, async (_req, res) => {
     try {
+      if (global._isUsingLocalFallback) {
+        return res.json(localDb.getMetrics());
+      }
       const data = await db.select().from(financialMetrics);
       res.json(data);
     } catch (error: any) {
@@ -462,14 +632,24 @@ export function createApp() {
   return app;
 }
 
-if (!process.env.VERCEL) {
+const isDirectRun = process.argv[1] && (
+  process.argv[1].endsWith("/server.ts") || 
+  process.argv[1].endsWith("/server.js") || 
+  process.argv[1].endsWith("/server.cjs") ||
+  process.argv[1] === "server.ts" ||
+  process.argv[1] === "server.js" ||
+  process.argv[1] === "server.cjs"
+);
+
+if (!process.env.VERCEL && isDirectRun) {
   const app = createApp();
   const distPath = path.join(process.cwd(), 'dist');
   app.use(express.static(distPath));
   app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
-  app.listen(process.env.PORT || PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${process.env.PORT || PORT}`);
+  const listenPort = 3000;
+  app.listen(listenPort, "0.0.0.0", () => {
+    console.log(`Server running on http://0.0.0.0:${listenPort}`);
   });
 }
 

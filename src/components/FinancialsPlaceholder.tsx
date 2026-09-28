@@ -20,6 +20,23 @@ export default function FinancialsPlaceholder() {
 
   const paymentHistory: any[] = [];
 
+  const handleExport = async () => {
+    if (metrics.length === 0) return;
+    setExporting(true);
+    setSheetUrl(null);
+    try {
+      const headers = ['Month', 'Revenue ($)', 'Occupancy Rate (%)'];
+      const rows = metrics.map(m => [m.month, m.revenue.toString(), m.occupancyRate.toString()]);
+      const url = await GoogleWorkspaceService.exportToSheets(`Financial Metrics Export - ${new Date().toLocaleDateString()}`, headers, rows);
+      setSheetUrl(url);
+    } catch (error) {
+      console.error('Export failed', error);
+      alert('Failed to export to Google Sheets. Have you connected Workspace?');
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

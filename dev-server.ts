@@ -9,7 +9,7 @@ const vite = await createViteServer({
 });
 app.use(vite.middlewares);
 
-const port = Number(process.env.PORT || 3000);
+const port = 3000;
 app.listen(port, "0.0.0.0", () => {
   console.log(`Development server running on http://0.0.0.0:${port}`);
 });

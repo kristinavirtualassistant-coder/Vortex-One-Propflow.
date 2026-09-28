@@ -8,6 +8,22 @@ export interface UserData {
   name: string;
   role: UserRole;
   profileComplete?: boolean;
+  phone?: string | null;
+  companyName?: string | null;
+  portfolioSize?: string | null;
+  primaryMarket?: string | null;
+  currentAddress?: string | null;
+  monthlyIncome?: string | null;
+  employmentStatus?: string | null;
+  moveInDate?: string | null;
+  occupantsCount?: number | null;
+  hasPets?: string | null;
+  tradeSpecialty?: string | null;
+  hourlyRate?: string | null;
+  propertyTypes?: string | null;
+  managementFee?: string | null;
+  serviceRadius?: string | null;
+  emergencyDispatch?: string | null;
 }
 
 export interface AuthUser {
@@ -25,7 +41,7 @@ interface AuthContextType {
   isDemoMode: boolean;
   logout: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
-  signupWithEmail: (email: string, password: string, role: UserRole, name?: string) => Promise<void>;
+  signupWithEmail: (email: string, password: string, role: UserRole, name?: string, onboardingData?: Record<string, any>) => Promise<void>;
   loginWithGoogle: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithMicrosoft: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
 }
@@ -125,8 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authenticate('/api/auth/login', { email, password });
   };
 
-  const signupWithEmail = async (email: string, password: string, role: UserRole, name?: string) => {
-    await authenticate('/api/auth/signup', { email, password, role, name });
+  const signupWithEmail = async (email: string, password: string, role: UserRole, name?: string, onboardingData?: Record<string, any>) => {
+    await authenticate('/api/auth/signup', { email, password, role, name, ...onboardingData });
   };
 
   const loginWithGoogle = async (_isSignUp = false, role?: UserRole) => {

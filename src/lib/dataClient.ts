@@ -1,6 +1,10 @@
 type Constraint = { type: 'orderBy' | 'limit' | 'where'; field?: string; direction?: 'asc' | 'desc'; value?: unknown };
-type QueryRef = { collection: string; constraints: Constraint[] };
-type Snapshot = { docs: Array<{ id: string; data: () => Record<string, any> }> };
+type QueryRef = { collection: string; constraints?: Constraint[] };
+type Snapshot = {
+  docs: Array<{ id: string; data: () => Record<string, any> }>;
+  metadata: { hasPendingWrites: boolean };
+  forEach: (callback: (doc: { id: string; data: () => Record<string, any> }) => void) => void;
+};
 
 const token = () => { try { return window.localStorage.getItem('vortex_one_session') || ''; } catch { return ''; } };
 const request = async (url: string, init: RequestInit = {}) => {
@@ -22,7 +26,14 @@ export const limit = (value: number): Constraint => ({ type: 'limit', value });
 export const where = (field: string, _operator: '==' = '==', value?: unknown): Constraint => ({ type: 'where', field, value });
 export const serverTimestamp = () => new Date().toISOString();
 
-const toSnapshot = (rows: any[]): Snapshot => ({ docs: rows.map(row => ({ id: String(row.id), data: () => ({ ...row.data }) })) });
+const toSnapshot = (rows: any[]): Snapshot => {
+  const docs = rows.map(row => ({ id: String(row.id), data: () => ({ ...row.data }) }));
+  return {
+    docs,
+    metadata: { hasPendingWrites: false },
+    forEach: (callback) => docs.forEach(callback)
+  };
+};
 const runQuery = async (ref: QueryRef) => {
   const p = new URLSearchParams();
   for (const c of ref.constraints || []) {
@@ -35,11 +46,24 @@ const runQuery = async (ref: QueryRef) => {
 };
 export const getDocs = async (ref: QueryRef) => runQuery(ref);
 
-export const onSnapshot = (ref: QueryRef, callback: (snapshot: Snapshot) => void, onError?: (error: Error) => void) => {
+export const onSnapshot = (
+  ref: QueryRef,
+  optionsOrCallback: any,
+  callbackOrOnError?: any,
+  onError?: (error: Error) => void
+) => {
   let active = true;
+  const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : callbackOrOnError;
+  const errHandler = typeof optionsOrCallback === 'function' ? callbackOrOnError : onError;
+
   const poll = async () => {
-    try { const snapshot = await runQuery(ref); if (active) callback(snapshot); }
-    catch (error) { if (active && onError) onError(error as Error); }
+    try {
+      const snapshot = await runQuery(ref);
+      if (active && callback) callback(snapshot);
+    }
+    catch (error) {
+      if (active && errHandler) errHandler(error as Error);
+    }
   };
   void poll();
   const timer = window.setInterval(poll, 10000);
@@ -56,6 +80,6 @@ export const deleteDoc = async (ref: { collection: string; id: string }) =>
   request(`/api/data/${encodeURIComponent(ref.collection)}/${encodeURIComponent(ref.id)}`, { method: 'DELETE' });
 
 export const getAccessToken = async () => { try { return window.localStorage.getItem('vortex_one_session'); } catch { return null; } };
-export const googleSignIn = async () => { throw new Error('Google Workspace OAuth is not configured in this application.'); };
+export const googleSignIn = async (): Promise<{ user: any; accessToken: string } | null> => { throw new Error('Google Workspace OAuth is not configured in this application.'); };
 
 export const getDoc = async (ref: { collection: string; id: string }) => { const snapshot = await runQuery({ collection: ref.collection, constraints: [] }); const found = snapshot.docs.find(item => item.id === String(ref.id)); return { exists: () => Boolean(found), id: ref.id, data: () => found?.data() || {} }; };

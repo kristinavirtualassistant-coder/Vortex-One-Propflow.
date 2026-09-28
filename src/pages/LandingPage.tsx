@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, CheckCircle2, Menu, X, Moon, Sun, ArrowRight } from 'lucide-react';
 import { useAuth, UserRole } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import MultiStepRegistration from '../components/MultiStepRegistration';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -129,29 +130,39 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-      {(isLoginOpen || isSignupOpen) && (
+      {isLoginOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-7 max-w-md w-full relative">
-            <button onClick={() => { setIsLoginOpen(false); setIsSignupOpen(false); }} className="absolute top-4 right-4 text-slate-500" aria-label="Close"><X /></button>
-            <h2 className="text-2xl font-bold">{isLoginOpen ? 'Sign in' : 'Create your account'}</h2>
-            <p className="mt-1 text-sm text-slate-500">{isLoginOpen ? 'Use your Vortex One PropFlow account.' : 'Create a real account. No demo accounts are provided.'}</p>
-            {authError && <div className="mt-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{authError}</div>}
-            {!isLoginOpen && (
-              <div className="mt-5">
-                <label className="block text-sm font-medium mb-2">Primary role</label>
-                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as UserRole)} className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent">
-                  <option value="property_manager">Property Manager</option><option value="landlord">Landlord / Owner</option><option value="tenant">Tenant</option><option value="technician">Technician</option><option value="sales">Sales</option><option value="admin">Admin</option>
-                </select>
-              </div>
-            )}
-            {!isLoginOpen && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />}
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email address" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
-            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" className="mt-3 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent" required />
-            <button disabled={loading} onClick={isLoginOpen ? handleEmailLogin : handleSignup} className="mt-4 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold disabled:opacity-50">{loading ? 'Please wait…' : isLoginOpen ? 'Sign In' : 'Create Account'}</button>            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithGoogle(!isLoginOpen, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Google.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold disabled:opacity-50">Google</button>
-              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithMicrosoft(!isLoginOpen, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Microsoft.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold disabled:opacity-50">Microsoft</button>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-7 max-w-md w-full relative border border-slate-100 dark:border-slate-800 shadow-2xl">
+            <button onClick={() => setIsLoginOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" aria-label="Close"><X /></button>
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Sign In</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Use your Vortex One PropFlow credentials to log in.</p>
+            {authError && <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm font-medium">{authError}</div>}
+            
+            <form onSubmit={handleEmailLogin} className="space-y-3 mt-4">
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email address" className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" required />
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" required />
+              <button disabled={loading} type="submit" className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-50 transition-colors">{loading ? 'Please wait…' : 'Sign In'}</button>
+            </form>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithGoogle(false, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Google.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-50 transition-colors">Google</button>
+              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithMicrosoft(false, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Microsoft.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-50 transition-colors">Microsoft</button>
             </div>
-            <button onClick={isLoginOpen ? openSignup : openLogin} className="mt-5 text-sm text-primary-600 font-semibold">{isLoginOpen ? 'Need an account? Create one' : 'Already have an account? Sign in'}</button>
+            <button onClick={openSignup} className="mt-5 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Need an account? Create one</button>
+          </div>
+        </div>
+      )}
+
+      {isSignupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 overflow-y-auto">
+          <div className="my-8 w-full max-w-lg">
+            <MultiStepRegistration 
+              onSuccess={() => {
+                setIsSignupOpen(false);
+                navigate('/dashboard');
+              }}
+              onCancel={() => setIsSignupOpen(false)}
+            />
           </div>
         </div>
       )}

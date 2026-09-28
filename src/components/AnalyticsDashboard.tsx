@@ -70,7 +70,7 @@ export default function AnalyticsDashboard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `PropFlow_Analytics_${selectedProperty}_${selectedTimeframe}.csv`);
+    link.setAttribute('download', `Propflow_Analytics_${selectedProperty}_${selectedTimeframe}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -112,7 +112,7 @@ export default function AnalyticsDashboard() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>PropFlow Analytics Report - ${selectedProperty}</title>
+          <title>Propflow. Analytics Report - ${selectedProperty}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
             
@@ -212,7 +212,7 @@ export default function AnalyticsDashboard() {
         <body>
           <div class="header">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span class="brand">PropFlow™</span>
+              <span class="brand">Propflow.™</span>
               <button onclick="window.print()" style="padding: 8px 16px; background-color: #4f46e5; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px;">
                 Print / Save PDF
               </button>
@@ -261,7 +261,7 @@ export default function AnalyticsDashboard() {
           </table>
 
           <div class="footer">
-            PropFlow Security Verified &middot; Confidential Report for Landlords and Property Executives &middot; &copy; 2026 PropFlow Corp.
+            Propflow. Security Verified &middot; Confidential Report for Landlords and Property Executives &middot; &copy; 2026 Vortex One.
           </div>
 
           <script>
