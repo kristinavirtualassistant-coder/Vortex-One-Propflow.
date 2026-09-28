@@ -8,7 +8,8 @@
     "build": "vite build --outDir public",
     "start": "tsx server.ts",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "check": "npm run lint"
   },
   "dependencies": {
     "@google/genai": "^2.14.0",
