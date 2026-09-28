@@ -135,7 +135,7 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
     }
 
     if (step === 2) {
-      // Validate Step 2 (Account Details)
+      // Validate Step 2 (Account Details) and submit directly
       const result = step2Schema.safeParse({
         name: formData.name,
         email: formData.email,
@@ -153,82 +153,7 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
         setErrors(formattedErrors);
         return;
       }
-      setStep(3);
-      return;
-    }
-
-    if (step === 3) {
-      if (role === 'landlord') {
-        const result = landlordSchema.safeParse({
-          companyName: formData.companyName,
-          portfolioSize: formData.portfolioSize,
-          primaryMarket: formData.primaryMarket
-        });
-
-        if (!result.success) {
-          const formattedErrors: Record<string, string> = {};
-          result.error.issues.forEach(issue => {
-            if (issue.path[0]) {
-              formattedErrors[issue.path[0] as string] = issue.message;
-            }
-          });
-          setErrors(formattedErrors);
-          return;
-        }
-      } else if (role === 'property_manager') {
-        const result = propertyManagerSchema.safeParse({
-          companyName: formData.companyName,
-          portfolioSize: formData.portfolioSize,
-          propertyTypes: formData.propertyTypes,
-          managementFee: formData.managementFee
-        });
-
-        if (!result.success) {
-          const formattedErrors: Record<string, string> = {};
-          result.error.issues.forEach(issue => {
-            if (issue.path[0]) {
-              formattedErrors[issue.path[0] as string] = issue.message;
-            }
-          });
-          setErrors(formattedErrors);
-          return;
-        }
-      } else if (role === 'technician') {
-        const result = technicianSchema.safeParse({
-          tradeSpecialty: formData.tradeSpecialty,
-          hourlyRate: formData.hourlyRate,
-          serviceRadius: formData.serviceRadius
-        });
-
-        if (!result.success) {
-          const formattedErrors: Record<string, string> = {};
-          result.error.issues.forEach(issue => {
-            if (issue.path[0]) {
-              formattedErrors[issue.path[0] as string] = issue.message;
-            }
-          });
-          setErrors(formattedErrors);
-          return;
-        }
-      } else {
-        const result = tenantSchema.safeParse({
-          currentAddress: formData.currentAddress,
-          employmentStatus: formData.employmentStatus,
-          monthlyIncome: formData.monthlyIncome
-        });
-
-        if (!result.success) {
-          const formattedErrors: Record<string, string> = {};
-          result.error.issues.forEach(issue => {
-            if (issue.path[0]) {
-              formattedErrors[issue.path[0] as string] = issue.message;
-            }
-          });
-          setErrors(formattedErrors);
-          return;
-        }
-      }
-      setStep(4);
+      handleSubmit();
       return;
     }
   };
@@ -239,28 +164,28 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
   };
 
   // Final submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrors({});
     setApiError('');
 
-    if (role === 'tenant') {
-      const result = tenantPrefsSchema.safeParse({
-        moveInDate: formData.moveInDate,
-        occupantsCount: formData.occupantsCount,
-        hasPets: formData.hasPets
-      });
+    // Re-verify account details are valid
+    const result = step2Schema.safeParse({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      phone: formData.phone
+    });
 
-      if (!result.success) {
-        const formattedErrors: Record<string, string> = {};
-        result.error.issues.forEach(issue => {
-          if (issue.path[0]) {
-            formattedErrors[issue.path[0] as string] = issue.message;
-          }
-        });
-        setErrors(formattedErrors);
-        return;
-      }
+    if (!result.success) {
+      const formattedErrors: Record<string, string> = {};
+      result.error.issues.forEach(issue => {
+        if (issue.path[0]) {
+          formattedErrors[issue.path[0] as string] = issue.message;
+        }
+      });
+      setErrors(formattedErrors);
+      return;
     }
 
     setLoading(true);
@@ -323,7 +248,7 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
   };
 
   // Progress Bar Width
-  const progressPercent = (step / 4) * 100;
+  const progressPercent = (step / 2) * 100;
 
   return (
     <div className="w-full max-w-lg mx-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl overflow-hidden p-8 relative">
@@ -332,20 +257,10 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-            Step {step} of 4
+            Step {step} of 2
           </span>
           <span className="text-xs text-slate-400 dark:text-slate-500">
-            {step === 1 && "Account Type"}
-            {step === 2 && "Account Details"}
-            {step === 3 && (
-              role === 'landlord' ? "Business Profile" : 
-              role === 'property_manager' ? "Company Portfolio" :
-              role === 'technician' ? "Vendor Profile" : "Tenant Profile"
-            )}
-            {step === 4 && (
-              role === 'landlord' || role === 'property_manager' ? "Preferences Summary" : 
-              role === 'technician' ? "Work dispatch info" : "Tenant Preferences"
-            )}
+            {step === 1 ? "Account Type" : "Account Details"}
           </span>
         </div>
         
@@ -358,30 +273,12 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
         </div>
 
         <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">
-          {step === 1 && "Choose Your Workspace Role"}
-          {step === 2 && "Create Your Account"}
-          {step === 3 && (
-            role === 'landlord' ? "Onboarding Your Portfolio" : 
-            role === 'property_manager' ? "Configure Agency Profile" :
-            role === 'technician' ? "Define Maintenance Trade" : "Verify Renting Details"
-          )}
-          {step === 4 && (
-            role === 'landlord' || role === 'property_manager' ? "Tailor Your Experience" : 
-            role === 'technician' ? "Dispatch Timeline" : "Renting Preferences"
-          )}
+          {step === 1 ? "Choose Your Workspace Role" : "Create Your Account"}
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          {step === 1 && "Select the primary role you operate inside the real estate ecosystem."}
-          {step === 2 && "Fill out your credentials. Passwords are validated for security."}
-          {step === 3 && (
-            role === 'landlord' ? "Tell us about the properties and portfolio you manage." : 
-            role === 'property_manager' ? "Define your agency brand size and properties scope." :
-            role === 'technician' ? "Declare your mechanical, civil, or electrical contractor trade." : "Provide basic housing and financial onboarding info."
-          )}
-          {step === 4 && (
-            role === 'landlord' || role === 'property_manager' ? "Select initial proptech tools you plan to operate." : 
-            role === 'technician' ? "Configure on-call service hours and response targets." : "Specify move-in timelines and household requirements."
-          )}
+          {step === 1 
+            ? "Select the primary role you operate inside the real estate ecosystem." 
+            : "Fill out your credentials. Passwords are validated for security."}
         </p>
       </div>
 
@@ -1110,7 +1007,7 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
           </button>
         )}
 
-        {step < 4 ? (
+        {step < 2 ? (
           <button 
             type="button"
             onClick={handleNextStep}
@@ -1122,7 +1019,7 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
           <button 
             type="button"
             disabled={loading}
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             className="ml-auto bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-7 py-3 rounded-xl font-bold transition-all flex items-center gap-2 text-sm shadow-md shadow-indigo-600/15 hover:shadow-indigo-600/25"
           >
             {loading ? (

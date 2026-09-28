@@ -44,6 +44,7 @@ interface AuthContextType {
   signupWithEmail: (email: string, password: string, role: UserRole, name?: string, onboardingData?: Record<string, any>) => Promise<void>;
   loginWithGoogle: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithMicrosoft: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
+  updateProfile: (onboardingData: Record<string, any>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -166,6 +167,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserData(null);
   };
 
+  const updateProfile = async (onboardingData: Record<string, any>) => {
+    const token = getStoredSession();
+    if (!token) throw new Error('Not authenticated');
+    
+    const response = await fetch('/api/auth/me', {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify(onboardingData)
+    });
+    
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Failed to update profile');
+    
+    setUser({
+      uid: payload.user.uid,
+      email: payload.user.email,
+      displayName: payload.user.name,
+      emailVerified: true,
+    });
+    setUserData(payload.user);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -177,6 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signupWithEmail,
       loginWithGoogle,
       loginWithMicrosoft,
+      updateProfile,
     }}>
       {!loading && children}
     </AuthContext.Provider>

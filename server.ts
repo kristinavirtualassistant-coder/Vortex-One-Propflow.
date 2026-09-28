@@ -399,6 +399,78 @@ export function createApp() {
     res.json({ user: req.user });
   });
 
+  app.patch("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      const fields = req.body ?? {};
+      
+      const allowedFields = [
+        'phone',
+        'companyName',
+        'portfolioSize',
+        'primaryMarket',
+        'currentAddress',
+        'monthlyIncome',
+        'employmentStatus',
+        'moveInDate',
+        'occupantsCount',
+        'hasPets',
+        'tradeSpecialty',
+        'hourlyRate',
+        'propertyTypes',
+        'managementFee',
+        'serviceRadius',
+        'emergencyDispatch'
+      ];
+      
+      const filteredFields: Record<string, any> = {};
+      for (const key of allowedFields) {
+        if (fields[key] !== undefined) {
+          filteredFields[key] = fields[key];
+        }
+      }
+      
+      if (global._isUsingLocalFallback) {
+        const updated = localDb.updateUser(req.user!.uid, filteredFields);
+        if (!updated) return res.status(404).json({ error: "User not found" });
+        return res.json({ user: updated });
+      }
+      
+      const updated = await db.update(users)
+        .set(filteredFields)
+        .where(eq(users.id, req.user!.id))
+        .returning({
+          id: users.id,
+          uid: users.uid,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          phone: users.phone,
+          companyName: users.companyName,
+          portfolioSize: users.portfolioSize,
+          primaryMarket: users.primaryMarket,
+          currentAddress: users.currentAddress,
+          monthlyIncome: users.monthlyIncome,
+          employmentStatus: users.employmentStatus,
+          moveInDate: users.moveInDate,
+          occupantsCount: users.occupantsCount,
+          hasPets: users.hasPets,
+          tradeSpecialty: users.tradeSpecialty,
+          hourlyRate: users.hourlyRate,
+          propertyTypes: users.propertyTypes,
+          managementFee: users.managementFee,
+          serviceRadius: users.serviceRadius,
+          emergencyDispatch: users.emergencyDispatch,
+        });
+        
+      if (!updated.length) return res.status(404).json({ error: "User not found" });
+      return res.json({ user: updated[0] });
+    } catch (error: any) {
+      console.error("Error updating user profile:", error);
+      return res.status(500).json({ error: error.message || "Failed to update profile" });
+    }
+  });
+
   app.post("/api/auth/logout", requireAuth, async (req, res) => {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
     if (token) await deleteSession(token);
@@ -420,7 +492,7 @@ export function createApp() {
       }
 
       if (collection === "users") {
-        const result = await pool.query("SELECT id, uid, email, name, role FROM users");
+        const result = await pool.query("SELECT id, uid, email, name, role, phone, company_name, trade_specialty, hourly_rate, service_radius, emergency_dispatch FROM users");
         let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
         const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
         for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
