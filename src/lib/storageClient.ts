@@ -1,7 +1,5 @@
 const authHeaders = () => {
   const headers = new Headers();
-  const token = window.localStorage.getItem('vortex_one_session') || '';
-  if (token) headers.set('Authorization', `Bearer ${token}`);
   return headers;
 };
 
@@ -27,7 +25,7 @@ export const uploadBytesResumable = (storageRef: { path: string }, file: File) =
           const headers = authHeaders();
           headers.set('Content-Type', 'application/json');
           const response = await fetch('/api/storage', {
-            method: 'POST', headers,
+            method: 'POST', headers, credentials: 'same-origin',
             body: JSON.stringify({ path: storageRef.path, name: file.name, type: file.type, data })
           });
           const payload = await response.json();
@@ -44,9 +42,8 @@ export const getDownloadURL = async (storageRef: { downloadURL?: string; path: s
   storageRef.downloadURL || `/api/storage/${encodeURIComponent(storageRef.path)}`;
 
 export const deleteObject = async (storageRef: { path: string }) => {
-  const token = window.localStorage.getItem('vortex_one_session') || '';
   const response = await fetch(`/api/storage/${encodeURIComponent(storageRef.path)}`, {
-    method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {}
+    method: 'DELETE', credentials: 'same-origin'
   });
   if (!response.ok) throw new Error('Unable to delete file');
 };
