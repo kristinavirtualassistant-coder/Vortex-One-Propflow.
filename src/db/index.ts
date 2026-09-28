@@ -1,6 +1,8 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import * as schema from './schema.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const { Pool } = pg;
 
@@ -59,6 +61,20 @@ const runDatabaseMigrations = async () => {
   await pool.query("CREATE TABLE IF NOT EXISTS financial_metrics (id serial PRIMARY KEY, month text NOT NULL, revenue integer NOT NULL, occupancy_rate integer NOT NULL)");
   await pool.query("CREATE TABLE IF NOT EXISTS app_records (id text PRIMARY KEY, owner_uid text NOT NULL, collection text NOT NULL, data jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now())");
   await pool.query("CREATE INDEX IF NOT EXISTS app_records_owner_collection_idx ON app_records(owner_uid, collection)");
+
+  // The property-intelligence schema is part of the production PostgreSQL
+  // data layer. It must be installed on the same database before property
+  // APIs are considered ready.
+  const migrationPath = path.join(process.cwd(), 'db', 'migrations', '001_property_intelligence.sql');
+  if (fs.existsSync(migrationPath)) {
+    await pool.query(fs.readFileSync(migrationPath, 'utf8'));
+  } else {
+    throw new Error('Required property intelligence migration file is missing.');
+  }
+
+  // Session IDs are now stored as SHA-256 hashes of random browser tokens.
+  // Existing sessions are intentionally invalidated during the transition.
+  await pool.query("DELETE FROM sessions");
 };
 
 export const ensureDatabaseReady = async () => {
@@ -69,10 +85,19 @@ export const ensureDatabaseReady = async () => {
         global._isUsingLocalFallback = false;
         console.log("PostgreSQL Database is ready and migrated successfully!");
       } catch (error: any) {
-        console.warn("PostgreSQL connection failed. Activating local persistent JSON storage fallback!", error.message);
-        global._isUsingLocalFallback = true;
+        global._isUsingLocalFallback = false;
+        console.error("PostgreSQL Database is unavailable. Vortex One will not use local JSON fallback storage.", error);
+        throw new Error(`PostgreSQL database is unavailable: ${error?.message || 'connection failed'}`);
       }
     })();
   }
-  return global._databaseReadyPromise;
+
+  try {
+    await global._databaseReadyPromise;
+  } catch (error) {
+    // Allow a later request/serverless invocation to retry after a transient
+    // database outage instead of permanently caching a rejected promise.
+    global._databaseReadyPromise = undefined;
+    throw error;
+  }
 };
