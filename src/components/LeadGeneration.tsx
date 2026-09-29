@@ -3,8 +3,7 @@ import React,{useState} from 'react';
 export default function LeadGeneration(){
   const [q,setQ]=useState(''); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [items,setItems]=useState<any[]>([]);
   async function run(){setLoading(true);setError('');try{
-    const token=localStorage.getItem('vortex_one_session')||'';
-    const r=await fetch('/api/properties/search?q='+encodeURIComponent(q)+'&limit=100',{headers:{Authorization:'Bearer '+token}});
+    const r=await fetch('/api/properties/search?q='+encodeURIComponent(q)+'&limit=100',{credentials:'same-origin'});
     const d=await r.json(); if(!r.ok)throw new Error(d.error||'Lead search failed');
     const ranked=(d.properties||[]).map((p:any)=>{let score=0;const reasons:string[]=[];if(p.vacancy_status==='vacant'){score+=25;reasons.push('Vacant')}if(p.tax_delinquent){score+=25;reasons.push('Tax delinquent')}if(p.pre_foreclosure){score+=30;reasons.push('Pre-foreclosure')}if(p.foreclosure){score+=35;reasons.push('Foreclosure')}if(p.probate){score+=20;reasons.push('Probate')}if(p.owner_occupied===false){score+=15;reasons.push('Absentee owner')}return {...p,score:Math.min(score,100),reasons}}).sort((a:any,b:any)=>b.score-a.score);
     setItems(ranked);
