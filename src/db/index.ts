@@ -139,11 +139,33 @@ const verifyCanonicalSchema = async () => {
   }
 };
 
+export const ensureThreeMinEventsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.integration_events (
+      id varchar PRIMARY KEY,
+      organization_id varchar NULL,
+      source varchar NOT NULL,
+      event_type varchar NOT NULL,
+      external_id varchar NULL,
+      idempotency_key varchar NULL,
+      payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS integration_events_idempotency_key_uq
+      ON public.integration_events (idempotency_key)
+      WHERE idempotency_key IS NOT NULL
+  `);
+};
+
 export const ensureDatabaseReady = async () => {
   if (!global._databaseReadyPromise) {
     global._databaseReadyPromise = (async () => {
       await pool.query('SELECT 1');
       await verifyCanonicalSchema();
+      await ensureThreeMinEventsTable();
       console.log('Supabase PostgreSQL connection and canonical schema verified.');
     })();
   }
