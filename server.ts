@@ -451,82 +451,47 @@ export function createApp() {
   app.get("/api/data/:collection", requireAuth, async (req, res) => {
     try {
       const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        if (collection === "users") {
-          const records = localDb.getUsers().map(u => ({ id: u.id, data: u }));
-          return res.json({ records });
-        }
-        const records = localDb.getRecords(collection, req.user!.uid);
-        return res.json({ records: records.map(r => ({ id: r.id, data: r.data, createdAt: r.created_at })) });
-      }
 
       if (collection === "users") {
-        const result = await pool.query("SELECT id, uid, email, name, role, phone, company_name, trade_specialty, hourly_rate, service_radius, emergency_dispatch FROM users");
+        const result = await pool.query(
+          `SELECT id, email, name, role
+             FROM users
+            WHERE organization_id=$1`,
+          [req.user!.organizationId]
+        );
         let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
         const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
-        for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
-        const orderBy = String(req.query.orderBy || "");
-        const order = String(req.query.order || "asc");
-        if (orderBy) records.sort((a: any, b: any) => String(a.data?.[orderBy] ?? "").localeCompare(String(b.data?.[orderBy] ?? "")));
-        if (order === "desc") records.reverse();
-        const max = Number(req.query.limit || 0); if (max > 0) records = records.slice(0, max);
+        for (const raw of whereParams) {
+          try {
+            const w = JSON.parse(String(raw));
+            records = records.filter((r: any) => r.data?.[w.field] === w.value);
+          } catch {}
+        }
+        const max = Number(req.query.limit || 0);
+        if (max > 0) records = records.slice(0, max);
         return res.json({ records });
       }
-      const result = await pool.query("SELECT id, data, created_at FROM app_records WHERE owner_uid = $1 AND collection = $2", [req.user!.uid, collection]);
-      let records = result.rows.map((row: any) => ({ id: row.id, data: row.data || {}, createdAt: row.created_at }));
-      const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
-      for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
-      const orderBy = String(req.query.orderBy || "");
-      const order = String(req.query.order || "asc");
-      if (orderBy) records.sort((a: any, b: any) => String(a.data?.[orderBy] ?? "").localeCompare(String(b.data?.[orderBy] ?? "")));
-      if (order === "desc") records.reverse();
-      const max = Number(req.query.limit || 0); if (max > 0) records = records.slice(0, max);
-      return res.json({ records });
-    } catch (error: any) { console.error("Data read error:", error); return res.status(500).json({ error: error.message || "Unable to read records" }); }
+
+      return res.status(404).json({ error: "Collection not available in the canonical database model." });
+    } catch (error: any) {
+      console.error("Data read error:", error);
+      return res.status(500).json({ error: error.message || "Unable to read records" });
+    }
   });
 
   app.post("/api/data/:collection", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
-        const rec = localDb.addRecord(collection, req.user!.uid, req.body?.data || {});
-        return res.status(201).json({ id: rec.id });
-      }
-
-      const id = crypto.randomUUID();
-      if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
-      await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, $3, $4::jsonb)", [id, req.user!.uid, collection, JSON.stringify(req.body?.data || {})]);
-      return res.status(201).json({ id });
-    } catch (error: any) { console.error("Data create error:", error); return res.status(500).json({ error: error.message || "Unable to create record" }); }
+    if (String(req.params.collection) === "users") {
+      return res.status(403).json({ error: "User records are managed by authentication." });
+    }
+    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
-  app.patch("/api/data/:collection/:id", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        const rec = localDb.updateRecord(String(req.params.id), collection, req.user!.uid, req.body?.data || {});
-        if (!rec) return res.status(404).json({ error: "Record not found" });
-        return res.json({ id: rec.id });
-      }
-
-      const result = await pool.query("UPDATE app_records SET data = data || $1::jsonb WHERE id = $2 AND owner_uid = $3 AND collection = $4 RETURNING id", [JSON.stringify(req.body?.data || {}), String(req.params.id), req.user!.uid, collection]);
-      if (!result.rows.length) return res.status(404).json({ error: "Record not found" });
-      return res.json({ id: String(req.params.id) });
-    } catch (error: any) { console.error("Data update error:", error); return res.status(500).json({ error: error.message || "Unable to update record" }); }
+  app.patch("/api/data/:collection/:id", requireAuth, async (_req, res) => {
+    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
-  app.delete("/api/data/:collection/:id", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        localDb.deleteRecord(String(req.params.id), collection, req.user!.uid);
-        return res.status(204).end();
-      }
-
-      await pool.query("DELETE FROM app_records WHERE id = $1 AND owner_uid = $2 AND collection = $3", [String(req.params.id), req.user!.uid, collection]);
-      return res.status(204).end();
-    } catch (error: any) { console.error("Data delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete record" }); }
+  app.delete("/api/data/:collection/:id", requireAuth, async (_req, res) => {
+    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
   app.post("/api/storage", requireAuth, async (req, res) => {
