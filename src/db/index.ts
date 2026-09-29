@@ -54,10 +54,10 @@ export const createPool = () => {
 const pool = createPool();
 
 try {
-  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const raw = process.env.DATABASE_URL;
   const target = raw ? new URL(raw) : null;
   console.log('PostgreSQL runtime target:', {
-    source: raw ? (process.env.DATABASE_URL ? 'DATABASE_URL' : 'POSTGRES_URL') : 'SQL_*',
+    source: raw ? 'DATABASE_URL' : 'SQL_*',
     host: target?.hostname || process.env.SQL_HOST || null,
     database: target?.pathname?.replace(/^\\//, '') || process.env.SQL_DB_NAME || null,
   });
