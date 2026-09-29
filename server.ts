@@ -644,8 +644,8 @@ export function createApp() {
       }
 
       const result = await pool.query(
-        "INSERT INTO leads (id,organization_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4::jsonb,$5) RETURNING *",
-        [leadId, req.user!.organizationId, score, JSON.stringify(reasons), propertyId]
+        "INSERT INTO leads (id,organization_id,owner_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING *",
+        [leadId, req.user!.organizationId, req.user!.id, score, JSON.stringify(reasons), propertyId]
       );
       return res.status(201).json({ lead: result.rows[0] });
     } catch (error: any) {
