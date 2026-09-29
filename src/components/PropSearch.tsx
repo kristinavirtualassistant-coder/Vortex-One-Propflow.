@@ -9,8 +9,7 @@ export default function PropSearch(){
   async function search(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{
     const p=new URLSearchParams(); if(q)p.set('q',q); if(state)p.set('state',state); if(type)p.set('propertyType',type);
     if(vacant)p.set('vacant','true'); if(tax)p.set('taxDelinquent','true'); if(pre)p.set('preForeclosure','true'); p.set('limit','100');
-    const token=localStorage.getItem('vortex_one_session')||'';
-    const r=await fetch('/api/properties/search?'+p.toString(),{headers:{Authorization:'Bearer '+token}});
+    const r=await fetch('/api/properties/search?'+p.toString(),{credentials:'same-origin'});
     const d=await r.json(); if(!r.ok)throw new Error(d.error||'Property search failed'); setItems(d.properties||[]);
   }catch(err:any){setError(err.message||'Property search failed')}finally{setLoading(false)}}
   return <div className="max-w-7xl mx-auto space-y-6">
