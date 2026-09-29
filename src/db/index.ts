@@ -1,6 +1,8 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import * as schema from './schema.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const { Pool } = pg;
 
@@ -104,14 +106,22 @@ export const ensureDatabaseReady = async () => {
       try {
         await pool.query('SELECT 1');
         await runDatabaseMigrations();
+        const migrationPath = path.join(process.cwd(), 'db', 'migrations', '001_property_intelligence.sql');
+        if (!fs.existsSync(migrationPath)) throw new Error('Required property intelligence migration file is missing.');
+        await pool.query(fs.readFileSync(migrationPath, 'utf8'));
         global._isUsingLocalFallback = false;
         console.log("PostgreSQL Database is ready and migrated successfully!");
       } catch (error: any) {
-        global._isUsingLocalFallback = true;
-        console.error("PostgreSQL database is unavailable; local fallback is disabled for authentication.", error);
+        global._isUsingLocalFallback = false;
+        console.error("PostgreSQL database is unavailable. Local JSON fallback is disabled.", error);
         throw error;
       }
     })();
   }
-  return global._databaseReadyPromise;
+  try {
+    await global._databaseReadyPromise;
+  } catch (error) {
+    global._databaseReadyPromise = undefined;
+    throw error;
+  }
 };

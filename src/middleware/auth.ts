@@ -39,6 +39,44 @@ export interface AuthRequest extends Request {
 const hashSessionToken = (token: string) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
+export const sessionCookieName = () =>
+  process.env.NODE_ENV === 'production' || process.env.VERCEL
+    ? '__Host-vortex_session'
+    : 'vortex_session';
+
+const parseCookies = (header: string | undefined) =>
+  Object.fromEntries(
+    (header || '')
+      .split(';')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => {
+        const index = part.indexOf('=');
+        return index === -1 ? [part, ''] : [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+      }),
+  );
+
+export const getSessionToken = (req: Request) =>
+  parseCookies(req.headers.cookie)[sessionCookieName()] || null;
+
+export const setSessionCookie = (res: Response, token: string, expiresAt: Date) => {
+  const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+  const attributes = [
+    'Path=/',
+    `Max-Age=${Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))}`,
+    'HttpOnly',
+    'SameSite=Lax',
+    ...(secure ? ['Secure'] : []),
+  ];
+  res.setHeader('Set-Cookie', [`${sessionCookieName()}=${encodeURIComponent(token)}; ${attributes.join('; ')}`]);
+};
+
+export const clearSessionCookie = (res: Response) => {
+  const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+  const attributes = ['Path=/', 'Max-Age=0', 'HttpOnly', 'SameSite=Lax', ...(secure ? ['Secure'] : [])];
+  res.setHeader('Set-Cookie', [`${sessionCookieName()}=; ${attributes.join('; ')}`]);
+};
+
 export const createSession = async (userId: string) => {
   await ensureDatabaseReady();
   const pool = createPool();
@@ -63,8 +101,8 @@ export const requireAuth = async (
   res: Response,
   next: NextFunction
 ) => {
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return res.status(401).json({ error: 'Unauthorized: Missing session token' });
+  const token = getSessionToken(req);
+  if (!token) return res.status(401).json({ error: 'Unauthorized: Missing session cookie' });
 
   try {
     await ensureDatabaseReady();
@@ -88,6 +126,6 @@ export const requireAuth = async (
     return next();
   } catch (error) {
     console.error('Error verifying application session:', error);
-    return res.status(500).json({ error: 'Authentication service unavailable' });
+    return res.status(503).json({ error: 'Authentication service unavailable. PostgreSQL is required.' });
   }
 };

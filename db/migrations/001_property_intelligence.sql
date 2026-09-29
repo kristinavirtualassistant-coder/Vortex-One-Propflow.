@@ -82,7 +82,7 @@ CREATE INDEX IF NOT EXISTS property_sources_source_idx ON property_sources(sourc
 
 CREATE TABLE IF NOT EXISTS property_leads (
   id serial PRIMARY KEY,
-  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id text NOT NULL,
   property_id integer NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   score integer NOT NULL DEFAULT 0,
   reasons jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -94,7 +94,7 @@ CREATE INDEX IF NOT EXISTS property_leads_user_score_idx ON property_leads(user_
 
 CREATE TABLE IF NOT EXISTS saved_property_searches (
   id serial PRIMARY KEY,
-  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id text NOT NULL,
   name text NOT NULL,
   filters jsonb NOT NULL DEFAULT '{}'::jsonb,
   active boolean NOT NULL DEFAULT true,

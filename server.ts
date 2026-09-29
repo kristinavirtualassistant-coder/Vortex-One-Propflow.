@@ -2,10 +2,11 @@ import express from "express";
 import path from "path";
 import crypto from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
+import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { financialMetrics } from "./src/db/schema.js";
-import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
+import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 import { localDb } from "./src/db/localDb.js";
 
 const ai = new GoogleGenAI({
@@ -17,7 +18,6 @@ const ai = new GoogleGenAI({
   }
 });
 
-const hashPassword = (password: string) => crypto.createHash('sha256').update(password).digest('hex');
 const oauthClientId = (provider: 'google' | 'microsoft') =>
   provider === 'google' ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
 const oauthClientSecret = (provider: 'google' | 'microsoft') =>
@@ -65,7 +65,7 @@ const consumeOAuthState = (state: string) => {
   }
 };
 
-const socialPasswordHash = (provider: string, subject: string) =>
+const socialPasswordHash = async (provider: string, subject: string) =>
   hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER || 'vortex-one-social-auth'}`);
 
 const exchangeOAuthCode = async (provider: 'google' | 'microsoft', code: string) => {
@@ -139,8 +139,24 @@ export function createApp() {
   const app = express();
   const PORT = 3000;
 
+  app.disable('x-powered-by');
   app.use(express.json());
 
+  app.get("/api/health", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ status: "ok", service: "vortex-one-propflow" });
+  });
+
+  app.get("/api/ready", async (_req, res) => {
+    try {
+      await ensureDatabaseReady();
+      res.setHeader("Cache-Control", "no-store");
+      return res.json({ status: "ready", database: "postgresql" });
+    } catch (error: any) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(503).json({ status: "not_ready", database: "postgresql", error: error?.message || "Database unavailable" });
+    }
+  });
 
   const pool = createPool();
 
@@ -267,7 +283,7 @@ export function createApp() {
               (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
              VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
              RETURNING ${userColumns}`,
-            [userId, organizationId, profile.email, socialPasswordHash(provider, profile.subject), profile.name, stateData.role, provider, profile.subject, profile.avatarUrl || null]
+            [userId, organizationId, profile.email, await socialPasswordHash(provider, profile.subject), profile.name, stateData.role, provider, profile.subject, profile.avatarUrl || null]
           );
           account = created.rows[0];
           await pool.query('COMMIT');
@@ -288,7 +304,8 @@ export function createApp() {
       }
 
       const session = await createSession(String(account.id));
-      return res.redirect(`/auth/callback?session=${encodeURIComponent(session.id)}`);
+      setSessionCookie(res, session.id, session.expiresAt);
+      return res.redirect('/dashboard');
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error);
       return res.status(500).send(error.message || 'Unable to complete social sign-in');
@@ -314,7 +331,7 @@ export function createApp() {
       const organizationId = crypto.randomUUID();
       const uid = userId;
       const userValues: any[] = [
-        userId, organizationId, uid, normalizedEmail, hashPassword(password),
+        userId, organizationId, uid, normalizedEmail, await hashPassword(password),
         String(name).trim(), role || 'property_manager',
         body.phone ? String(body.phone).trim() : null,
         body.companyName ? String(body.companyName).trim() : null,
@@ -350,7 +367,8 @@ export function createApp() {
         await pool.query('COMMIT');
         const user = toUser(created.rows[0]);
         const session = await createSession(user.id);
-        return res.status(201).json({ user, session });
+        setSessionCookie(res, session.id, session.expiresAt);
+        return res.status(201).json({ user });
       } catch (error) {
         await pool.query('ROLLBACK');
         throw error;
@@ -368,18 +386,27 @@ export function createApp() {
       if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
-      const result = await pool.query(`SELECT ${userColumns}, password_hash FROM users WHERE lower(email)=lower($1) AND disabled_at IS NULL LIMIT 1`, [normalizedEmail]);
+      const result = await pool.query(
+        `SELECT ${userColumns}, password_hash FROM users WHERE lower(email)=lower($1) AND disabled_at IS NULL LIMIT 1`,
+        [normalizedEmail]
+      );
       const user = result.rows[0];
-      if (!user || !user.password_hash || user.password_hash !== hashPassword(String(password))) {
-        return res.status(401).json({ error: "Invalid email or password" });
+      if (!user || !user.password_hash) return res.status(401).json({ error: "Invalid email or password" });
+
+      const verification = await verifyPassword(String(password), user.password_hash);
+      if (!verification.valid) return res.status(401).json({ error: "Invalid email or password" });
+
+      if (verification.needsRehash) {
+        await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [await hashPassword(String(password)), user.id]);
       }
 
       await pool.query('UPDATE users SET last_login_at=now(), uid=COALESCE(uid,id) WHERE id=$1', [user.id]);
       const session = await createSession(String(user.id));
-      return res.json({ user: toUser(user), session });
+      setSessionCookie(res, session.id, session.expiresAt);
+      return res.json({ user: toUser(user) });
     } catch (error: any) {
       console.error("Login error:", error);
-      return res.status(500).json({ error: error.message || "Unable to sign in" });
+      return res.status(503).json({ error: error.message || "Authentication service unavailable" });
     }
   });
 
@@ -414,9 +441,13 @@ export function createApp() {
   });
 
   app.post("/api/auth/logout", requireAuth, async (req, res) => {
-    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
-    if (token) await deleteSession(token);
-    res.status(204).end();
+    try {
+      const token = getSessionToken(req);
+      if (token) await deleteSession(token);
+    } finally {
+      clearSessionCookie(res);
+      res.status(204).end();
+    }
   });
 
 
@@ -812,15 +843,24 @@ const isDirectRun = process.argv[1] && (
 );
 
 if (!process.env.VERCEL && isDirectRun) {
-  const app = createApp();
-  const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+  const start = async () => {
+    try {
+      await ensureDatabaseReady();
+      const app = createApp();
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
-  const listenPort = 3000;
-  app.listen(listenPort, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${listenPort}`);
-  });
+      const listenPort = 3000;
+      app.listen(listenPort, "0.0.0.0", () => {
+        console.log(`Server running on http://0.0.0.0:${listenPort}`);
+      });
+    } catch (error) {
+      console.error('Vortex One startup aborted: PostgreSQL is required.', error);
+      process.exitCode = 1;
+    }
+  };
+  void start();
 }
 
 export default createApp;
