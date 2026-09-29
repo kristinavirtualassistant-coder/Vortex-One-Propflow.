@@ -113,7 +113,7 @@ const verifyCanonicalSchema = async () => {
 
   if (missing.length) {
     throw new Error(
-      `Supabase canonical schema is incomplete. Missing required tables: ${missing.join(', ')}`
+      `PostgreSQL canonical schema is incomplete. Missing required tables: ${missing.join(', ')}`
     );
   }
 
@@ -134,7 +134,7 @@ const verifyCanonicalSchema = async () => {
 
   if (missingUserColumns.length) {
     throw new Error(
-      `Supabase users schema is incomplete. Missing required columns: ${missingUserColumns.join(', ')}`
+      `PostgreSQL users schema is incomplete. Missing required columns: ${missingUserColumns.join(', ')}`
     );
   }
 };
@@ -166,7 +166,7 @@ export const ensureDatabaseReady = async () => {
       await pool.query('SELECT 1');
       await verifyCanonicalSchema();
       await ensureThreeMinEventsTable();
-      console.log('Supabase PostgreSQL connection and canonical schema verified.');
+      console.log('PostgreSQL connection and canonical schema verified.');
     })();
   }
 
