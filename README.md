@@ -1,6 +1,6 @@
-# PropFlow — Next-Gen Property Management Platform
+# Vortex One PropFlow — Property Intelligence Platform
 
-**PropFlow** is an all-in-one property management ecosystem uniting Property Managers, Landlords, Tenants, and Field Contractors into a unified, real-time operating platform.
+**Vortex One PropFlow** is a multi-tenant property intelligence platform for authenticated users, property data, owner intelligence, lead scoring, search, and AI-assisted workflows.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 19, TypeScript, Tailwind CSS v4, Motion, Lucide Icons, Recharts |
-| **Backend / API** | Node.js, Express, tsx, esbuild |
+| **Frontend** | React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Recharts |
+| **Backend / API** | Node.js, Express, tsx |
 | **Authentication & Realtime** | Supabase PostgreSQL-backed sessions and canonical multi-tenant application data, without fabricated demo data |
 | **AI Integration** | Google GenAI SDK (`@google/genai`) with Gemini models |
 | **Database** | PostgreSQL / Drizzle ORM |
@@ -53,7 +53,7 @@
 
 ### 1. Prerequisites
 - **Node.js**: `v20.x` or higher
-- **npm** or **bun**
+- **npm 10+**
 
 ### 2. Installation
 
@@ -67,7 +67,7 @@ npm install
 
 Create a `.env` file based on `.env.example`.
 
-For hosted deployments, set the Supabase `DATABASE_URL`, `APP_URL`, and OAuth/AI secrets in the Vercel project environment. Do not commit real credentials.
+For hosted deployments, set `DATABASE_URL`, `APP_URL`, and the OAuth/AI secrets in the deployment environment. Do not commit real credentials. Do not commit real credentials.
 
 
 ### 4. Database contract
@@ -88,11 +88,10 @@ The app will be accessible at `http://localhost:3000`.
 
 ### 6. Production Build
 
-Compile both frontend assets and backend server bundle:
+Build the frontend assets:
 
 ```bash
 npm run build
-npm start
 ```
 
 ---
@@ -106,3 +105,20 @@ PropFlow does not ship with fabricated user accounts, demo personas, sample prop
 - **Server-Side API Keys**: All AI and third-party API credentials remain strictly server-side.
 - **Role-Based Access**: Granular permission checks ensure users access only their authorized portals.
 - **Parameterized Queries**: Secure SQL queries through Drizzle ORM prevent injection vulnerabilities.
+
+
+## Validation
+
+The repository uses npm as its package manager. CI runs:
+
+```bash
+npm ci
+npm run typecheck
+npm run build
+```
+
+There is currently no application test suite wired into CI. Adding one is tracked as engineering follow-up work.
+
+## Database migrations
+
+The repository contains legacy property-intelligence migrations alongside the newer organization-scoped PostgreSQL schema. These histories are not interchangeable. Do not apply `db/migrations/001_property_intelligence.sql` and `002_postgis_property_spatial.sql` blindly to production until they are reconciled with the canonical schema in `src/db/schema.ts`.
