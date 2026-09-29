@@ -216,6 +216,22 @@ export function createApp() {
     }
   });
 
+  app.get("/api/integrations/gis-cloud/maps", requireAuth, async (_req, res) => {
+    try {
+      const token = String(process.env.GIS_CLOUD_ACCESS_TOKEN || "").trim();
+      const baseUrl = String(process.env.GIS_CLOUD_API_BASE_URL || "https://api.giscloud.com").replace(/\/$/, "");
+      if (!token) return res.status(503).json({ error: "GIS Cloud access token is not configured" });
+      const response = await fetch(`${baseUrl}/1/maps`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) return res.status(response.status).json({ error: payload?.error || "GIS Cloud request failed" });
+      const maps = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.maps) ? payload.maps : [];
+      return res.json({ maps });
+    } catch (error: any) {
+      console.error("GIS Cloud maps error:", error);
+      return res.status(500).json({ error: error?.message || "Unable to load GIS Cloud maps" });
+    }
+  });
+
   app.get("/api/health", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.json({ status: "ok", service: "vortex-one-propflow" });
