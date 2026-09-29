@@ -23,13 +23,30 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Hardened entity validation helper
+    // Hardened entity validation helpers
     function isValidMaintenanceRequest(data) {
       return data.keys().hasAll(['title', 'description', 'status'])
         && data.keys().hasOnly(['title', 'description', 'status', 'priority', 'category', 'createdAt', 'propertyId', 'updatedAt'])
         && data.title is string && data.title.size() <= 100
         && data.description is string && data.description.size() <= 2000
         && data.status is string && data.status in ['pending', 'assigned', 'completed'];
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'name'])
+        && data.keys().hasOnly(['email', 'name', 'role', 'organizationId', 'avatarUrl', 'createdAt', 'updatedAt'])
+        && data.email is string && data.email.size() <= 200
+        && data.name is string && data.name.size() <= 200;
+    }
+
+    match /users/{userId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId) && isValidUser(incoming())
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'updatedAt'])
+        );
+      allow delete: if false;
     }
 
     match /maintenance_requests/{requestId} {

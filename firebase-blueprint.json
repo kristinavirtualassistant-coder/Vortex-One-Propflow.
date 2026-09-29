@@ -39,12 +39,45 @@
         }
       },
       "required": ["title", "description", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user profile in Vortex One PropFlow.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User's unique email address."
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name or display name."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["property_manager", "admin", "landlord", "tenant", "technician"],
+          "description": "Assigned user permission role."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "ID of the organization they belong to."
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Optional profile photo URL."
+        }
+      },
+      "required": ["email", "name", "role"]
     }
   },
   "firestore": {
     "maintenance_requests": {
       "schema": "MaintenanceRequest",
       "description": "Real-time tenant maintenance service request collection."
+    },
+    "users": {
+      "schema": "User",
+      "description": "User account profiles and metadata."
     }
   }
 }
