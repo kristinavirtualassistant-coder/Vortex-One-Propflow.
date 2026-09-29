@@ -49,13 +49,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-const getStoredSession = () => {
-  try {
-    return window.localStorage.getItem('vortex_one_session');
-  } catch {
-    return null;
-  }
-};
 
 const startOAuth = (provider: 'google' | 'microsoft', role?: UserRole, isSignUp?: boolean) => {
   const params = new URLSearchParams();
@@ -70,33 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const loadSession = async () => {
-    let token = getStoredSession();
-
-    // OAuth callbacks return a short-lived application session in the URL.
-    // Consume it once, persist it for the normal session flow, and remove it
-    // from the address bar so the token is not left in browser history.
     try {
-      const params = new URLSearchParams(window.location.search);
-      const callbackSession = params.get('session');
-      if (callbackSession) {
-        token = callbackSession;
-        window.localStorage.setItem('vortex_one_session', callbackSession);
-        const cleanUrl = `${window.location.pathname}${window.location.hash}`;
-        window.history.replaceState({}, document.title, cleanUrl);
-      }
-    } catch {
-      // Fall back to the existing stored session.
-    }
-
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
       if (!response.ok) throw new Error('Session expired');
       const data = await response.json();
       setUser({
@@ -107,7 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       setUserData(data.user);
     } catch {
-      window.localStorage.removeItem('vortex_one_session');
       setUser(null);
       setUserData(null);
     } finally {
@@ -155,35 +122,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    const token = getStoredSession();
-    if (token) {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => undefined);
-    }
-    window.localStorage.removeItem('vortex_one_session');
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    }).catch(() => undefined);
     setUser(null);
     setUserData(null);
   };
 
   const updateProfile = async (onboardingData: Record<string, any>) => {
-    const token = getStoredSession();
-    if (!token) throw new Error('Not authenticated');
-    
     const response = await fetch('/api/auth/me', {
       method: 'PATCH',
       credentials: 'same-origin',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(onboardingData)
     });
-    
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || 'Failed to update profile');
-    
     setUser({
       uid: payload.user.uid,
       email: payload.user.email,
