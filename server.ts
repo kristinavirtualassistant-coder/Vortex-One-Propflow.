@@ -5,6 +5,7 @@ import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
+import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = new GoogleGenAI({
@@ -206,6 +207,68 @@ export function createApp() {
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
+
+
+
+  app.post("/api/integrations/3min/webhook", express.raw({ type: "application/json", limit: THREE_MIN_MAX_BODY_BYTES }), async (req, res) => {
+    try {
+      if (!verifyThreeMinBodySize(req.headers["content-length"])) {
+        return res.status(413).json({ error: "Webhook payload too large" });
+      }
+
+      const rawBody = Buffer.isBuffer(req.body)
+        ? req.body.toString("utf8")
+        : JSON.stringify(req.body ?? {});
+
+      const verification = verifyThreeMinWebhook(rawBody, req.headers);
+      if (!verification.valid) {
+        return res.status(401).json({ error: verification.reason || "Webhook authentication failed" });
+      }
+
+      let body: any;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return res.status(400).json({ error: "Invalid JSON payload" });
+      }
+
+      const event = parseThreeMinEvent(body);
+      if (!event.organizationId) {
+        return res.status(400).json({ error: "organization_id is required" });
+      }
+
+      await ensureDatabaseReady();
+
+      const eventId = crypto.randomUUID();
+      const insert = await pool.query(
+        `INSERT INTO integration_events
+           (id, organization_id, source, event_type, external_id, idempotency_key, payload)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+         ON CONFLICT (idempotency_key)
+         WHERE idempotency_key IS NOT NULL
+         DO NOTHING
+         RETURNING id`,
+        [
+          eventId,
+          event.organizationId,
+          event.source,
+          event.eventType,
+          event.externalId,
+          event.idempotencyKey,
+          JSON.stringify(event.payload ?? {}),
+        ],
+      );
+
+      return res.status(insert.rows.length ? 201 : 200).json({
+        accepted: true,
+        duplicate: insert.rows.length === 0,
+        event_id: insert.rows[0]?.id || null,
+      });
+    } catch (error: any) {
+      console.error("3Min webhook error:", error);
+      return res.status(500).json({ error: "Unable to process 3Min webhook" });
+    }
+  });
 
   app.get("/api/health", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
