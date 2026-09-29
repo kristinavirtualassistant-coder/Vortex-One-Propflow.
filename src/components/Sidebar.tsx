@@ -15,7 +15,6 @@ import {
   Menu,
   MessageSquare,
   Search,
-  Settings,
   ShieldCheck,
   Sparkles,
   Users,
