@@ -494,64 +494,18 @@ export function createApp() {
     return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
-  app.post("/api/storage", requireAuth, async (req, res) => {
-    try {
-      const { path: storagePath, name, type, data } = req.body || {};
-      if (!storagePath || !data) return res.status(400).json({ error: "File path and data are required" });
-      if (Buffer.byteLength(String(data), "utf8") > 5000000) return res.status(413).json({ error: "File is too large for this upload path." });
-
-      if (global._isUsingLocalFallback) {
-        const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
-        const rec = localDb.addRecord('_storage', req.user!.uid, record);
-        return res.status(201).json({ id: rec.id, downloadURL: "/api/storage/" + encodeURIComponent(String(storagePath)) });
-      }
-
-      const id = crypto.randomUUID();
-      const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
-      await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, '_storage', $3::jsonb)", [id, req.user!.uid, JSON.stringify(record)]);
-      return res.status(201).json({ id, downloadURL: "/api/storage/" + encodeURIComponent(String(storagePath)) });
-    } catch (error: any) { console.error("Storage upload error:", error); return res.status(500).json({ error: error.message || "Unable to upload file" }); }
+  // File storage is intentionally not implemented through the database.
+  // The canonical platform uses Supabase Storage with its own RLS policies.
+  app.post("/api/storage", requireAuth, async (_req, res) => {
+    return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
   });
 
-  app.get("/api/storage/:path", requireAuth, async (req, res) => {
-    try {
-      const storagePath = decodeURIComponent(String(req.params.path));
-      if (global._isUsingLocalFallback) {
-        const records = localDb.getRecords('_storage', req.user!.uid);
-        const matchRec = [...records].reverse().find(r => r.data?.path === storagePath);
-        if (!matchRec) return res.status(404).send("File not found");
-        const record = matchRec.data;
-        const match = String(record.data).match(/^data:([^;]+);base64,(.+)$/s);
-        if (!match) return res.status(500).send("Stored file is invalid");
-        res.setHeader("Content-Type", record.type || match[1]);
-        return res.send(Buffer.from(match[2], "base64"));
-      }
-
-      const result = await pool.query("SELECT data FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2 ORDER BY created_at DESC LIMIT 1", [req.user!.uid, storagePath]);
-      if (!result.rows.length) return res.status(404).send("File not found");
-      const record: any = result.rows[0].data;
-      const match = String(record.data).match(/^data:([^;]+);base64,(.+)$/s);
-      if (!match) return res.status(500).send("Stored file is invalid");
-      res.setHeader("Content-Type", record.type || match[1]);
-      return res.send(Buffer.from(match[2], "base64"));
-    } catch (error: any) { console.error("Storage download error:", error); return res.status(500).send("Unable to download file"); }
+  app.get("/api/storage/:path", requireAuth, async (_req, res) => {
+    return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
   });
 
-  app.delete("/api/storage/:path", requireAuth, async (req, res) => {
-    try {
-      const storagePath = decodeURIComponent(String(req.params.path));
-      if (global._isUsingLocalFallback) {
-        const records = localDb.getRecords('_storage', req.user!.uid);
-        const matchRec = records.find(r => r.data?.path === storagePath);
-        if (matchRec) {
-          localDb.deleteRecord(matchRec.id, '_storage', req.user!.uid);
-        }
-        return res.status(204).end();
-      }
-
-      await pool.query("DELETE FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2", [req.user!.uid, storagePath]);
-      return res.status(204).end();
-    } catch (error: any) { console.error("Storage delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete file" }); }
+  app.delete("/api/storage/:path", requireAuth, async (_req, res) => {
+    return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
   });
 
   // Property Intelligence API
