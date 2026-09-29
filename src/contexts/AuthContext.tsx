@@ -122,13 +122,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authenticate = async (url: string, body: Record<string, unknown>) => {
     const response = await fetch(url, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || 'Authentication failed');
 
-    window.localStorage.setItem('vortex_one_session', payload.session.id);
     setUser({
       uid: payload.user.uid,
       email: payload.user.email,
@@ -173,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const response = await fetch('/api/auth/me', {
       method: 'PATCH',
+      credentials: 'same-origin',
       headers: { 
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}` 
