@@ -20,19 +20,18 @@ This cleanup branch removes verified obsolete repository artifacts without chang
 
 ## Deliberately not changed
 
-- `package-lock.json`: it is inconsistent with the current `package.json`, but a valid regenerated lockfile requires running npm against the current dependency graph. It must be regenerated before merging this branch.
 - `db/migrations/*`: migration history contains two schema generations and requires reconciliation rather than blind deletion.
+- `db/migrations/*`: migration history contains two schema generations and requires reconciliation rather than blind deletion.
+- The remaining four moderate npm audit findings in the `drizzle-kit` → `@esbuild-kit` development-only dependency chain; npm's automatic fix would downgrade `drizzle-kit` to 0.18.1, so this is deferred rather than forced.
 - `src/lib/dataClient.ts` and `src/lib/storageClient.ts`: current components still depend on their compatibility API.
 - Authentication architecture and PostgreSQL schema architecture.
 - Active/open branches and pull requests.
 
 ## Remaining engineering work
 
-1. Regenerate `package-lock.json` from the current `package.json`.
-2. Run `npm ci`, typecheck, and production build from a clean checkout.
-3. Remove only dependencies proven unused after the regenerated lockfile is validated.
-4. Reconcile PostgreSQL migration history with `src/db/schema.ts`.
-5. Review unreferenced API routes against external consumers.
-6. Add a real automated test command and CI test stage.
-7. Synchronize README deployment and package-manager documentation.
-8. Review stale branches and close/archive them only after confirming no required commits remain.
+1. Reconcile PostgreSQL migration history with `src/db/schema.ts`.
+2. Review the remaining Drizzle Kit development dependency vulnerability chain and upgrade when a non-breaking patched path is available.
+3. Review unreferenced API routes against external consumers.
+4. Add a real automated test command and CI test stage.
+5. Synchronize README deployment and package-manager documentation.
+6. Review stale branches and close/archive them only after confirming no required commits remain.
