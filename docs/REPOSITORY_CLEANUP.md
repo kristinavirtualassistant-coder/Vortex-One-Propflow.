@@ -29,9 +29,20 @@ This cleanup branch removes verified obsolete repository artifacts without chang
 
 ## Remaining engineering work
 
-1. Reconcile PostgreSQL migration history with `src/db/schema.ts`.
+1. Reconcile PostgreSQL migration history with `src/db/schema.ts` before any production migration is applied.
 2. Review the remaining Drizzle Kit development dependency vulnerability chain and upgrade when a non-breaking patched path is available.
-3. Review unreferenced API routes against external consumers.
+3. Review unreferenced API routes against external consumers and define the role/permission matrix before adding backend RBAC enforcement.
 4. Add a real automated test command and CI test stage.
 5. Synchronize README deployment and package-manager documentation.
 6. Review stale branches and close/archive them only after confirming no required commits remain.
+
+
+## Latest validation
+
+- `npm ci` passes in GitHub Actions.
+- `npm run typecheck` passes in GitHub Actions.
+- `npm run build` passes in GitHub Actions.
+- The previous high-severity `nanoid` audit finding and the `qs` findings were patched through lockfile-backed npm overrides.
+- Four moderate development-only findings remain in the `drizzle-kit` → `@esbuild-kit` chain; automatic remediation would require a breaking Drizzle Kit downgrade and was not applied.
+- Vercel's GitHub status continues to report a platform build-rate limit; this is not a repository build failure.
+- No production deployment or database migration was performed.
