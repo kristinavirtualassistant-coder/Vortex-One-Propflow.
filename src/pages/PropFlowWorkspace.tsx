@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link2, Search, Activity, Database, Wrench, Users, FileText, MessageSquare, Bot, Settings, RefreshCw, CheckCircle2, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react';
+import { Link2, Search, Activity, Database, Wrench, Users, FileText, MessageSquare, Bot, Settings, RefreshCw, CheckCircle2, AlertTriangle, ArrowRight, ExternalLink, MapPinned } from 'lucide-react';
 
 type Module = { id:string; label:string; description:string; icon:React.ElementType; href:string; status:'live'|'partial'|'blocked' };
 
@@ -12,6 +12,7 @@ const modules: Module[] = [
   {id:'communications',label:'Communications',description:'Messages and operational coordination',icon:MessageSquare,href:'/dashboard/communications',status:'partial'},
   {id:'documents',label:'Documents & leasing',description:'Leases, files and compliance records',icon:FileText,href:'/dashboard/documents',status:'partial'},
   {id:'ai',label:'AI assistant',description:'Server-side Gemini workflows',icon:Bot,href:'/dashboard/ai',status:'live'},
+  {id:'gis',label:'GIS & mapping',description:'GIS Cloud maps, layers and spatial intelligence',icon:MapPinned,href:'/dashboard/gis',status:'live'},
   {id:'integrations',label:'Integrations',description:'Real connection health and webhooks',icon:Link2,href:'/dashboard/integrations',status:'live'},
   {id:'settings',label:'Security & settings',description:'Account, access and configuration',icon:Settings,href:'/dashboard/security',status:'live'}
 ];
