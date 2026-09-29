@@ -970,7 +970,7 @@ const isDirectRun = process.argv[1] && (
   process.argv[1] === "server.cjs"
 );
 
-if (!process.env.VERCEL && isDirectRun) {
+if (!process.env.FIREBASE_CONFIG && isDirectRun) {
   const start = async () => {
     try {
       await ensureDatabaseReady();
