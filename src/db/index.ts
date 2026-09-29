@@ -12,7 +12,7 @@ declare global {
 
 export const createPool = () => {
   if (!global._postgresPool) {
-    const rawConnectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    const rawConnectionString = process.env.DATABASE_URL;
     let connectionString = rawConnectionString;
     if (connectionString) {
       // pg-connection-string lets sslmode in the URL override the ssl object.
@@ -30,7 +30,7 @@ export const createPool = () => {
     }
     global._postgresPool = new Pool(connectionString ? {
       connectionString,
-      max: 10,
+      max: 1,
       connectionTimeoutMillis: 15000,
       ssl: { rejectUnauthorized: false },
     } : {
