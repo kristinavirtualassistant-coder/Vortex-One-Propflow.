@@ -12,12 +12,27 @@ declare global {
 
 export const createPool = () => {
   if (!global._postgresPool) {
-    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    const rawConnectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    let connectionString = rawConnectionString;
+    if (connectionString) {
+      // pg-connection-string lets sslmode in the URL override the ssl object.
+      // Remove libpq SSL-mode overrides so the explicit runtime policy below wins.
+      try {
+        const parsed = new URL(connectionString);
+        parsed.searchParams.delete('sslmode');
+        parsed.searchParams.delete('sslrootcert');
+        parsed.searchParams.delete('sslcert');
+        parsed.searchParams.delete('sslkey');
+        connectionString = parsed.toString();
+      } catch {
+        // Fall back to the raw connection string; pg will report a clear error if invalid.
+      }
+    }
     global._postgresPool = new Pool(connectionString ? {
       connectionString,
       max: 10,
       connectionTimeoutMillis: 15000,
-      ssl: connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
+      ssl: { rejectUnauthorized: false },
     } : {
       host: process.env.SQL_HOST,
       port: process.env.SQL_PORT ? Number(process.env.SQL_PORT) : undefined,
@@ -26,7 +41,7 @@ export const createPool = () => {
       database: process.env.SQL_DB_NAME,
       max: 10,
       connectionTimeoutMillis: 15000,
-      ssl: process.env.SQL_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      ssl: process.env.SQL_SSL === 'true' || String(process.env.SQL_HOST || '').includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
     });
 
     global._postgresPool.on('error', (err) => {
