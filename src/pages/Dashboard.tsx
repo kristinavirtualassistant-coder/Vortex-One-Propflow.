@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LogOut, Menu, Moon, Sun, User as UserIcon, X, AlertTriangle } from 'lucide-react';
+import { LogOut, Menu, Moon, Sun, User as UserIcon, X, Activity, Search, Sparkles } from 'lucide-react';
 import TenantPortal from './portals/TenantPortal';
 import TechnicianPortal from './portals/TechnicianPortal';
 import PropertyManagerPortal from './portals/PropertyManagerPortal';
@@ -162,73 +162,63 @@ export default function Dashboard() {
   };
 
   const getSidebarLinks = () => {
-    // We group them into 'Analytics', 'Property Management', 'Maintenance', 'Workspace & AI', 'Administrative'
     const links = [
-      { id: 'dashboard', label: 'Dashboard', section: 'Analytics' },
+      { id: 'dashboard', label: 'Overview', section: 'Command Center' },
     ];
 
     if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'landlord') {
-      links.push({ id: 'analytics', label: 'Advanced Analytics', section: 'Analytics' });
+      links.push({ id: 'analytics', label: 'Analytics', section: 'Command Center' });
     }
 
     links.push(
-      { id: 'messages', label: 'Messages & Alerts', section: 'Property Management' },
-      { id: 'financials', label: 'Financials & Payments', section: 'Analytics' },
-      { id: 'utilities', label: 'Utility Tracking', section: 'Analytics' },
-      { id: 'leasing', label: 'Leasing & Documents', section: 'Property Management' }
+      { id: 'zillow', label: 'Property Search', section: 'Portfolio' },
+      { id: 'prospecting', label: 'Prospecting', section: 'Growth' },
+      { id: 'crm', label: 'CRM & Workflows', section: 'Growth' },
+      { id: 'leads', label: 'Leads', section: 'Growth' },
+      { id: 'leasing', label: 'Leasing & Documents', section: 'Portfolio' },
+      { id: 'maintenance', label: 'Maintenance & Ops', section: 'Operations' },
+      { id: 'messages', label: 'Messages', section: 'Operations' },
+      { id: 'utilities', label: 'Utilities', section: 'Operations' },
+      { id: 'vendors', label: 'Vendors', section: 'Operations' },
+      { id: 'financials', label: 'Financials', section: 'Portfolio' },
+      { id: 'documents', label: 'Documents', section: 'Portfolio' },
+      { id: 'communications', label: 'Communications', section: 'Operations' }
     );
-    
-    if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'tenant' || userData.role === 'technician') {
-      links.push({ id: 'maintenance', label: 'Maintenance & Ops', section: 'Maintenance' });
-    }
-    
+
     if (userData.role === 'property_manager' || userData.role === 'admin') {
-      links.push({ id: 'vendors', label: 'Vendor Directory', section: 'Maintenance' });
-      links.push({ id: 'bidding', label: 'Vendor Bidding', section: 'Maintenance' });
-      links.push({ id: 'directory', label: 'Global Directory', section: 'Property Management' });
-      links.push({ id: 'documents', label: 'Document Center', section: 'Property Management' });
-      links.push({ id: 'crm', label: 'CRM & Workflows', section: 'Property Management' });
-      links.push({ id: 'communications', label: 'Communications', section: 'Property Management' });
-    }
-    
-    if (userData.role === 'technician') {
-      links.push({ id: 'invoicing', label: 'Work Order Invoicing', section: 'Maintenance' });
+      links.push({ id: 'directory', label: 'Directory', section: 'Operations' });
+      links.push({ id: 'bidding', label: 'Vendor Bidding', section: 'Operations' });
     }
 
-    if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'landlord') {
-      links.push({ id: 'prospecting', label: 'Prospecting & Sourcing', section: 'Property Management' });
+    if (userData.role === 'technician') {
+      links.push({ id: 'invoicing', label: 'Work Order Invoicing', section: 'Operations' });
     }
-    
+
     if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'landlord' || userData.role === 'technician') {
-      links.push({ id: 'integrations', label: 'Integrations & AI Agents', section: 'Workspace & AI' });
-      links.push({ id: 'workspace', label: 'Google Workspace', section: 'Workspace & AI' });
+      links.push({ id: 'integrations', label: 'Integrations', section: 'Automation' });
+      links.push({ id: 'chatbot', label: 'AI Assistant', section: 'Automation' });
+      links.push({ id: 'workspace', label: 'Google Workspace', section: 'Automation' });
     }
-    
-    links.push({ id: 'zillow', label: 'Prop Search', section: 'Property Management' });
-    links.push({ id: 'support', label: 'Customer Support', section: 'Administrative' });
-    links.push({ id: 'chatbot', label: 'AI Assistant', section: 'Workspace & AI' });
 
     if (userData.role === 'property_manager' || userData.role === 'admin') {
       links.push(
-        { id: 'billing', label: 'Subscription & Billing', section: 'Administrative' },
-        { id: 'security', label: 'Security & Access', section: 'Administrative' },
-        { id: 'cloud', label: 'Cloud Archives', section: 'Administrative' }
+        { id: 'billing', label: 'Subscription & Billing', section: 'Administration' },
+        { id: 'security', label: 'Security & Access', section: 'Administration' }
       );
     } else {
-      links.push(
-        { id: 'security', label: 'Security & Settings', section: 'Administrative' }
-      );
+      links.push({ id: 'security', label: 'Security & Settings', section: 'Administration' });
     }
 
-    // Filter out duplicates if any
-    const uniqueLinks = Array.from(new Map(links.map(item => [item.id, item])).values());
-    return uniqueLinks;
+    links.push({ id: 'support', label: 'Support', section: 'Administration' });
+
+    return Array.from(new Map(links.map(item => [item.id, item])).values());
   };
 
   const sidebarLinks = getSidebarLinks();
+  const activeLabel = sidebarLinks.find(link => link.id === activeTab)?.label ?? 'Overview';
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden dark:bg-slate-950 dark:text-slate-100">
+    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden dark:bg-slate-950 dark:text-slate-100 selection:bg-indigo-100 selection:text-indigo-900 dark:selection:bg-indigo-900/50 dark:selection:text-white">
       <Sidebar 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
@@ -240,8 +230,8 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 flex-shrink-0">
-          <div className="flex items-center gap-4 flex-1">
+        <header className="h-[72px] bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between px-5 sm:px-8 flex-shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
               className="md:hidden text-slate-500 hover:text-slate-900 dark:hover:text-white"
               onClick={() => setIsSidebarOpen(true)}
@@ -249,9 +239,13 @@ export default function Dashboard() {
               <Menu className="h-6 w-6" />
             </button>
             <GlobalSearch />
+            <div className="hidden xl:flex items-center gap-2 ml-2 px-3 py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400">
+              <Activity className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Command Center</span>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button onClick={toggleTheme} className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors" aria-label="Toggle Theme">
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
@@ -269,8 +263,29 @@ export default function Dashboard() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950 p-6">
-          {renderPortal()}
+        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.07),transparent_28%),linear-gradient(to_bottom,#f8fafc,#f1f5f9)] dark:bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_28%),linear-gradient(to_bottom,#020617,#0f172a)] p-4 sm:p-6">
+          <div className="max-w-[1600px] mx-auto">
+            <div className="flex items-center justify-between gap-4 mb-5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Vortex One
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white truncate">{activeLabel}</h1>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Live
+                  </span>
+                </div>
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <Search className="h-3.5 w-3.5" />
+                <span>Search, navigate, act</span>
+              </div>
+            </div>
+            {renderPortal()}
+          </div>
         </div>
         
         {/* Status Bar */}
