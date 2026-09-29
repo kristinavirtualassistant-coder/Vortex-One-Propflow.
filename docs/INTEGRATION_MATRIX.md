@@ -46,3 +46,18 @@ Receiver behavior:
 ## Verification
 
 The API contract is derived from the current `server.ts` implementation. Keep this document synchronized whenever routes or integration behavior changes.
+
+
+## GIS Cloud
+
+PropFlow now treats GIS Cloud as a first-class spatial integration.
+
+- UI route: `/dashboard/gis`
+- Server route: `GET /api/integrations/gis-cloud/maps`
+- Required server credential: `GIS_CLOUD_ACCESS_TOKEN`
+- Optional API base URL: `GIS_CLOUD_API_BASE_URL` (defaults to `https://api.giscloud.com`)
+- The UI lists live GIS Cloud maps and opens each map using its editor URL.
+- GIS Cloud supports maps, layers, feature queries/edits, spatial SQL, files/imports, tables, MDC forms, bookmarks and basemaps; deeper write operations should be added behind explicit server-side authorization and audit logging.
+
+### Verified GIS Cloud account context
+The connected GIS Cloud account currently exposes 22 maps, including the existing **Vortex One Property Intelligence** map (ID 3302957) plus MDC/sample maps.
