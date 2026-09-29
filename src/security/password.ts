@@ -1,7 +1,19 @@
 import crypto from 'node:crypto';
-import { promisify } from 'node:util';
-
-const scryptAsync = promisify(crypto.scrypt);
+const scryptAsync = (
+  password: string,
+  salt: crypto.BinaryLike,
+  keylen: number,
+  options: crypto.ScryptOptions,
+): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, keylen, options, (error, derivedKey) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(derivedKey);
+    });
+  });
 const SCRYPT_N = 32768;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
@@ -14,7 +26,7 @@ export const hashPassword = async (password: string): Promise<string> => {
     r: SCRYPT_R,
     p: SCRYPT_P,
     maxmem: 64 * 1024 * 1024,
-  }) as Buffer;
+  });
 
   return `$scrypt$N=${SCRYPT_N},r=${SCRYPT_R},p=${SCRYPT_P}$${salt.toString('base64url')}$${derivedKey.toString('base64url')}`;
 };

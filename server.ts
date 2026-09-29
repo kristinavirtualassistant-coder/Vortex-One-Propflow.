@@ -67,7 +67,14 @@ const consumeOAuthState = (state: string) => {
 };
 
 const socialPasswordHash = async (provider: string, subject: string) =>
-  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER || 'vortex-one-social-auth'}`);
+  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER ?? (() => { throw new Error('SOCIAL_AUTH_PEPPER is not configured'); })()}`);
+
+const allowedRegistrationRoles = new Set(['landlord', 'property_manager', 'technician', 'tenant']);
+
+const normalizeRegistrationRole = (value: unknown) => {
+  const role = String(value || '').trim().toLowerCase();
+  return allowedRegistrationRoles.has(role) ? role : 'property_manager';
+};
 
 const exchangeOAuthCode = async (provider: 'google' | 'microsoft', code: string) => {
   const body = new URLSearchParams({
@@ -141,7 +148,7 @@ export function createApp() {
   const PORT = 3000;
 
   app.disable('x-powered-by');
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
 
   app.get("/api/health", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -215,7 +222,7 @@ export function createApp() {
 
   app.get("/api/auth/google/start", (req, res) => {
     try {
-      const state = createOAuthState('google', String(req.query.role || 'property_manager'));
+      const state = createOAuthState('google', normalizeRegistrationRole(req.query.role));
       return res.redirect(oauthAuthorizationUrl('google', state));
     } catch (error: any) {
       const missing = [
@@ -230,7 +237,7 @@ export function createApp() {
 
   app.get("/api/auth/microsoft/start", (req, res) => {
     try {
-      const state = createOAuthState('microsoft', String(req.query.role || 'property_manager'));
+      const state = createOAuthState('microsoft', normalizeRegistrationRole(req.query.role));
       return res.redirect(oauthAuthorizationUrl('microsoft', state));
     } catch (error: any) {
       const missing = [
@@ -320,11 +327,19 @@ export function createApp() {
     try {
       await ensureDatabaseReady();
       const body = req.body ?? {};
-      const { email, password, role, name } = body;
+      const { email, password, name } = body;
+      const role = normalizeRegistrationRole(body.role);
       if (!email || !password || !name) return res.status(400).json({ error: "Name, email, and password are required" });
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
+      const existingUser = await pool.query(
+        'SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1',
+        [normalizedEmail]
+      );
+      if (existingUser.rows.length) {
+        return res.status(409).json({ error: 'An account with that email already exists. Please sign in instead.' });
+      }
       const userId = crypto.randomUUID();
       const organizationId = crypto.randomUUID();
       const uid = userId;
@@ -373,6 +388,9 @@ export function createApp() {
       }
     } catch (error: any) {
       console.error("Signup error:", error);
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: 'An account with that email already exists. Please sign in instead.' });
+      }
       return res.status(500).json({ error: error.message || "Unable to create account" });
     }
   });
@@ -622,7 +640,7 @@ export function createApp() {
       if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
 
       const existing = await pool.query(
-        "SELECT id FROM leads WHERE organization_id=$1 AND primary_property_id=$2 AND owner_id=(SELECT owner_id FROM users WHERE id=$3 LIMIT 1) LIMIT 1",
+        "SELECT id FROM leads WHERE organization_id=$1 AND primary_property_id=$2 AND owner_id=$3 LIMIT 1",
         [req.user!.organizationId, propertyId, req.user!.id]
       );
       let leadId = existing.rows[0]?.id || crypto.randomUUID();
@@ -636,8 +654,8 @@ export function createApp() {
       }
 
       const result = await pool.query(
-        "INSERT INTO leads (id,organization_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4::jsonb,$5) RETURNING *",
-        [leadId, req.user!.organizationId, score, JSON.stringify(reasons), propertyId]
+        "INSERT INTO leads (id,organization_id,owner_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING *",
+        [leadId, req.user!.organizationId, req.user!.id, score, JSON.stringify(reasons), propertyId]
       );
       return res.status(201).json({ lead: result.rows[0] });
     } catch (error: any) {
@@ -765,6 +783,7 @@ export function createApp() {
         ];
 
         if (existing.rows.length) {
+          const updateValues = [existing.rows[0].id, ...values.slice(1)];
           await pool.query(
             `UPDATE properties SET
                owner_id=$3,address=$4,city=$5,state=$6,zip=$7,county=$8,apn=$9,
@@ -774,7 +793,7 @@ export function createApp() {
                tax_delinquent=$20,last_sale_date=$21,last_sale_price=$22,provenance=$23,
                created_at=created_at
              WHERE organization_id=$2 AND id=$1`,
-            values
+            updateValues
           );
           updated++;
         } else {
