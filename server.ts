@@ -22,6 +22,61 @@ const oauthClientSecret = (provider: 'google' | 'microsoft') =>
   provider === 'google' ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET;
 const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
   `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
+const auth0Domain = () => String(process.env.AUTH0_DOMAIN || '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+const auth0CallbackUrl = () => `${process.env.APP_URL || ''}/api/auth/auth0/callback`;
+
+const auth0AuthorizationUrl = (state: string, mode: 'login' | 'signup') => {
+  const domain = auth0Domain();
+  if (!domain || !process.env.AUTH0_CLIENT_ID || !process.env.AUTH0_CLIENT_SECRET || !process.env.APP_URL) {
+    throw new Error('Auth0 is not configured');
+  }
+  const params = new URLSearchParams({
+    client_id: process.env.AUTH0_CLIENT_ID,
+    redirect_uri: auth0CallbackUrl(),
+    response_type: 'code',
+    scope: 'openid profile email',
+    state,
+    prompt: 'select_account',
+  });
+  if (mode === 'signup') params.set('screen_hint', 'signup');
+  return `https://${domain}/authorize?${params.toString()}`;
+};
+
+const exchangeAuth0Code = async (code: string) => {
+  const domain = auth0Domain();
+  const response = await fetch(`https://${domain}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'authorization_code',
+      client_id: process.env.AUTH0_CLIENT_ID,
+      client_secret: process.env.AUTH0_CLIENT_SECRET,
+      code,
+      redirect_uri: auth0CallbackUrl(),
+    }),
+  });
+  const payload = await response.json() as Record<string, unknown>;
+  if (!response.ok || !payload.access_token) {
+    throw new Error(String(payload.error_description || payload.error || 'Auth0 token exchange failed'));
+  }
+  return String(payload.access_token);
+};
+
+const getAuth0Profile = async (accessToken: string) => {
+  const domain = auth0Domain();
+  const response = await fetch(`https://${domain}/userinfo`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error('Unable to retrieve Auth0 account profile');
+  const data = await response.json() as Record<string, unknown>;
+  return {
+    subject: String(data.sub || ''),
+    email: String(data.email || '').trim().toLowerCase(),
+    name: String(data.name || data.nickname || data.email || 'Vortex One User').trim(),
+    avatarUrl: String(data.picture || ''),
+  };
+};
+
 
 const auth0Domain = () => String(process.env.AUTH0_DOMAIN || '').trim().replace(/^https?:\\/\\//, '').replace(/\\/$/, '');
 const auth0CallbackUrl = () => `${process.env.APP_URL || ''}/api/auth/auth0/callback`;
