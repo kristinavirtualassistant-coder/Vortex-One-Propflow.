@@ -43,7 +43,6 @@ export const getDownloadURL = async (storageRef: { downloadURL?: string; path: s
   storageRef.downloadURL || `/api/storage/${encodeURIComponent(storageRef.path)}`;
 
 export const deleteObject = async (storageRef: { path: string }) => {
-  const token = window.localStorage.getItem('vortex_one_session') || '';
   const response = await fetch(`/api/storage/${encodeURIComponent(storageRef.path)}`, {
     method: 'DELETE', credentials: 'same-origin'
   });
