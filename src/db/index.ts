@@ -53,6 +53,18 @@ export const createPool = () => {
 
 const pool = createPool();
 
+try {
+  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const target = raw ? new URL(raw) : null;
+  console.log('PostgreSQL runtime target:', {
+    source: raw ? (process.env.DATABASE_URL ? 'DATABASE_URL' : 'POSTGRES_URL') : 'SQL_*',
+    host: target?.hostname || process.env.SQL_HOST || null,
+    database: target?.pathname?.replace(/^\\//, '') || process.env.SQL_DB_NAME || null,
+  });
+} catch {
+  console.log('PostgreSQL runtime target: invalid connection string');
+}
+
 export const db = drizzle(pool, { schema });
 
 const runDatabaseMigrations = async () => {
