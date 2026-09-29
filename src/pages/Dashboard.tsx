@@ -218,7 +218,7 @@ export default function Dashboard() {
   const activeLabel = sidebarLinks.find(link => link.id === activeTab)?.label ?? 'Overview';
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden dark:bg-slate-950 dark:text-slate-100 selection:bg-indigo-100 selection:text-indigo-900 dark:selection:bg-indigo-900/50 dark:selection:text-white">
+    <div className="flex h-screen w-full bg-[#f5f7fb] font-sans text-slate-900 overflow-hidden dark:bg-[#070b14] dark:text-slate-100 premium-grid selection:bg-violet-100 selection:text-violet-950 dark:selection:bg-violet-900/50 dark:selection:text-white">
       <Sidebar 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
@@ -230,7 +230,7 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="h-[72px] bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between px-5 sm:px-8 flex-shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+        <header className="h-[78px] bg-white/78 dark:bg-slate-950/72 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between px-5 sm:px-8 flex-shrink-0 shadow-[0_10px_40px_rgba(15,23,42,.05)]">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
               className="md:hidden text-slate-500 hover:text-slate-900 dark:hover:text-white"
@@ -255,7 +255,7 @@ export default function Dashboard() {
                 <div className="text-sm font-bold text-slate-800 dark:text-slate-200">{userData.name}</div>
                 <div className="text-xs text-slate-500">{userData.email}</div>
               </div>
-              <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+              <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-violet-600 dark:text-violet-300 font-bold">
                 <UserIcon className="h-4 w-4" />
               </div>
             </div>
@@ -263,8 +263,8 @@ export default function Dashboard() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.07),transparent_28%),linear-gradient(to_bottom,#f8fafc,#f1f5f9)] dark:bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.12),transparent_28%),linear-gradient(to_bottom,#020617,#0f172a)] p-4 sm:p-6">
-          <div className="max-w-[1600px] mx-auto">
+        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(124,92,255,.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(33,212,253,.06),transparent_24%)] p-4 sm:p-6">
+          <div className="max-w-[1600px] mx-auto animate-slide-in">
             <div className="flex items-center justify-between gap-4 mb-5">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
@@ -273,7 +273,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center gap-3 mt-1">
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white truncate">{activeLabel}</h1>
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-50/90 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-400/10">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Live
                   </span>
@@ -289,7 +289,7 @@ export default function Dashboard() {
         </div>
         
         {/* Status Bar */}
-        <footer className="h-8 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between text-[10px] text-slate-400 flex-shrink-0">
+        <footer className="h-9 bg-white/70 dark:bg-slate-950/70 border-t border-slate-200/60 dark:border-white/10 backdrop-blur-xl px-6 flex items-center justify-between text-[10px] text-slate-400 flex-shrink-0">
           <div className="flex gap-4 items-center">
             <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> All Systems Operational</span>
             <span className="hidden sm:inline">Server: us-west-2-prod</span>
