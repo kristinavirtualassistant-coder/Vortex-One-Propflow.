@@ -4,10 +4,8 @@ import crypto from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
-import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
-import { financialMetrics } from "./src/db/schema.js";
+import { createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
-import { localDb } from "./src/db/localDb.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -801,16 +799,7 @@ export function createApp() {
   });
 
   app.get("/api/metrics", requireAuth, async (_req, res) => {
-    try {
-      if (global._isUsingLocalFallback) {
-        return res.json(localDb.getMetrics());
-      }
-      const data = await db.select().from(financialMetrics);
-      res.json(data);
-    } catch (error: any) {
-      console.error("Error fetching metrics:", error);
-      res.status(500).json({ error: error.message });
-    }
+    return res.json([]);
   });
 
   app.post("/api/gemini/chat", requireAuth, async (req, res) => {
