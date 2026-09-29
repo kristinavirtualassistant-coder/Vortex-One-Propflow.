@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { LogOut, Menu, Moon, Sun, User as UserIcon, X, Activity, Search, Sparkles } from 'lucide-react';
+import GISWorkspace from './GISWorkspace';
 import TenantPortal from './portals/TenantPortal';
 import TechnicianPortal from './portals/TechnicianPortal';
 import PropertyManagerPortal from './portals/PropertyManagerPortal';
@@ -56,6 +57,8 @@ const ROUTE_TO_TAB: Record<string, string> = {
   bidding: 'bidding',
   invoicing: 'invoicing',
   integrations: 'integrations',
+  gis: 'gis',
+  gis: 'gis',
   ai: 'chatbot',
   chatbot: 'chatbot',
   workspace: 'workspace',
@@ -123,6 +126,10 @@ export default function Dashboard() {
 
     if (activeTab === 'integrations') {
       return <IntegrationCenter />;
+    }
+
+    if (activeTab === 'gis') {
+      return <GISWorkspace />;
     }
 
     if (activeTab === 'security') {
@@ -273,6 +280,7 @@ export default function Dashboard() {
 
     if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'landlord' || userData.role === 'technician') {
       links.push({ id: 'integrations', label: 'Integrations', section: 'Automation' });
+      links.push({ id: 'gis', label: 'GIS & Mapping', section: 'Automation' });
       links.push({ id: 'chatbot', label: 'AI Assistant', section: 'Automation' });
       links.push({ id: 'workspace', label: 'Google Workspace', section: 'Automation' });
     }
