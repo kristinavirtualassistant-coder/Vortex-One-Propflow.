@@ -25,71 +25,13 @@ const oauthClientSecret = (provider: 'google' | 'microsoft') =>
   provider === 'google' ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET;
 const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
   `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
-const auth0Domain = () => String(process.env.AUTH0_DOMAIN || '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-const auth0CallbackUrl = () => `${process.env.APP_URL || ''}/api/auth/auth0/callback`;
-
-const auth0AuthorizationUrl = (state: string, mode: 'login' | 'signup') => {
-  const domain = auth0Domain();
-  if (!domain || !process.env.AUTH0_CLIENT_ID || !process.env.AUTH0_CLIENT_SECRET || !process.env.APP_URL) {
-    throw new Error('Auth0 is not configured');
-  }
-  const params = new URLSearchParams({
-    client_id: process.env.AUTH0_CLIENT_ID,
-    redirect_uri: auth0CallbackUrl(),
-    response_type: 'code',
-    scope: 'openid profile email',
-    state,
-    prompt: 'select_account',
-  });
-  if (mode === 'signup') params.set('screen_hint', 'signup');
-  return `https://${domain}/authorize?${params.toString()}`;
-};
-
-const exchangeAuth0Code = async (code: string) => {
-  const domain = auth0Domain();
-  const response = await fetch(`https://${domain}/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      client_id: process.env.AUTH0_CLIENT_ID,
-      client_secret: process.env.AUTH0_CLIENT_SECRET,
-      code,
-      redirect_uri: auth0CallbackUrl(),
-    }),
-  });
-  const payload = await response.json() as Record<string, unknown>;
-  if (!response.ok || !payload.access_token) {
-    throw new Error(String(payload.error_description || payload.error || 'Auth0 token exchange failed'));
-  }
-  return String(payload.access_token);
-};
-
-const getAuth0Profile = async (accessToken: string) => {
-  const domain = auth0Domain();
-  const response = await fetch(`https://${domain}/userinfo`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!response.ok) throw new Error('Unable to retrieve Auth0 account profile');
-  const data = await response.json() as Record<string, unknown>;
-  return {
-    subject: String(data.sub || ''),
-    email: String(data.email || '').trim().toLowerCase(),
-    name: String(data.name || data.nickname || data.email || 'Vortex One User').trim(),
-    avatarUrl: String(data.picture || ''),
-  };
-};
-
-
-
-
 const oauthStateSecret = () => {
   const secret = process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER;
   if (!secret) throw new Error('OAuth state signing secret is not configured');
   return secret;
 };
 
-const createOAuthState = (provider: 'google' | 'microsoft' | 'auth0', role: string) => {
+const createOAuthState = (provider: 'google' | 'microsoft', role: string) => {
   const payload = Buffer.from(JSON.stringify({
     provider,
     role,
@@ -114,7 +56,7 @@ const consumeOAuthState = (state: string) => {
 
   try {
     const item = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
-      provider: 'google' | 'microsoft' | 'auth0';
+      provider: 'google' | 'microsoft';
       role: string;
       expiresAt: number;
       nonce: string;
@@ -374,23 +316,6 @@ export function createApp() {
     }
   });
 
-  app.get("/api/auth/auth0/start", (req, res) => {
-    try {
-      const mode = String(req.query.mode || 'login') === 'signup' ? 'signup' : 'login';
-      const state = createOAuthState('auth0', normalizeRegistrationRole(req.query.role));
-      return res.redirect(auth0AuthorizationUrl(state, mode));
-    } catch (error: any) {
-      const missing = [
-        !process.env.APP_URL ? 'APP_URL' : null,
-        !process.env.AUTH0_DOMAIN ? 'AUTH0_DOMAIN' : null,
-        !process.env.AUTH0_CLIENT_ID ? 'AUTH0_CLIENT_ID' : null,
-        !process.env.AUTH0_CLIENT_SECRET ? 'AUTH0_CLIENT_SECRET' : null,
-      ].filter(Boolean);
-      console.error('Auth0 OAuth configuration check failed', { missing });
-      return res.status(503).send(error.message || 'Auth0 is not configured');
-    }
-  });
-
   const completeOAuth = async (provider: 'google' | 'microsoft', req: express.Request, res: express.Response) => {
     try {
       await ensureDatabaseReady();
@@ -463,76 +388,6 @@ export function createApp() {
 
   app.get("/api/auth/google/callback", (req, res) => completeOAuth('google', req, res));
   app.get("/api/auth/microsoft/callback", (req, res) => completeOAuth('microsoft', req, res));
-
-  app.get("/api/auth/auth0/callback", async (req, res) => {
-    try {
-      await ensureDatabaseReady();
-      const code = String(req.query.code || '');
-      const state = String(req.query.state || '');
-      if (!code || !state) return res.status(400).send('Missing Auth0 authorization response.');
-      const stateData = consumeOAuthState(state);
-      if (!stateData || stateData.provider !== 'auth0') return res.status(400).send('Invalid or expired Auth0 state.');
-
-      const accessToken = await exchangeAuth0Code(code);
-      const profile = await getAuth0Profile(accessToken);
-      if (!profile.subject || !profile.email) return res.status(400).send('Auth0 did not return a usable email identity.');
-
-      const existingBySubject = await pool.query(
-        `SELECT ${userColumns} FROM users WHERE auth_provider_subject=$1 LIMIT 1`,
-        [profile.subject]
-      );
-      const existingByEmail = await pool.query(
-        `SELECT ${userColumns} FROM users WHERE lower(email)=lower($1) LIMIT 1`,
-        [profile.email]
-      );
-      let account = existingBySubject.rows[0] || existingByEmail.rows[0];
-
-      if (account && account.auth_provider !== 'password' && account.auth_provider !== 'auth0') {
-        return res.status(409).send('This email is already linked to a different sign-in provider. Sign in with the original provider first.');
-      }
-
-      if (!account) {
-        const organizationId = crypto.randomUUID();
-        const userId = crypto.randomUUID();
-        await pool.query('BEGIN');
-        try {
-          await pool.query(
-            'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
-            [organizationId, profile.name ? `${profile.name} Organization` : 'Vortex One Organization', `vortex-${userId.slice(0,8)}`]
-          );
-          const created = await pool.query(
-            `INSERT INTO users
-              (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
-             VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
-             RETURNING ${userColumns}`,
-            [userId, organizationId, profile.email, await socialPasswordHash('auth0', profile.subject), profile.name, stateData.role, 'auth0', profile.subject, profile.avatarUrl || null]
-          );
-          account = created.rows[0];
-          await pool.query('COMMIT');
-        } catch (error) {
-          await pool.query('ROLLBACK');
-          throw error;
-        }
-      } else {
-        const updated = await pool.query(
-          `UPDATE users
-             SET uid=COALESCE(uid,id), auth_provider='auth0', auth_provider_subject=$1,
-                 avatar_url=COALESCE($2,avatar_url), name=COALESCE($3,name)
-           WHERE id=$4
-           RETURNING ${userColumns}`,
-          [profile.subject, profile.avatarUrl || null, profile.name || null, account.id]
-        );
-        account = updated.rows[0];
-      }
-
-      const session = await createSession(String(account.id));
-      setSessionCookie(res, session.id, session.expiresAt);
-      return res.redirect('/dashboard');
-    } catch (error: any) {
-      console.error('Auth0 OAuth callback error:', error);
-      return res.status(500).send(error.message || 'Unable to complete Auth0 sign-in');
-    }
-  });
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
