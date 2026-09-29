@@ -67,7 +67,7 @@ const consumeOAuthState = (state: string) => {
 };
 
 const socialPasswordHash = async (provider: string, subject: string) =>
-  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER || 'vortex-one-social-auth'}`);
+  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER ?? (() => { throw new Error('SOCIAL_AUTH_PEPPER is not configured'); })()}`);
 
 const exchangeOAuthCode = async (provider: 'google' | 'microsoft', code: string) => {
   const body = new URLSearchParams({
