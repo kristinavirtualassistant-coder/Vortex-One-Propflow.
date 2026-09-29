@@ -19,14 +19,14 @@
 - A UI badge may say **Connected** only after a server-side health check, authenticated handshake, or verified webhook path.
 - Local boolean toggles are not integrations.
 - A service requiring credentials must show **Setup required** until required server-side environment variables are present.
-- Production webhook delivery must not target a Vercel deployment protected by Vercel authentication.
+- Production webhook delivery must target the public Firebase Functions endpoint through Firebase Hosting.
 - External service credentials never belong in frontend code.
 
 ## 3Min API
 
 The 3Min sandbox endpoint was verified on 2026-09-30 by a successful POST to the configured `vortex-propflow-events` endpoint. The returned record reached 3Min successfully.
 
-The configured owner webhook then attempted delivery to the PropFlow Vercel hostname and received HTTP 401 `Protected deployment`. This is an external deployment configuration issue, not a 3Min request-processing failure.
+The configured owner webhook previously attempted delivery to the PropFlow Vercel hostname and received HTTP 401 `Protected deployment`. Firebase Hosting + Firebase Functions is now the intended public deployment path, removing Vercel deployment protection from the webhook path.
 
 Expected production receiver:
 
@@ -61,3 +61,25 @@ PropFlow now treats GIS Cloud as a first-class spatial integration.
 
 ### Verified GIS Cloud account context
 The connected GIS Cloud account currently exposes 22 maps, including the existing **Vortex One Property Intelligence** map (ID 3302957) plus MDC/sample maps.
+
+
+## Firebase deployment
+
+Firebase is the production hosting/runtime target for PropFlow.
+
+- Hosting project: `vortex-one-propflow`
+- Frontend: Firebase Hosting, built from Vite into `public/`
+- API: Firebase Functions for Firebase v2 HTTPS function `api`
+- Public API base: `/api/*` through Firebase Hosting rewrites
+- Production app URL: `https://vortex-one-propflow.web.app`
+- The former Vercel `api/index.ts` entrypoint has been removed from this branch.
+- Runtime secrets are declared with Firebase Secret Manager bindings; do not commit secret values.
+
+Deployment sequence:
+
+1. Install Firebase CLI and authenticate.
+2. Select project `vortex-one-propflow`.
+3. Create the required Firebase secrets from the values in `.env.example`.
+4. Install the Functions dependencies with `npm --prefix functions install`.
+5. Deploy Hosting and Functions with `firebase deploy --only hosting,functions`.
+6. Verify `/api/health`, `/api/ready`, authentication, GIS Cloud, and the 3Min webhook before treating production as healthy.
