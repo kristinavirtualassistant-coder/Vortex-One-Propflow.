@@ -71,11 +71,11 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 sticky top-0 z-40 backdrop-blur">
+    <div className="min-h-screen overflow-hidden bg-[#f5f7fb] dark:bg-[#070b14] text-slate-900 dark:text-slate-100 premium-grid">
+      <nav className="sticky top-0 z-40 border-b border-white/50 dark:border-white/10 bg-white/70 dark:bg-slate-950/70 backdrop-blur-2xl shadow-[0_12px_40px_rgba(15,23,42,.06)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-primary-600 p-2 rounded-xl text-white"><Building2 className="h-6 w-6" /></div>
+            <div className="relative overflow-hidden bg-gradient-to-br from-violet-500 via-indigo-500 to-cyan-400 p-2.5 rounded-2xl text-white shadow-[0_12px_35px_rgba(124,92,255,.28)] premium-shimmer"><Building2 className="h-6 w-6" /></div>
             <div>
               <div className="font-extrabold tracking-tight">Vortex One PropFlow</div>
               <div className="text-[10px] text-slate-500">Property operations platform</div>
@@ -101,16 +101,16 @@ export default function LandingPage() {
         )}
       </nav>
       <main>
-        <section className="max-w-5xl mx-auto px-4 py-24 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 text-xs font-semibold">Vortex One</div>
-          <h1 className="mt-6 text-4xl sm:text-6xl font-extrabold tracking-tight">One platform for modern property operations.</h1>
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">Manage properties, people, maintenance, workflows, reporting, and operations from one connected workspace.</p>
+        <section className="relative max-w-6xl mx-auto px-4 py-28 sm:py-32 text-center animate-float-in">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-200/60 dark:border-violet-400/10 bg-white/70 dark:bg-white/[.04] text-violet-700 dark:text-violet-200 text-xs font-bold shadow-sm backdrop-blur">Vortex One</div>
+          <h1 className="mt-7 text-5xl sm:text-7xl font-black tracking-[-.04em] leading-[.98] bg-gradient-to-r from-slate-950 via-violet-700 to-cyan-600 dark:from-white dark:via-violet-200 dark:to-cyan-200 bg-clip-text text-transparent">One platform for modern property operations.</h1>
+          <p className="mt-7 text-lg sm:text-xl leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">Manage properties, people, maintenance, workflows, reporting, and operations from one connected workspace.</p>
           <div className="mt-9 flex flex-col sm:flex-row justify-center gap-4">
-            <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="inline-flex items-center justify-center gap-2 bg-primary-600 text-white px-7 py-3.5 rounded-xl font-bold">Create your account <ArrowRight className="h-4 w-4" /></button>
-            <button onClick={openLogin} className="px-7 py-3.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold">Sign in</button>
+            <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="group inline-flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-7 py-3.5 rounded-2xl font-bold shadow-[0_16px_35px_rgba(109,74,255,.28)] hover:shadow-[0_20px_45px_rgba(109,74,255,.36)]">Create your account <ArrowRight className="h-4 w-4" /></button>
+            <button onClick={openLogin} className="px-7 py-3.5 rounded-2xl border border-slate-300/80 dark:border-white/10 bg-white/60 dark:bg-white/[.04] font-semibold backdrop-blur hover:bg-white/90 dark:hover:bg-white/[.08]">Sign in</button>
           </div>
         </section>
-        <section id="pricing" className="bg-slate-100/70 dark:bg-slate-900/50 py-20">
+        <section id="pricing" className="border-y border-slate-200/60 dark:border-white/10 bg-white/45 dark:bg-white/[.025] py-24 backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold">Simple, transparent pricing</h2>
@@ -118,12 +118,12 @@ export default function LandingPage() {
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
               {pricing.map((tier) => (
-                <div key={tier.name} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col">
+                <div key={tier.name} className="premium-card p-6 flex flex-col transition-all duration-300">
                   <h3 className="text-xl font-bold">{tier.name}</h3>
                   <div className="mt-3 text-4xl font-extrabold">{tier.price}<span className="text-base font-medium text-slate-500">/mo</span></div>
                   <p className="mt-3 text-sm text-slate-500 flex-1">{tier.description}</p>
                   <ul className="mt-6 space-y-3 text-sm">{tier.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-primary-500 mt-0.5 shrink-0" />{feature}</li>)}</ul>
-                  <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="mt-7 w-full py-2.5 rounded-xl bg-primary-600 text-white font-semibold">Get Started</button>
+                  <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="mt-7 w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold shadow-lg shadow-violet-500/15">Get Started</button>
                 </div>
               ))}
             </div>
