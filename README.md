@@ -106,3 +106,8 @@ PropFlow does not ship with fabricated user accounts, demo personas, sample prop
 - **Server-Side API Keys**: All AI and third-party API credentials remain strictly server-side.
 - **Role-Based Access**: Granular permission checks ensure users access only their authorized portals.
 - **Parameterized Queries**: Secure SQL queries through Drizzle ORM prevent injection vulnerabilities.
+
+
+### Production database compatibility
+
+The current Vercel runtime and the Supabase project were audited as separate PostgreSQL systems. The repository expects an application schema containing `users`, `sessions`, `financial_metrics`, and `app_records`; the audited Supabase project instead exposes a multi-tenant schema centered on `organizations`, `users`, `properties`, `leads`, CRM, dialing, workflow, and integration tables. Do not point `DATABASE_URL` at that Supabase project until the application schema and authentication model are intentionally migrated to that schema.
