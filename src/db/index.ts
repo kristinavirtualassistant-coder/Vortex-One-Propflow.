@@ -17,6 +17,14 @@ export const createPool = () => {
     if (connectionString) {
       try {
         const parsed = new URL(connectionString);
+        if (
+          process.env.VERCEL &&
+          ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)
+        ) {
+          throw new Error(
+            'DATABASE_URL points to a local database from Vercel. Configure the Vercel production DATABASE_URL with the Supabase PostgreSQL connection string.'
+          );
+        }
         parsed.searchParams.delete('sslmode');
         parsed.searchParams.delete('sslrootcert');
         parsed.searchParams.delete('sslcert');
