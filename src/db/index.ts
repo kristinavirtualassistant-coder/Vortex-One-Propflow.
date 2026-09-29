@@ -11,7 +11,7 @@ declare global {
 
 export const createPool = () => {
   if (!global._postgresPool) {
-    const rawConnectionString = process.env.configuration;
+    const rawConnectionString = process.env.DATABASE_URL;
     let connectionString = rawConnectionString;
 
     if (connectionString) {
@@ -36,11 +36,11 @@ export const createPool = () => {
       const host = process.env.SQL_HOST;
       const database = process.env.SQL_DB_NAME;
       const user = process.env.SQL_USER;
-      const configuration = process.env.SQL_PASSWORD;
+      const password = process.env.SQL_PASSWORD;
 
-      if (!host || !database || !user || !configuration) {
+      if (!host || !database || !user || !password) {
         throw new Error(
-          'Production PostgreSQL is not configured. Set configuration or SQL_HOST, SQL_PORT, SQL_USER, SQL_PASSWORD, and SQL_DB_NAME.'
+          'Production PostgreSQL is not configured. Set DATABASE_URL or SQL_HOST, SQL_PORT, SQL_USER, SQL_PASSWORD, and SQL_DB_NAME.'
         );
       }
 
@@ -48,7 +48,7 @@ export const createPool = () => {
         host,
         port: Number(process.env.SQL_PORT || 5432),
         user,
-        configuration,
+        password,
         database,
         max: 1,
         connectionTimeoutMillis: 15000,
@@ -69,10 +69,10 @@ export const createPool = () => {
 const pool = createPool();
 
 try {
-  const raw = process.env.configuration;
+  const raw = process.env.DATABASE_URL;
   const target = raw ? new URL(raw) : null;
   console.log('PostgreSQL runtime target:', {
-    source: raw ? 'configuration' : 'SQL_*',
+    source: raw ? 'DATABASE_URL' : 'SQL_*',
     host: target?.hostname || process.env.SQL_HOST || null,
     database: target?.pathname?.replace(/^\\//, '') || process.env.SQL_DB_NAME || null,
   });
@@ -115,10 +115,10 @@ const verifyCanonicalSchema = async () => {
       WHERE table_schema='public'
         AND table_name='users'
         AND column_name = ANY($1::text[])`,
-    [['id', 'organization_id', 'email', 'name', 'role', 'configuration_hash', 'disabled_at']]
+    [['id', 'organization_id', 'email', 'name', 'role', 'password_hash', 'disabled_at']]
   );
 
-  const requiredUserColumns = ['id', 'organization_id', 'email', 'name', 'role', 'configuration_hash', 'disabled_at'];
+  const requiredUserColumns = ['id', 'organization_id', 'email', 'name', 'role', 'password_hash', 'disabled_at'];
   const presentUserColumns = new Set(
     usersColumns.rows.map((row: { column_name: string }) => row.column_name)
   );
