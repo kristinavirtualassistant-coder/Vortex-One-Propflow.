@@ -479,6 +479,76 @@ export function createApp() {
 
       const accessToken = await exchangeAuth0Code(code);
       const profile = await getAuth0Profile(accessToken);
+      if (!profile.subject || !profile.email) return res.status(400).send('Auth0 did not return a usable email identity.');
+
+      const existingBySubject = await pool.query(
+        `SELECT ${userColumns} FROM users WHERE auth_provider_subject=$1 LIMIT 1`,
+        [profile.subject]
+      );
+      const existingByEmail = await pool.query(
+        `SELECT ${userColumns} FROM users WHERE lower(email)=lower($1) LIMIT 1`,
+        [profile.email]
+      );
+      let account = existingBySubject.rows[0] || existingByEmail.rows[0];
+
+      if (account && account.auth_provider !== 'password' && account.auth_provider !== 'auth0') {
+        return res.status(409).send('This email is already linked to a different sign-in provider. Sign in with the original provider first.');
+      }
+
+      if (!account) {
+        const organizationId = crypto.randomUUID();
+        const userId = crypto.randomUUID();
+        await pool.query('BEGIN');
+        try {
+          await pool.query(
+            'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
+            [organizationId, profile.name ? `${profile.name} Organization` : 'Vortex One Organization', `vortex-${userId.slice(0,8)}`]
+          );
+          const created = await pool.query(
+            `INSERT INTO users
+              (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
+             VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
+             RETURNING ${userColumns}`,
+            [userId, organizationId, profile.email, await socialPasswordHash('auth0', profile.subject), profile.name, stateData.role, 'auth0', profile.subject, profile.avatarUrl || null]
+          );
+          account = created.rows[0];
+          await pool.query('COMMIT');
+        } catch (error) {
+          await pool.query('ROLLBACK');
+          throw error;
+        }
+      } else {
+        const updated = await pool.query(
+          `UPDATE users
+             SET uid=COALESCE(uid,id), auth_provider='auth0', auth_provider_subject=$1,
+                 avatar_url=COALESCE($2,avatar_url), name=COALESCE($3,name)
+           WHERE id=$4
+           RETURNING ${userColumns}`,
+          [profile.subject, profile.avatarUrl || null, profile.name || null, account.id]
+        );
+        account = updated.rows[0];
+      }
+
+      const session = await createSession(String(account.id));
+      setSessionCookie(res, session.id, session.expiresAt);
+      return res.redirect('/dashboard');
+    } catch (error: any) {
+      console.error('Auth0 OAuth callback error:', error);
+      return res.status(500).send(error.message || 'Unable to complete Auth0 sign-in');
+    }
+  });
+
+  app.get("/api/auth/auth0/callback", async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      const code = String(req.query.code || '');
+      const state = String(req.query.state || '');
+      if (!code || !state) return res.status(400).send('Missing Auth0 authorization response.');
+      const stateData = consumeOAuthState(state);
+      if (!stateData || stateData.provider !== 'auth0') return res.status(400).send('Invalid or expired Auth0 state.');
+
+      const accessToken = await exchangeAuth0Code(code);
+      const profile = await getAuth0Profile(accessToken);
       if (!profile.subject || !profile.email) return res.status(400).send('Auth0 did not return a usable verified email identity.');
 
       const existingBySubject = await pool.query(
