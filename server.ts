@@ -8,14 +8,16 @@ import { createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'vortex-one-propflow',
-    }
-  }
-});
+const ai = process.env.GEMINI_API_KEY
+  ? new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'vortex-one-propflow',
+        }
+      }
+    })
+  : null;
 
 const oauthClientId = (provider: 'google' | 'microsoft') =>
   provider === 'google' ? process.env.GOOGLE_CLIENT_ID : process.env.MICROSOFT_CLIENT_ID;
@@ -1049,6 +1051,7 @@ export function createApp() {
 
       if (config.tools) config.toolConfig = { includeServerSideToolInvocations: true };
 
+      if (!ai) return res.status(503).json({ error: "Gemini AI is not configured" });
       const chat = ai.chats.create({ model, config, history: history || [] });
       const streamResponse = await chat.sendMessageStream({ message });
 
@@ -1070,6 +1073,8 @@ export function createApp() {
     try {
       const { description } = req.body;
       if (!description || !description.trim()) return res.status(400).json({ error: "Description is required" });
+
+      if (!ai) return res.status(503).json({ error: "Gemini AI is not configured" });
 
       const response = await ai.models.generateContent({
         model: "gemini-3.8-flash",
