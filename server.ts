@@ -254,7 +254,7 @@ export function createApp() {
           event.source,
           event.eventType,
           event.externalId,
-          event.idempotencyKey,
+          event.idempotencyKey || recordId,
           JSON.stringify(event.payload ?? {}),
         ],
       );
