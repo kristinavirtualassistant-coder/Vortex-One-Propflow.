@@ -165,6 +165,7 @@ export const ensureDatabaseReady = async () => {
     global._databaseReadyPromise = (async () => {
       await pool.query('SELECT 1');
       await verifyCanonicalSchema();
+      await ensureThreeMinEventsTable();
       console.log('Supabase PostgreSQL connection and canonical schema verified.');
     })();
   }
