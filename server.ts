@@ -232,7 +232,7 @@ export function createApp() {
         return res.status(400).json({ error: "Invalid JSON payload" });
       }
 
-      const event = parseThreeMinEvent(body);
+      const recordId = req.headers["x-3minapi-record-id"] || req.headers["webhook-id"] || null;\n      const event = parseThreeMinEvent(body);
       if (!event.organizationId) {
         return res.status(400).json({ error: "organization_id is required" });
       }
