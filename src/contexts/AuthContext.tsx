@@ -45,6 +45,7 @@ interface AuthContextType {
   loginWithGoogle: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithMicrosoft: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithAuth0: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
+  loginWithAuth0: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   updateProfile: (onboardingData: Record<string, any>) => Promise<void>;
 }
 
@@ -120,6 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithMicrosoft = async (_isSignUp = false, role?: UserRole) => {
     startOAuth('microsoft', role, _isSignUp);
+  };
+
+  const loginWithAuth0 = async (_isSignUp = false, role?: UserRole) => {
+    startOAuth('auth0', role, _isSignUp);
   };
 
   const loginWithAuth0 = async (_isSignUp = false, role?: UserRole) => {
