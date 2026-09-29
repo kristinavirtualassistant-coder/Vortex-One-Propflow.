@@ -25,8 +25,11 @@ const oauthClientSecret = (provider: 'google' | 'microsoft') =>
 const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
   `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
 
-const oauthStateSecret = () =>
-  process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER || 'vortex-one-oauth-state-fallback';
+const oauthStateSecret = () => {
+  const secret = process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER;
+  if (!secret) throw new Error('OAuth state signing secret is not configured');
+  return secret;
+};
 
 const createOAuthState = (provider: 'google' | 'microsoft', role: string) => {
   const payload = Buffer.from(JSON.stringify({
