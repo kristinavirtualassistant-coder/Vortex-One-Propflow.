@@ -1,10 +1,15 @@
-const functions = require("firebase-functions");
-const express = require("express");
+import { onRequest } from "firebase-functions/v2/https";
+import { createApp } from "./lib/server.js";
 
-const app = express();
+const app = createApp();
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "vortex-one-propflow" });
-});
-
-exports.api = functions.https.onRequest(app);
+export const api = onRequest(
+  {
+    region: "us-central1",
+    cors: false,
+    invoker: "public",
+    timeoutSeconds: 540,
+    memory: "1GiB",
+  },
+  app,
+);
