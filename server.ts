@@ -283,7 +283,7 @@ export function createApp() {
               (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
              VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
              RETURNING ${userColumns}`,
-            [userId, organizationId, profile.email, socialPasswordHash(provider, profile.subject), profile.name, stateData.role, provider, profile.subject, profile.avatarUrl || null]
+            [userId, organizationId, profile.email, await socialPasswordHash(provider, profile.subject), profile.name, stateData.role, provider, profile.subject, profile.avatarUrl || null]
           );
           account = created.rows[0];
           await pool.query('COMMIT');
