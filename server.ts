@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { and, eq, gt } from "drizzle-orm";
 import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
-import { financialMetrics, sessions, users } from "./src/db/schema.js";
+import { financialMetrics } from "./src/db/schema.js";
 import { createSession, deleteSession, requireAuth } from "./src/middleware/auth.js";
 import { localDb } from "./src/db/localDb.js";
 
@@ -142,6 +142,60 @@ export function createApp() {
   app.use(express.json());
 
 
+  const pool = createPool();
+
+  const userColumns = `
+    id, COALESCE(uid, id) AS uid, email, name, role,
+    phone, company_name, portfolio_size, primary_market, current_address,
+    monthly_income, employment_status, move_in_date, occupants_count, has_pets,
+    trade_specialty, hourly_rate, property_types, management_fee, service_radius,
+    emergency_dispatch, auth_provider, auth_provider_subject, avatar_url
+  `;
+
+  const toUser = (row: any) => ({
+    id: row.id,
+    uid: row.uid,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    phone: row.phone ?? null,
+    companyName: row.company_name ?? null,
+    portfolioSize: row.portfolio_size ?? null,
+    primaryMarket: row.primary_market ?? null,
+    currentAddress: row.current_address ?? null,
+    monthlyIncome: row.monthly_income ?? null,
+    employmentStatus: row.employment_status ?? null,
+    moveInDate: row.move_in_date ?? null,
+    occupantsCount: row.occupants_count ?? null,
+    hasPets: row.has_pets ?? null,
+    tradeSpecialty: row.trade_specialty ?? null,
+    hourlyRate: row.hourly_rate ?? null,
+    propertyTypes: row.property_types ?? null,
+    managementFee: row.management_fee ?? null,
+    serviceRadius: row.service_radius ?? null,
+    emergencyDispatch: row.emergency_dispatch ?? null,
+    avatarUrl: row.avatar_url ?? null,
+  });
+
+  const profileFields: Record<string, string> = {
+    phone: 'phone',
+    companyName: 'company_name',
+    portfolioSize: 'portfolio_size',
+    primaryMarket: 'primary_market',
+    currentAddress: 'current_address',
+    monthlyIncome: 'monthly_income',
+    employmentStatus: 'employment_status',
+    moveInDate: 'move_in_date',
+    occupantsCount: 'occupants_count',
+    hasPets: 'has_pets',
+    tradeSpecialty: 'trade_specialty',
+    hourlyRate: 'hourly_rate',
+    propertyTypes: 'property_types',
+    managementFee: 'management_fee',
+    serviceRadius: 'service_radius',
+    emergencyDispatch: 'emergency_dispatch',
+  };
+
   app.get("/api/auth/google/start", (req, res) => {
     try {
       const state = createOAuthState('google', String(req.query.role || 'property_manager'));
@@ -162,6 +216,12 @@ export function createApp() {
       const state = createOAuthState('microsoft', String(req.query.role || 'property_manager'));
       return res.redirect(oauthAuthorizationUrl('microsoft', state));
     } catch (error: any) {
+      const missing = [
+        !process.env.APP_URL ? 'APP_URL' : null,
+        !process.env.MICROSOFT_CLIENT_ID ? 'MICROSOFT_CLIENT_ID' : null,
+        !process.env.MICROSOFT_CLIENT_SECRET ? 'MICROSOFT_CLIENT_SECRET' : null,
+      ].filter(Boolean);
+      console.error('Microsoft OAuth configuration check failed', { missing });
       return res.status(503).send(error.message || 'Microsoft OAuth is not configured');
     }
   });
@@ -179,43 +239,56 @@ export function createApp() {
       const profile = await getOAuthProfile(provider, accessToken);
       if (!profile.subject || !profile.email) return res.status(400).send('Provider did not return a usable email identity.');
 
-      const existingBySubject = await db.select().from(users).where(eq(users.authProviderSubject, profile.subject)).limit(1);
-      const existingByEmail = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
-      let account: any = existingBySubject[0] || existingByEmail[0];
+      const existingBySubject = await pool.query(
+        `SELECT ${userColumns} FROM users WHERE auth_provider_subject=$1 LIMIT 1`,
+        [profile.subject]
+      );
+      const existingByEmail = await pool.query(
+        `SELECT ${userColumns} FROM users WHERE lower(email)=lower($1) LIMIT 1`,
+        [profile.email]
+      );
+      let account = existingBySubject.rows[0] || existingByEmail.rows[0];
 
-      if (account && account.authProvider !== 'password' && account.authProvider !== provider) {
+      if (account && account.auth_provider !== 'password' && account.auth_provider !== provider) {
         return res.status(409).send('This email is already linked to a different sign-in provider.');
       }
 
       if (!account) {
-        const uid = crypto.randomUUID();
-        const created = await db.insert(users).values({
-          uid,
-          email: profile.email,
-          passwordHash: socialPasswordHash(provider, profile.subject),
-          name: profile.name,
-          role: stateData.role,
-          profileComplete: 0,
-          authProvider: provider,
-          authProviderSubject: profile.subject,
-          avatarUrl: profile.avatarUrl || null,
-        }).returning({ id: users.id, uid: users.uid, email: users.email, name: users.name, role: users.role });
-        account = created[0];
+        const organizationId = crypto.randomUUID();
+        const userId = crypto.randomUUID();
+        await pool.query('BEGIN');
+        try {
+          await pool.query(
+            'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
+            [organizationId, profile.name ? `${profile.name} Organization` : 'Vortex One Organization', `vortex-${userId.slice(0,8)}`]
+          );
+          const created = await pool.query(
+            `INSERT INTO users
+              (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
+             VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
+             RETURNING ${userColumns}`,
+            [userId, organizationId, profile.email, socialPasswordHash(provider, profile.subject), profile.name, stateData.role, provider, profile.subject, profile.avatarUrl || null]
+          );
+          account = created.rows[0];
+          await pool.query('COMMIT');
+        } catch (error) {
+          await pool.query('ROLLBACK');
+          throw error;
+        }
       } else {
-        const updated = await db.update(users)
-          .set({
-            authProvider: provider,
-            authProviderSubject: profile.subject,
-            avatarUrl: profile.avatarUrl || account.avatarUrl || null,
-            name: profile.name || account.name,
-          })
-          .where(eq(users.id, account.id))
-          .returning({ id: users.id, uid: users.uid, email: users.email, name: users.name, role: users.role });
-        account = updated[0];
+        const updated = await pool.query(
+          `UPDATE users
+             SET uid=COALESCE(uid,id), auth_provider=$1, auth_provider_subject=$2,
+                 avatar_url=COALESCE($3,avatar_url), name=COALESCE($4,name)
+           WHERE id=$5
+           RETURNING ${userColumns}`,
+          [provider, profile.subject, profile.avatarUrl || null, profile.name || null, account.id]
+        );
+        account = updated.rows[0];
       }
 
-      const session = await createSession(account.id);
-      return res.redirect(`/dashboard?session=${encodeURIComponent(session.id)}`);
+      const session = await createSession(String(account.id));
+      return res.redirect(`/auth/callback?session=${encodeURIComponent(session.id)}`);
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error);
       return res.status(500).send(error.message || 'Unable to complete social sign-in');
@@ -228,128 +301,60 @@ export function createApp() {
   app.post("/api/auth/signup", async (req, res) => {
     try {
       await ensureDatabaseReady();
-      const {
-        email,
-        password,
-        role,
-        name,
-        phone,
-        companyName,
-        portfolioSize,
-        primaryMarket,
-        currentAddress,
-        monthlyIncome,
-        employmentStatus,
-        moveInDate,
-        occupantsCount,
-        hasPets,
-        tradeSpecialty,
-        hourlyRate,
-        propertyTypes,
-        managementFee,
-        serviceRadius,
-        emergencyDispatch
-      } = req.body ?? {};
+      const body = req.body ?? {};
+      const { email, password, role, name } = body;
       if (!email || !password || !name) return res.status(400).json({ error: "Name, email, and password are required" });
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
+      const existing = await pool.query('SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1', [normalizedEmail]);
+      if (existing.rows.length) return res.status(409).json({ error: "An account with that email already exists" });
 
-      if (global._isUsingLocalFallback) {
-        const existing = localDb.getUsers().find(u => u.email === normalizedEmail);
-        if (existing) return res.status(409).json({ error: "An account with that email already exists" });
+      const userId = crypto.randomUUID();
+      const organizationId = crypto.randomUUID();
+      const uid = userId;
+      const userValues: any[] = [
+        userId, organizationId, uid, normalizedEmail, hashPassword(password),
+        String(name).trim(), role || 'property_manager',
+        body.phone ? String(body.phone).trim() : null,
+        body.companyName ? String(body.companyName).trim() : null,
+        body.portfolioSize ? String(body.portfolioSize).trim() : null,
+        body.primaryMarket ? String(body.primaryMarket).trim() : null,
+        body.currentAddress ? String(body.currentAddress).trim() : null,
+        body.monthlyIncome ? String(body.monthlyIncome).trim() : null,
+        body.employmentStatus ? String(body.employmentStatus).trim() : null,
+        body.moveInDate ? String(body.moveInDate).trim() : null,
+        body.occupantsCount !== undefined && body.occupantsCount !== null ? Number(body.occupantsCount) : null,
+        body.hasPets ? String(body.hasPets).trim() : null,
+        body.tradeSpecialty ? String(body.tradeSpecialty).trim() : null,
+        body.hourlyRate ? String(body.hourlyRate).trim() : null,
+        body.propertyTypes ? String(body.propertyTypes).trim() : null,
+        body.managementFee ? String(body.managementFee).trim() : null,
+        body.serviceRadius ? String(body.serviceRadius).trim() : null,
+        body.emergencyDispatch ? String(body.emergencyDispatch).trim() : null,
+      ];
 
-        const uid = crypto.randomUUID();
-        const newUser = {
-          id: Math.floor(Math.random() * 1000000),
-          uid,
-          email: normalizedEmail,
-          passwordHash: hashPassword(password),
-          name: String(name).trim(),
-          role: role || 'property_manager',
-          profileComplete: 0,
-          phone: phone ? String(phone).trim() : null,
-          companyName: companyName ? String(companyName).trim() : null,
-          portfolioSize: portfolioSize ? String(portfolioSize).trim() : null,
-          primaryMarket: primaryMarket ? String(primaryMarket).trim() : null,
-          currentAddress: currentAddress ? String(currentAddress).trim() : null,
-          monthlyIncome: monthlyIncome ? String(monthlyIncome).trim() : null,
-          employmentStatus: employmentStatus ? String(employmentStatus).trim() : null,
-          moveInDate: moveInDate ? String(moveInDate).trim() : null,
-          occupantsCount: occupantsCount ? Number(occupantsCount) : null,
-          hasPets: hasPets ? String(hasPets).trim() : null,
-          tradeSpecialty: tradeSpecialty ? String(tradeSpecialty).trim() : null,
-          hourlyRate: hourlyRate ? String(hourlyRate).trim() : null,
-          propertyTypes: propertyTypes ? String(propertyTypes).trim() : null,
-          managementFee: managementFee ? String(managementFee).trim() : null,
-          serviceRadius: serviceRadius ? String(serviceRadius).trim() : null,
-          emergencyDispatch: emergencyDispatch ? String(emergencyDispatch).trim() : null,
-        };
-
-        localDb.saveUser(newUser);
-        const session = {
-          id: crypto.randomBytes(32).toString('hex'),
-          userId: newUser.id,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-        };
-        localDb.saveSession(session);
-
-        return res.status(201).json({ user: newUser, session });
+      await pool.query('BEGIN');
+      try {
+        await pool.query(
+          'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
+          [organizationId, `${String(name).trim()} Organization`, `vortex-${userId.slice(0,8)}`]
+        );
+        const created = await pool.query(
+          `INSERT INTO users
+            (id,organization_id,uid,email,password_hash,name,role,phone,company_name,portfolio_size,primary_market,current_address,monthly_income,employment_status,move_in_date,occupants_count,has_pets,trade_specialty,hourly_rate,property_types,management_fee,service_radius,emergency_dispatch)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+           RETURNING ${userColumns}`,
+          userValues
+        );
+        await pool.query('COMMIT');
+        const user = toUser(created.rows[0]);
+        const session = await createSession(user.id);
+        return res.status(201).json({ user, session });
+      } catch (error) {
+        await pool.query('ROLLBACK');
+        throw error;
       }
-
-      const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).limit(1);
-      if (existing.length) return res.status(409).json({ error: "An account with that email already exists" });
-
-      const uid = crypto.randomUUID();
-      const newUser = await db.insert(users).values({
-        uid,
-        email: normalizedEmail,
-        passwordHash: hashPassword(password),
-        name: String(name).trim(),
-        role: role || 'property_manager',
-        profileComplete: 0,
-        phone: phone ? String(phone).trim() : null,
-        companyName: companyName ? String(companyName).trim() : null,
-        portfolioSize: portfolioSize ? String(portfolioSize).trim() : null,
-        primaryMarket: primaryMarket ? String(primaryMarket).trim() : null,
-        currentAddress: currentAddress ? String(currentAddress).trim() : null,
-        monthlyIncome: monthlyIncome ? String(monthlyIncome).trim() : null,
-        employmentStatus: employmentStatus ? String(employmentStatus).trim() : null,
-        moveInDate: moveInDate ? String(moveInDate).trim() : null,
-        occupantsCount: occupantsCount ? Number(occupantsCount) : null,
-        hasPets: hasPets ? String(hasPets).trim() : null,
-        tradeSpecialty: tradeSpecialty ? String(tradeSpecialty).trim() : null,
-        hourlyRate: hourlyRate ? String(hourlyRate).trim() : null,
-        propertyTypes: propertyTypes ? String(propertyTypes).trim() : null,
-        managementFee: managementFee ? String(managementFee).trim() : null,
-        serviceRadius: serviceRadius ? String(serviceRadius).trim() : null,
-        emergencyDispatch: emergencyDispatch ? String(emergencyDispatch).trim() : null,
-      }).returning({
-        id: users.id,
-        uid: users.uid,
-        email: users.email,
-        name: users.name,
-        role: users.role,
-        phone: users.phone,
-        companyName: users.companyName,
-        portfolioSize: users.portfolioSize,
-        primaryMarket: users.primaryMarket,
-        currentAddress: users.currentAddress,
-        monthlyIncome: users.monthlyIncome,
-        employmentStatus: users.employmentStatus,
-        moveInDate: users.moveInDate,
-        occupantsCount: users.occupantsCount,
-        hasPets: users.hasPets,
-        tradeSpecialty: users.tradeSpecialty,
-        hourlyRate: users.hourlyRate,
-        propertyTypes: users.propertyTypes,
-        managementFee: users.managementFee,
-        serviceRadius: users.serviceRadius,
-        emergencyDispatch: users.emergencyDispatch,
-      });
-
-      const session = await createSession(newUser[0].id);
-      return res.status(201).json({ user: newUser[0], session });
     } catch (error: any) {
       console.error("Signup error:", error);
       return res.status(500).json({ error: error.message || "Unable to create account" });
@@ -363,32 +368,15 @@ export function createApp() {
       if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
-
-      if (global._isUsingLocalFallback) {
-        const user = localDb.getUsers().find(u => u.email === normalizedEmail);
-        if (!user || user.passwordHash !== hashPassword(String(password))) {
-          return res.status(401).json({ error: "Invalid email or password" });
-        }
-        const session = {
-          id: crypto.randomBytes(32).toString('hex'),
-          userId: user.id,
-          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-        };
-        localDb.saveSession(session);
-        return res.json({ user, session });
-      }
-
-      const rows = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
-      const user = rows[0];
-      if (!user || user.passwordHash !== hashPassword(String(password))) {
+      const result = await pool.query(`SELECT ${userColumns}, password_hash FROM users WHERE lower(email)=lower($1) AND disabled_at IS NULL LIMIT 1`, [normalizedEmail]);
+      const user = result.rows[0];
+      if (!user || !user.password_hash || user.password_hash !== hashPassword(String(password))) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
-      const session = await createSession(user.id);
-      return res.json({
-        user: { id: user.id, uid: user.uid, email: user.email, name: user.name, role: user.role },
-        session,
-      });
+      await pool.query('UPDATE users SET last_login_at=now(), uid=COALESCE(uid,id) WHERE id=$1', [user.id]);
+      const session = await createSession(String(user.id));
+      return res.json({ user: toUser(user), session });
     } catch (error: any) {
       console.error("Login error:", error);
       return res.status(500).json({ error: error.message || "Unable to sign in" });
@@ -402,69 +390,23 @@ export function createApp() {
   app.patch("/api/auth/me", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
-      const fields = req.body ?? {};
-      
-      const allowedFields = [
-        'phone',
-        'companyName',
-        'portfolioSize',
-        'primaryMarket',
-        'currentAddress',
-        'monthlyIncome',
-        'employmentStatus',
-        'moveInDate',
-        'occupantsCount',
-        'hasPets',
-        'tradeSpecialty',
-        'hourlyRate',
-        'propertyTypes',
-        'managementFee',
-        'serviceRadius',
-        'emergencyDispatch'
-      ];
-      
-      const filteredFields: Record<string, any> = {};
-      for (const key of allowedFields) {
-        if (fields[key] !== undefined) {
-          filteredFields[key] = fields[key];
-        }
+      const body = req.body ?? {};
+      const entries = Object.entries(profileFields).filter(([key]) => body[key] !== undefined);
+      if (!entries.length) return res.json({ user: req.user });
+
+      const setParts: string[] = [];
+      const values: any[] = [];
+      for (const [key, column] of entries) {
+        values.push(body[key]);
+        setParts.push(`${column}=$${values.length}`);
       }
-      
-      if (global._isUsingLocalFallback) {
-        const updated = localDb.updateUser(req.user!.uid, filteredFields);
-        if (!updated) return res.status(404).json({ error: "User not found" });
-        return res.json({ user: updated });
-      }
-      
-      const updated = await db.update(users)
-        .set(filteredFields)
-        .where(eq(users.id, req.user!.id))
-        .returning({
-          id: users.id,
-          uid: users.uid,
-          email: users.email,
-          name: users.name,
-          role: users.role,
-          phone: users.phone,
-          companyName: users.companyName,
-          portfolioSize: users.portfolioSize,
-          primaryMarket: users.primaryMarket,
-          currentAddress: users.currentAddress,
-          monthlyIncome: users.monthlyIncome,
-          employmentStatus: users.employmentStatus,
-          moveInDate: users.moveInDate,
-          occupantsCount: users.occupantsCount,
-          hasPets: users.hasPets,
-          tradeSpecialty: users.tradeSpecialty,
-          hourlyRate: users.hourlyRate,
-          propertyTypes: users.propertyTypes,
-          managementFee: users.managementFee,
-          serviceRadius: users.serviceRadius,
-          emergencyDispatch: users.emergencyDispatch,
-        });
-        
-      if (!updated.length) return res.status(404).json({ error: "User not found" });
-      return res.json({ user: updated[0] });
+      values.push(req.user!.id);
+      const updated = await pool.query(
+        `UPDATE users SET ${setParts.join(',')} WHERE id=$${values.length} RETURNING ${userColumns}`,
+        values
+      );
+      if (!updated.rows.length) return res.status(404).json({ error: "User not found" });
+      return res.json({ user: toUser(updated.rows[0]) });
     } catch (error: any) {
       console.error("Error updating user profile:", error);
       return res.status(500).json({ error: error.message || "Failed to update profile" });
@@ -477,7 +419,6 @@ export function createApp() {
     res.status(204).end();
   });
 
-  const pool = createPool();
 
   app.get("/api/data/:collection", requireAuth, async (req, res) => {
     try {
