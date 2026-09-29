@@ -6,12 +6,10 @@ type Snapshot = {
   forEach: (callback: (doc: { id: string; data: () => Record<string, any> }) => void) => void;
 };
 
-const token = () => { try { return window.localStorage.getItem('vortex_one_session') || ''; } catch { return ''; } };
 const request = async (url: string, init: RequestInit = {}) => {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-  const t = token(); if (t) headers.set('Authorization', `Bearer ${t}`);
-  const response = await fetch(url, { ...init, headers, credentials: 'same-origin' });
+    const response = await fetch(url, { ...init, headers, credentials: 'same-origin' });
   if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || `Request failed: ${response.status}`); }
   if (response.status === 204) return null;
   return response.json();
