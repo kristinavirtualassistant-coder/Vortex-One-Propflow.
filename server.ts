@@ -378,6 +378,23 @@ export function createApp() {
     }
   });
 
+  app.get("/api/auth/auth0/start", (req, res) => {
+    try {
+      const mode = String(req.query.mode || 'login') === 'signup' ? 'signup' : 'login';
+      const state = createOAuthState('auth0', normalizeRegistrationRole(req.query.role));
+      return res.redirect(auth0AuthorizationUrl(state, mode));
+    } catch (error: any) {
+      const missing = [
+        !process.env.APP_URL ? 'APP_URL' : null,
+        !process.env.AUTH0_DOMAIN ? 'AUTH0_DOMAIN' : null,
+        !process.env.AUTH0_CLIENT_ID ? 'AUTH0_CLIENT_ID' : null,
+        !process.env.AUTH0_CLIENT_SECRET ? 'AUTH0_CLIENT_SECRET' : null,
+      ].filter(Boolean);
+      console.error('Auth0 OAuth configuration check failed', { missing });
+      return res.status(503).send(error.message || 'Auth0 is not configured');
+    }
+  });
+
   const completeOAuth = async (provider: 'google' | 'microsoft', req: express.Request, res: express.Response) => {
     try {
       await ensureDatabaseReady();
