@@ -122,3 +122,9 @@ There is currently no application test suite wired into CI. Adding one is tracke
 ## Database migrations
 
 The repository contains legacy property-intelligence migrations alongside the newer organization-scoped PostgreSQL schema. These histories are not interchangeable. Do not apply `db/migrations/001_property_intelligence.sql` and `002_postgis_property_spatial.sql` blindly to production until they are reconciled with the canonical schema in `src/db/schema.ts`.
+
+### 3Min API integration
+
+PropFlow can receive integration events from 3Min API at `POST /api/integrations/3min/webhook`. The receiver requires an organization-scoped `organization_id` and supports HMAC or bearer/token authentication. Duplicate deliveries can be suppressed with an `idempotency_key`.
+
+Set `THREEMIN_WEBHOOK_SECRET` or `THREEMIN_WEBHOOK_TOKEN` in the deployment environment. Keep webhook credentials server-side and configure the matching value in 3Min API.
