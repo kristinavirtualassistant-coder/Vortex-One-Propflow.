@@ -324,12 +324,6 @@ export function createApp() {
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
-      const existing = await pool.query(
-      'SELECT id FROM users WHERE organization_id=$1 AND lower(email)=lower($2) LIMIT 1',
-      [organizationId, normalizedEmail]
-    );
-      if (existing.rows.length) return res.status(409).json({ error: "An account with that email already exists" });
-
       const userId = crypto.randomUUID();
       const organizationId = crypto.randomUUID();
       const uid = userId;
