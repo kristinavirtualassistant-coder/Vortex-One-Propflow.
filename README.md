@@ -43,7 +43,7 @@
 | :--- | :--- |
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4, Motion, Lucide Icons, Recharts |
 | **Backend / API** | Node.js, Express, tsx, esbuild |
-| **Authentication & Realtime** | PostgreSQL-backed sessions and application data API, without fabricated demo data |
+| **Authentication & Realtime** | Supabase PostgreSQL-backed sessions and canonical multi-tenant application data, without fabricated demo data |
 | **AI Integration** | Google GenAI SDK (`@google/genai`) with Gemini models |
 | **Database** | PostgreSQL / Drizzle ORM |
 
@@ -67,18 +67,16 @@ npm install
 
 Create a `.env` file based on `.env.example`.
 
-For hosted deployments, configure PostgreSQL with either `DATABASE_URL` or the complete `SQL_*` settings. Do not use `127.0.0.1` or `localhost` for the production database target.
-
-Example:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-DATABASE_URL=postgresql://user:password@host:5432/propflow
-APP_URL=https://vortexone-propflow.vercel.app
-```
+For hosted deployments, set the Supabase `DATABASE_URL`, `APP_URL`, and OAuth/AI secrets in the Vercel project environment. Do not commit real credentials.
 
 
-### 4. Running the Development Server
+### 4. Database contract
+
+Vortex One PropFlow uses the canonical Supabase production schema. The application verifies the required tables on startup and does not run schema-changing SQL during requests or cold starts. Database changes must be tracked as Supabase migrations.
+
+Property, owner, lead, and user records are organization-scoped.
+
+### 5. Running the Development Server
 
 Start the full-stack dev server (Express + Vite):
 
@@ -88,7 +86,7 @@ npm run dev
 
 The app will be accessible at `http://localhost:3000`.
 
-### 5. Production Build
+### 6. Production Build
 
 Compile both frontend assets and backend server bundle:
 
