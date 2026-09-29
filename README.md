@@ -1,6 +1,6 @@
-# PropFlow — Next-Gen Property Management Platform
+# Vortex One PropFlow — Property Intelligence Platform
 
-**PropFlow** is an all-in-one property management ecosystem uniting Property Managers, Landlords, Tenants, and Field Contractors into a unified, real-time operating platform.
+**Vortex One PropFlow** is a multi-tenant property intelligence platform for authenticated users, property data, owner intelligence, lead scoring, search, and AI-assisted workflows.
 
 ---
 
@@ -41,8 +41,8 @@
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 19, TypeScript, Tailwind CSS v4, Motion, Lucide Icons, Recharts |
-| **Backend / API** | Node.js, Express, tsx, esbuild |
+| **Frontend** | React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Recharts |
+| **Backend / API** | Node.js, Express, tsx |
 | **Authentication & Realtime** | Supabase PostgreSQL-backed sessions and canonical multi-tenant application data, without fabricated demo data |
 | **AI Integration** | Google GenAI SDK (`@google/genai`) with Gemini models |
 | **Database** | PostgreSQL / Drizzle ORM |
@@ -53,7 +53,7 @@
 
 ### 1. Prerequisites
 - **Node.js**: `v20.x` or higher
-- **npm** or **bun**
+- **npm 10+**
 
 ### 2. Installation
 
@@ -67,7 +67,7 @@ npm install
 
 Create a `.env` file based on `.env.example`.
 
-For hosted deployments, set the Supabase `DATABASE_URL`, `APP_URL`, and OAuth/AI secrets in the Vercel project environment. Do not commit real credentials.
+For hosted deployments, set `DATABASE_URL`, `APP_URL`, and the OAuth/AI secrets in the deployment environment. Do not commit real credentials. Do not commit real credentials.
 
 
 ### 4. Database contract
@@ -88,11 +88,10 @@ The app will be accessible at `http://localhost:3000`.
 
 ### 6. Production Build
 
-Compile both frontend assets and backend server bundle:
+Build the frontend assets:
 
 ```bash
 npm run build
-npm start
 ```
 
 ---
@@ -108,6 +107,24 @@ PropFlow does not ship with fabricated user accounts, demo personas, sample prop
 - **Parameterized Queries**: Secure SQL queries through Drizzle ORM prevent injection vulnerabilities.
 
 
-### Production database compatibility
+## Validation
 
-The current Vercel runtime and the Supabase project were audited as separate PostgreSQL systems. The repository expects an application schema containing `users`, `sessions`, `financial_metrics`, and `app_records`; the audited Supabase project instead exposes a multi-tenant schema centered on `organizations`, `users`, `properties`, `leads`, CRM, dialing, workflow, and integration tables. Do not point `DATABASE_URL` at that Supabase project until the application schema and authentication model are intentionally migrated to that schema.
+The repository uses npm as its package manager. CI runs:
+
+```bash
+npm ci
+npm run typecheck
+npm run build
+```
+
+There is currently no application test suite wired into CI. Adding one is tracked as engineering follow-up work.
+
+## Database migrations
+
+The repository contains legacy property-intelligence migrations alongside the newer organization-scoped PostgreSQL schema. These histories are not interchangeable. Do not apply `db/migrations/001_property_intelligence.sql` and `002_postgis_property_spatial.sql` blindly to production until they are reconciled with the canonical schema in `src/db/schema.ts`.
+
+### 3Min API integration
+
+PropFlow can receive integration events from 3Min API at `POST /api/integrations/3min/webhook`. The receiver requires an organization-scoped `organization_id` and supports HMAC or bearer/token authentication. Duplicate deliveries can be suppressed with an `idempotency_key`.
+
+Set `THREEMIN_WEBHOOK_SECRET` or `THREEMIN_WEBHOOK_TOKEN` in the deployment environment. Keep webhook credentials server-side and configure the matching value in 3Min API.

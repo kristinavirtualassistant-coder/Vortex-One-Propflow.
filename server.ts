@@ -5,6 +5,7 @@ import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
+import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
@@ -24,6 +25,63 @@ const oauthClientSecret = (provider: 'google' | 'microsoft') =>
   provider === 'google' ? process.env.GOOGLE_CLIENT_SECRET : process.env.MICROSOFT_CLIENT_SECRET;
 const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
   `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
+const auth0Domain = () => String(process.env.AUTH0_DOMAIN || '').trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+const auth0CallbackUrl = () => `${process.env.APP_URL || ''}/api/auth/auth0/callback`;
+
+const auth0AuthorizationUrl = (state: string, mode: 'login' | 'signup') => {
+  const domain = auth0Domain();
+  if (!domain || !process.env.AUTH0_CLIENT_ID || !process.env.AUTH0_CLIENT_SECRET || !process.env.APP_URL) {
+    throw new Error('Auth0 is not configured');
+  }
+  const params = new URLSearchParams({
+    client_id: process.env.AUTH0_CLIENT_ID,
+    redirect_uri: auth0CallbackUrl(),
+    response_type: 'code',
+    scope: 'openid profile email',
+    state,
+    prompt: 'select_account',
+  });
+  if (mode === 'signup') params.set('screen_hint', 'signup');
+  return `https://${domain}/authorize?${params.toString()}`;
+};
+
+const exchangeAuth0Code = async (code: string) => {
+  const domain = auth0Domain();
+  const response = await fetch(`https://${domain}/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'authorization_code',
+      client_id: process.env.AUTH0_CLIENT_ID,
+      client_secret: process.env.AUTH0_CLIENT_SECRET,
+      code,
+      redirect_uri: auth0CallbackUrl(),
+    }),
+  });
+  const payload = await response.json() as Record<string, unknown>;
+  if (!response.ok || !payload.access_token) {
+    throw new Error(String(payload.error_description || payload.error || 'Auth0 token exchange failed'));
+  }
+  return String(payload.access_token);
+};
+
+const getAuth0Profile = async (accessToken: string) => {
+  const domain = auth0Domain();
+  const response = await fetch(`https://${domain}/userinfo`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error('Unable to retrieve Auth0 account profile');
+  const data = await response.json() as Record<string, unknown>;
+  return {
+    subject: String(data.sub || ''),
+    email: String(data.email || '').trim().toLowerCase(),
+    name: String(data.name || data.nickname || data.email || 'Vortex One User').trim(),
+    avatarUrl: String(data.picture || ''),
+  };
+};
+
+
+
 
 const oauthStateSecret = () => {
   const secret = process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER;
@@ -31,7 +89,7 @@ const oauthStateSecret = () => {
   return secret;
 };
 
-const createOAuthState = (provider: 'google' | 'microsoft', role: string) => {
+const createOAuthState = (provider: 'google' | 'microsoft' | 'auth0', role: string) => {
   const payload = Buffer.from(JSON.stringify({
     provider,
     role,
@@ -56,7 +114,7 @@ const consumeOAuthState = (state: string) => {
 
   try {
     const item = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
-      provider: 'google' | 'microsoft';
+      provider: 'google' | 'microsoft' | 'auth0';
       role: string;
       expiresAt: number;
       nonce: string;
@@ -69,7 +127,14 @@ const consumeOAuthState = (state: string) => {
 };
 
 const socialPasswordHash = async (provider: string, subject: string) =>
-  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER || 'vortex-one-social-auth'}`);
+  hashPassword(`${provider}:${subject}:${process.env.SOCIAL_AUTH_PEPPER ?? (() => { throw new Error('SOCIAL_AUTH_PEPPER is not configured'); })()}`);
+
+const allowedRegistrationRoles = new Set(['landlord', 'property_manager', 'technician', 'tenant']);
+
+const normalizeRegistrationRole = (value: unknown) => {
+  const role = String(value || '').trim().toLowerCase();
+  return allowedRegistrationRoles.has(role) ? role : 'property_manager';
+};
 
 const exchangeOAuthCode = async (provider: 'google' | 'microsoft', code: string) => {
   const body = new URLSearchParams({
@@ -143,7 +208,71 @@ export function createApp() {
   const PORT = 3000;
 
   app.disable('x-powered-by');
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
+
+
+
+  app.post("/api/integrations/3min/webhook", express.raw({ type: "application/json", limit: THREE_MIN_MAX_BODY_BYTES }), async (req, res) => {
+    try {
+      if (!verifyThreeMinBodySize(req.headers["content-length"])) {
+        return res.status(413).json({ error: "Webhook payload too large" });
+      }
+
+      const rawBody = Buffer.isBuffer(req.body)
+        ? req.body.toString("utf8")
+        : JSON.stringify(req.body ?? {});
+
+      const verification = verifyThreeMinWebhook(rawBody, req.headers);
+      if (!verification.valid) {
+        return res.status(401).json({ error: verification.reason || "Webhook authentication failed" });
+      }
+
+      let body: any;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return res.status(400).json({ error: "Invalid JSON payload" });
+      }
+
+      const recordIdHeader = req.headers["x-3minapi-record-id"] || req.headers["webhook-id"] || null;
+      const recordId = Array.isArray(recordIdHeader) ? recordIdHeader[0] : recordIdHeader;
+      const event = parseThreeMinEvent(body);
+      if (!event.organizationId) {
+        return res.status(400).json({ error: "organization_id is required" });
+      }
+
+      await ensureDatabaseReady();
+
+      const eventId = crypto.randomUUID();
+      const insert = await pool.query(
+        `INSERT INTO integration_events
+           (id, organization_id, source, event_type, external_id, idempotency_key, payload)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+         ON CONFLICT (idempotency_key)
+         WHERE idempotency_key IS NOT NULL
+         DO NOTHING
+         RETURNING id`,
+        [
+          eventId,
+          event.organizationId,
+          event.source,
+          event.eventType,
+          event.externalId,
+          event.idempotencyKey || recordId,
+          JSON.stringify(event.payload ?? {}),
+        ],
+      );
+
+      return res.status(insert.rows.length ? 201 : 200).json({
+        accepted: true,
+        duplicate: insert.rows.length === 0,
+        event_id: insert.rows[0]?.id || null,
+      });
+    } catch (error: any) {
+      console.error("3Min webhook error:", error);
+      return res.status(500).json({ error: "Unable to process 3Min webhook" });
+    }
+  });
 
   app.get("/api/health", (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -217,7 +346,7 @@ export function createApp() {
 
   app.get("/api/auth/google/start", (req, res) => {
     try {
-      const state = createOAuthState('google', String(req.query.role || 'property_manager'));
+      const state = createOAuthState('google', normalizeRegistrationRole(req.query.role));
       return res.redirect(oauthAuthorizationUrl('google', state));
     } catch (error: any) {
       const missing = [
@@ -232,7 +361,7 @@ export function createApp() {
 
   app.get("/api/auth/microsoft/start", (req, res) => {
     try {
-      const state = createOAuthState('microsoft', String(req.query.role || 'property_manager'));
+      const state = createOAuthState('microsoft', normalizeRegistrationRole(req.query.role));
       return res.redirect(oauthAuthorizationUrl('microsoft', state));
     } catch (error: any) {
       const missing = [
@@ -242,6 +371,23 @@ export function createApp() {
       ].filter(Boolean);
       console.error('Microsoft OAuth configuration check failed', { missing });
       return res.status(503).send(error.message || 'Microsoft OAuth is not configured');
+    }
+  });
+
+  app.get("/api/auth/auth0/start", (req, res) => {
+    try {
+      const mode = String(req.query.mode || 'login') === 'signup' ? 'signup' : 'login';
+      const state = createOAuthState('auth0', normalizeRegistrationRole(req.query.role));
+      return res.redirect(auth0AuthorizationUrl(state, mode));
+    } catch (error: any) {
+      const missing = [
+        !process.env.APP_URL ? 'APP_URL' : null,
+        !process.env.AUTH0_DOMAIN ? 'AUTH0_DOMAIN' : null,
+        !process.env.AUTH0_CLIENT_ID ? 'AUTH0_CLIENT_ID' : null,
+        !process.env.AUTH0_CLIENT_SECRET ? 'AUTH0_CLIENT_SECRET' : null,
+      ].filter(Boolean);
+      console.error('Auth0 OAuth configuration check failed', { missing });
+      return res.status(503).send(error.message || 'Auth0 is not configured');
     }
   });
 
@@ -318,15 +464,93 @@ export function createApp() {
   app.get("/api/auth/google/callback", (req, res) => completeOAuth('google', req, res));
   app.get("/api/auth/microsoft/callback", (req, res) => completeOAuth('microsoft', req, res));
 
+  app.get("/api/auth/auth0/callback", async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      const code = String(req.query.code || '');
+      const state = String(req.query.state || '');
+      if (!code || !state) return res.status(400).send('Missing Auth0 authorization response.');
+      const stateData = consumeOAuthState(state);
+      if (!stateData || stateData.provider !== 'auth0') return res.status(400).send('Invalid or expired Auth0 state.');
+
+      const accessToken = await exchangeAuth0Code(code);
+      const profile = await getAuth0Profile(accessToken);
+      if (!profile.subject || !profile.email) return res.status(400).send('Auth0 did not return a usable email identity.');
+
+      const existingBySubject = await pool.query(
+        `SELECT ${userColumns} FROM users WHERE auth_provider_subject=$1 LIMIT 1`,
+        [profile.subject]
+      );
+      const existingByEmail = await pool.query(
+        `SELECT ${userColumns} FROM users WHERE lower(email)=lower($1) LIMIT 1`,
+        [profile.email]
+      );
+      let account = existingBySubject.rows[0] || existingByEmail.rows[0];
+
+      if (account && account.auth_provider !== 'password' && account.auth_provider !== 'auth0') {
+        return res.status(409).send('This email is already linked to a different sign-in provider. Sign in with the original provider first.');
+      }
+
+      if (!account) {
+        const organizationId = crypto.randomUUID();
+        const userId = crypto.randomUUID();
+        await pool.query('BEGIN');
+        try {
+          await pool.query(
+            'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
+            [organizationId, profile.name ? `${profile.name} Organization` : 'Vortex One Organization', `vortex-${userId.slice(0,8)}`]
+          );
+          const created = await pool.query(
+            `INSERT INTO users
+              (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
+             VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
+             RETURNING ${userColumns}`,
+            [userId, organizationId, profile.email, await socialPasswordHash('auth0', profile.subject), profile.name, stateData.role, 'auth0', profile.subject, profile.avatarUrl || null]
+          );
+          account = created.rows[0];
+          await pool.query('COMMIT');
+        } catch (error) {
+          await pool.query('ROLLBACK');
+          throw error;
+        }
+      } else {
+        const updated = await pool.query(
+          `UPDATE users
+             SET uid=COALESCE(uid,id), auth_provider='auth0', auth_provider_subject=$1,
+                 avatar_url=COALESCE($2,avatar_url), name=COALESCE($3,name)
+           WHERE id=$4
+           RETURNING ${userColumns}`,
+          [profile.subject, profile.avatarUrl || null, profile.name || null, account.id]
+        );
+        account = updated.rows[0];
+      }
+
+      const session = await createSession(String(account.id));
+      setSessionCookie(res, session.id, session.expiresAt);
+      return res.redirect('/dashboard');
+    } catch (error: any) {
+      console.error('Auth0 OAuth callback error:', error);
+      return res.status(500).send(error.message || 'Unable to complete Auth0 sign-in');
+    }
+  });
+
   app.post("/api/auth/signup", async (req, res) => {
     try {
       await ensureDatabaseReady();
       const body = req.body ?? {};
-      const { email, password, role, name } = body;
+      const { email, password, name } = body;
+      const role = normalizeRegistrationRole(body.role);
       if (!email || !password || !name) return res.status(400).json({ error: "Name, email, and password are required" });
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
+      const existingUser = await pool.query(
+        'SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1',
+        [normalizedEmail]
+      );
+      if (existingUser.rows.length) {
+        return res.status(409).json({ error: 'An account with that email already exists. Please sign in instead.' });
+      }
       const userId = crypto.randomUUID();
       const organizationId = crypto.randomUUID();
       const uid = userId;
@@ -375,6 +599,9 @@ export function createApp() {
       }
     } catch (error: any) {
       console.error("Signup error:", error);
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: 'An account with that email already exists. Please sign in instead.' });
+      }
       return res.status(500).json({ error: error.message || "Unable to create account" });
     }
   });
@@ -624,7 +851,7 @@ export function createApp() {
       if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
 
       const existing = await pool.query(
-        "SELECT id FROM leads WHERE organization_id=$1 AND primary_property_id=$2 AND owner_id=(SELECT owner_id FROM users WHERE id=$3 LIMIT 1) LIMIT 1",
+        "SELECT id FROM leads WHERE organization_id=$1 AND primary_property_id=$2 AND owner_id=$3 LIMIT 1",
         [req.user!.organizationId, propertyId, req.user!.id]
       );
       let leadId = existing.rows[0]?.id || crypto.randomUUID();
@@ -638,8 +865,8 @@ export function createApp() {
       }
 
       const result = await pool.query(
-        "INSERT INTO leads (id,organization_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4::jsonb,$5) RETURNING *",
-        [leadId, req.user!.organizationId, score, JSON.stringify(reasons), propertyId]
+        "INSERT INTO leads (id,organization_id,owner_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING *",
+        [leadId, req.user!.organizationId, req.user!.id, score, JSON.stringify(reasons), propertyId]
       );
       return res.status(201).json({ lead: result.rows[0] });
     } catch (error: any) {
@@ -767,6 +994,7 @@ export function createApp() {
         ];
 
         if (existing.rows.length) {
+          const updateValues = [existing.rows[0].id, ...values.slice(1)];
           await pool.query(
             `UPDATE properties SET
                owner_id=$3,address=$4,city=$5,state=$6,zip=$7,county=$8,apn=$9,
@@ -776,7 +1004,7 @@ export function createApp() {
                tax_delinquent=$20,last_sale_date=$21,last_sale_price=$22,provenance=$23,
                created_at=created_at
              WHERE organization_id=$2 AND id=$1`,
-            values
+            updateValues
           );
           updated++;
         } else {

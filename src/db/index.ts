@@ -17,6 +17,14 @@ export const createPool = () => {
     if (connectionString) {
       try {
         const parsed = new URL(connectionString);
+        if (
+          process.env.VERCEL &&
+          ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)
+        ) {
+          throw new Error(
+            'DATABASE_URL points to a local database from Vercel. Configure the Vercel production DATABASE_URL with the Supabase PostgreSQL connection string.'
+          );
+        }
         parsed.searchParams.delete('sslmode');
         parsed.searchParams.delete('sslrootcert');
         parsed.searchParams.delete('sslcert');
@@ -74,7 +82,7 @@ try {
   console.log('PostgreSQL runtime target:', {
     source: raw ? 'DATABASE_URL' : 'SQL_*',
     host: target?.hostname || process.env.SQL_HOST || null,
-    database: target?.pathname?.replace(/^\\//, '') || process.env.SQL_DB_NAME || null,
+    database: target?.pathname?.replace(/^\//, '') || process.env.SQL_DB_NAME || null,
   });
 } catch {
   console.log('PostgreSQL runtime target: invalid connection string');
@@ -131,11 +139,33 @@ const verifyCanonicalSchema = async () => {
   }
 };
 
+export const ensureThreeMinEventsTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.integration_events (
+      id varchar PRIMARY KEY,
+      organization_id varchar NULL,
+      source varchar NOT NULL,
+      event_type varchar NOT NULL,
+      external_id varchar NULL,
+      idempotency_key varchar NULL,
+      payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS integration_events_idempotency_key_uq
+      ON public.integration_events (idempotency_key)
+      WHERE idempotency_key IS NOT NULL
+  `);
+};
+
 export const ensureDatabaseReady = async () => {
   if (!global._databaseReadyPromise) {
     global._databaseReadyPromise = (async () => {
       await pool.query('SELECT 1');
       await verifyCanonicalSchema();
+      await ensureThreeMinEventsTable();
       console.log('Supabase PostgreSQL connection and canonical schema verified.');
     })();
   }

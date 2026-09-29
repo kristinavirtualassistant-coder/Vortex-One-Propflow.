@@ -8,30 +8,24 @@
     "build": "vite build --outDir public",
     "start": "tsx server.ts",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "check": "npm run lint"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.14.0",
-    "@rollup/rollup-linux-x64-gnu": "4.34.8",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
-    "autoprefixer": "^10.4.21",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
-    "esbuild": "^0.25.0",
     "express": "^4.22.2",
     "lucide-react": "^1.27.0",
-    "motion": "^12.23.24",
     "pg": "^8.22.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
-    "rollup": "4.34.8",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.1.14",
     "vite": "^6.2.3",
@@ -44,5 +38,10 @@
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.1",
     "typescript": "~5.8.2"
+  },
+  "overrides": {
+    "nanoid": "3.3.19",
+    "postcss": "8.5.28",
+    "qs": "6.16.0"
   }
 }
