@@ -11,7 +11,7 @@ const request = async (url: string, init: RequestInit = {}) => {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   const t = token(); if (t) headers.set('Authorization', `Bearer ${t}`);
-  const response = await fetch(url, { ...init, headers });
+  const response = await fetch(url, { ...init, headers, credentials: 'same-origin' });
   if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || `Request failed: ${response.status}`); }
   if (response.status === 204) return null;
   return response.json();
@@ -79,7 +79,7 @@ export const updateDoc = async (ref: { collection: string; id: string }, data: R
 export const deleteDoc = async (ref: { collection: string; id: string }) =>
   request(`/api/data/${encodeURIComponent(ref.collection)}/${encodeURIComponent(ref.id)}`, { method: 'DELETE' });
 
-export const getAccessToken = async () => { try { return window.localStorage.getItem('vortex_one_session'); } catch { return null; } };
+export const getAccessToken = async () => null;
 export const googleSignIn = async (): Promise<{ user: any; accessToken: string } | null> => { throw new Error('Google Workspace OAuth is not configured in this application.'); };
 
 export const getDoc = async (ref: { collection: string; id: string }) => { const snapshot = await runQuery({ collection: ref.collection, constraints: [] }); const found = snapshot.docs.find(item => item.id === String(ref.id)); return { exists: () => Boolean(found), id: ref.id, data: () => found?.data() || {} }; };
