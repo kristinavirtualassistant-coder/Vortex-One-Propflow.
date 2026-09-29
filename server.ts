@@ -161,7 +161,7 @@ export function createApp() {
   const pool = createPool();
 
   const userColumns = `
-    id, COALESCE(uid, id) AS uid, email, name, role,
+    id, organization_id, COALESCE(uid, id) AS uid, email, name, role,
     phone, company_name, portfolio_size, primary_market, current_address,
     monthly_income, employment_status, move_in_date, occupants_count, has_pets,
     trade_specialty, hourly_rate, property_types, management_fee, service_radius,
@@ -170,7 +170,7 @@ export function createApp() {
 
   const toUser = (row: any) => ({
     id: row.id,
-    uid: row.uid,
+    uid: row.uid ?? row.id,
     email: row.email,
     name: row.name,
     role: row.role,
@@ -324,7 +324,10 @@ export function createApp() {
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
-      const existing = await pool.query('SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1', [normalizedEmail]);
+      const existing = await pool.query(
+      'SELECT id FROM users WHERE organization_id=$1 AND lower(email)=lower($2) LIMIT 1',
+      [organizationId, normalizedEmail]
+    );
       if (existing.rows.length) return res.status(409).json({ error: "An account with that email already exists" });
 
       const userId = crypto.randomUUID();
