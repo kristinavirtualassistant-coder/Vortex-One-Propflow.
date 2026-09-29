@@ -8,7 +8,7 @@ import MultiStepRegistration from '../components/MultiStepRegistration';
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithMicrosoft, loginWithAuth0 } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginWithGoogle, loginWithMicrosoft } = useAuth();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -147,7 +147,7 @@ export default function LandingPage() {
             <div className="mt-4 grid grid-cols-3 gap-3">
               <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithGoogle(false, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Google.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-50 transition-colors">Google</button>
               <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithMicrosoft(false, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Microsoft.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-50 transition-colors">Microsoft</button>
-              <button type="button" disabled={loading} onClick={() => { resetError(); setLoading(true); void loginWithAuth0(false, selectedRole).catch((error: any) => { setAuthError(error?.message || 'Unable to continue with Auth0.'); setLoading(false); }); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold disabled:opacity-50 transition-colors">Auth0</button>
+              
             </div>
             <button onClick={openSignup} className="mt-5 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">Need an account? Create one</button>
           </div>
