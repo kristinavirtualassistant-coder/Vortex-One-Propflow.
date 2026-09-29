@@ -74,7 +74,7 @@ try {
   console.log('PostgreSQL runtime target:', {
     source: raw ? 'DATABASE_URL' : 'SQL_*',
     host: target?.hostname || process.env.SQL_HOST || null,
-    database: target?.pathname?.replace(/^\\//, '') || process.env.SQL_DB_NAME || null,
+    database: target?.pathname?.replace(/^\//, '') || process.env.SQL_DB_NAME || null,
   });
 } catch {
   console.log('PostgreSQL runtime target: invalid connection string');
