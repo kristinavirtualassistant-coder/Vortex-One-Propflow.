@@ -11,6 +11,7 @@ declare global {
         email: string;
         name: string;
         role: string;
+        organizationId: string;
         phone?: string | null;
         companyName?: string | null;
         portfolioSize?: string | null;
@@ -109,7 +110,7 @@ export const requireAuth = async (
     const pool = createPool();
     const result = await pool.query(
       `SELECT
-        u.id, COALESCE(u.uid, u.id) AS uid, u.email, u.name, u.role,
+        u.id, u.organization_id AS organization_id, COALESCE(u.uid, u.id) AS uid, u.email, u.name, u.role,
         u.phone, u.company_name, u.portfolio_size, u.primary_market,
         u.current_address, u.monthly_income, u.employment_status, u.move_in_date,
         u.occupants_count, u.has_pets, u.trade_specialty, u.hourly_rate,
@@ -121,7 +122,7 @@ export const requireAuth = async (
       [hashSessionToken(token)]
     );
     if (!result.rows.length) return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
-    req.user = result.rows[0];
+    req.user = { ...result.rows[0], organizationId: result.rows[0].organization_id };
     await pool.query('UPDATE auth_sessions SET last_seen_at=now() WHERE token_hash=$1', [hashSessionToken(token)]);
     return next();
   } catch (error) {
