@@ -44,13 +44,14 @@ interface AuthContextType {
   signupWithEmail: (email: string, password: string, role: UserRole, name?: string, onboardingData?: Record<string, any>) => Promise<void>;
   loginWithGoogle: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithMicrosoft: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
+  loginWithAuth0: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   updateProfile: (onboardingData: Record<string, any>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 
-const startOAuth = (provider: 'google' | 'microsoft', role?: UserRole, isSignUp?: boolean) => {
+const startOAuth = (provider: 'google' | 'microsoft' | 'auth0', role?: UserRole, isSignUp?: boolean) => {
   const params = new URLSearchParams();
   if (role) params.set('role', role);
   if (isSignUp) params.set('mode', 'signup');
@@ -121,6 +122,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startOAuth('microsoft', role, _isSignUp);
   };
 
+  const loginWithAuth0 = async (_isSignUp = false, role?: UserRole) => {
+    startOAuth('auth0', role, _isSignUp);
+  };
+
   const logout = async () => {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -159,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signupWithEmail,
       loginWithGoogle,
       loginWithMicrosoft,
+      loginWithAuth0,
       updateProfile,
     }}>
       {!loading && children}
