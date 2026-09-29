@@ -1,11 +1,28 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2/options";
+import { defineSecret } from "firebase-functions/params";
 import { createApp } from "../server.js";
 
 setGlobalOptions({
   region: "us-central1",
   maxInstances: 10,
 });
+
+const secrets = [
+  "DATABASE_URL",
+  "GEMINI_API_KEY",
+  "GOOGLE_CLIENT_SECRET",
+  "MICROSOFT_CLIENT_SECRET",
+  "AUTH_SESSION_PEPPER",
+  "SOCIAL_AUTH_PEPPER",
+  "THREEMIN_WEBHOOK_SECRET",
+  "THREEMIN_WEBHOOK_TOKEN",
+  "GIS_CLOUD_ACCESS_TOKEN",
+] as const;
+
+const firebaseSecrets = Object.fromEntries(
+  secrets.map((name) => [name, defineSecret(name)]),
+) as Record<(typeof secrets)[number], ReturnType<typeof defineSecret>>;
 
 const appPromise = Promise.resolve(createApp());
 
@@ -14,6 +31,7 @@ export const api = onRequest(
     timeoutSeconds: 120,
     memory: "1GiB",
     invoker: "public",
+    secrets: Object.values(firebaseSecrets),
   },
   async (req, res) => {
     try {
