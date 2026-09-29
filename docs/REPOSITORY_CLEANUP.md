@@ -46,3 +46,21 @@ This cleanup branch removes verified obsolete repository artifacts without chang
 - Four moderate development-only findings remain in the `drizzle-kit` → `@esbuild-kit` chain; automatic remediation would require a breaking Drizzle Kit downgrade and was not applied.
 - Vercel's GitHub status continues to report a platform build-rate limit; this is not a repository build failure.
 - No production deployment or database migration was performed.
+
+
+## Phase 3 — API/security remediation
+
+Applied evidence-based fixes without changing the database or authentication architecture:
+
+- Registration and OAuth role inputs are now constrained to the roles exposed by the registration flow: `landlord`, `property_manager`, `technician`, and `tenant`. Invalid or privileged values such as `admin` fall back to `property_manager`.
+- Property-lead persistence no longer references the nonexistent `users.owner_id` column. Lead ownership is explicitly stored against the authenticated user within the current organization.
+- Property imports now update the existing property identified by the organization/APN lookup, rather than attempting an update using a caller-supplied replacement ID.
+- API route review found no user-controlled outbound URL fetch/SSRF sink in the current server routes. OAuth token/profile calls use fixed provider endpoints.
+- Generic data and storage routes remain authenticated and intentionally non-mutating/non-storage-backed; canonical tenant isolation is enforced on the implemented property APIs through `organization_id` predicates.
+
+### Validation state after Phase 3
+
+- Previous CI validation: npm ci, typecheck, and production build passed on the cleanup branch before the Phase 3 server commits.
+- Latest Phase 3 commit: CI has not yet produced a new run; do not treat the earlier green run as validation of these newest changes.
+- Latest commit status currently reports Vercel as pending.
+- Production deployment and database migration remain intentionally untouched.
