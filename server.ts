@@ -4,10 +4,8 @@ import crypto from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
-import { db, createPool, ensureDatabaseReady } from "./src/db/index.js";
-import { financialMetrics } from "./src/db/schema.js";
+import { createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
-import { localDb } from "./src/db/localDb.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -25,8 +23,11 @@ const oauthClientSecret = (provider: 'google' | 'microsoft') =>
 const oauthCallbackUrl = (provider: 'google' | 'microsoft') =>
   `${process.env.APP_URL || ''}/api/auth/${provider}/callback`;
 
-const oauthStateSecret = () =>
-  process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER || 'vortex-one-oauth-state-fallback';
+const oauthStateSecret = () => {
+  const secret = process.env.SOCIAL_AUTH_PEPPER || process.env.AUTH_SESSION_PEPPER;
+  if (!secret) throw new Error('OAuth state signing secret is not configured');
+  return secret;
+};
 
 const createOAuthState = (provider: 'google' | 'microsoft', role: string) => {
   const payload = Buffer.from(JSON.stringify({
@@ -161,7 +162,7 @@ export function createApp() {
   const pool = createPool();
 
   const userColumns = `
-    id, COALESCE(uid, id) AS uid, email, name, role,
+    id, organization_id, COALESCE(uid, id) AS uid, email, name, role,
     phone, company_name, portfolio_size, primary_market, current_address,
     monthly_income, employment_status, move_in_date, occupants_count, has_pets,
     trade_specialty, hourly_rate, property_types, management_fee, service_radius,
@@ -170,7 +171,7 @@ export function createApp() {
 
   const toUser = (row: any) => ({
     id: row.id,
-    uid: row.uid,
+    uid: row.uid ?? row.id,
     email: row.email,
     name: row.name,
     role: row.role,
@@ -324,9 +325,6 @@ export function createApp() {
       if (typeof password !== 'string' || password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
       const normalizedEmail = String(email).trim().toLowerCase();
-      const existing = await pool.query('SELECT id FROM users WHERE lower(email)=lower($1) LIMIT 1', [normalizedEmail]);
-      if (existing.rows.length) return res.status(409).json({ error: "An account with that email already exists" });
-
       const userId = crypto.randomUUID();
       const organizationId = crypto.randomUUID();
       const uid = userId;
@@ -454,188 +452,154 @@ export function createApp() {
   app.get("/api/data/:collection", requireAuth, async (req, res) => {
     try {
       const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        if (collection === "users") {
-          const records = localDb.getUsers().map(u => ({ id: u.id, data: u }));
-          return res.json({ records });
-        }
-        const records = localDb.getRecords(collection, req.user!.uid);
-        return res.json({ records: records.map(r => ({ id: r.id, data: r.data, createdAt: r.created_at })) });
-      }
 
       if (collection === "users") {
-        const result = await pool.query("SELECT id, uid, email, name, role, phone, company_name, trade_specialty, hourly_rate, service_radius, emergency_dispatch FROM users");
+        const result = await pool.query(
+          `SELECT id, email, name, role
+             FROM users
+            WHERE organization_id=$1`,
+          [req.user!.organizationId]
+        );
         let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
         const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
-        for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
-        const orderBy = String(req.query.orderBy || "");
-        const order = String(req.query.order || "asc");
-        if (orderBy) records.sort((a: any, b: any) => String(a.data?.[orderBy] ?? "").localeCompare(String(b.data?.[orderBy] ?? "")));
-        if (order === "desc") records.reverse();
-        const max = Number(req.query.limit || 0); if (max > 0) records = records.slice(0, max);
+        for (const raw of whereParams) {
+          try {
+            const w = JSON.parse(String(raw));
+            records = records.filter((r: any) => r.data?.[w.field] === w.value);
+          } catch {}
+        }
+        const max = Number(req.query.limit || 0);
+        if (max > 0) records = records.slice(0, max);
         return res.json({ records });
       }
-      const result = await pool.query("SELECT id, data, created_at FROM app_records WHERE owner_uid = $1 AND collection = $2", [req.user!.uid, collection]);
-      let records = result.rows.map((row: any) => ({ id: row.id, data: row.data || {}, createdAt: row.created_at }));
-      const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
-      for (const raw of whereParams) { try { const w = JSON.parse(String(raw)); records = records.filter((r: any) => r.data?.[w.field] === w.value); } catch {} }
-      const orderBy = String(req.query.orderBy || "");
-      const order = String(req.query.order || "asc");
-      if (orderBy) records.sort((a: any, b: any) => String(a.data?.[orderBy] ?? "").localeCompare(String(b.data?.[orderBy] ?? "")));
-      if (order === "desc") records.reverse();
-      const max = Number(req.query.limit || 0); if (max > 0) records = records.slice(0, max);
-      return res.json({ records });
-    } catch (error: any) { console.error("Data read error:", error); return res.status(500).json({ error: error.message || "Unable to read records" }); }
+
+      return res.status(404).json({ error: "Collection not available in the canonical database model." });
+    } catch (error: any) {
+      console.error("Data read error:", error);
+      return res.status(500).json({ error: error.message || "Unable to read records" });
+    }
   });
 
   app.post("/api/data/:collection", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
-        const rec = localDb.addRecord(collection, req.user!.uid, req.body?.data || {});
-        return res.status(201).json({ id: rec.id });
-      }
-
-      const id = crypto.randomUUID();
-      if (collection === "users") return res.status(403).json({ error: "User records are managed by authentication." });
-      await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, $3, $4::jsonb)", [id, req.user!.uid, collection, JSON.stringify(req.body?.data || {})]);
-      return res.status(201).json({ id });
-    } catch (error: any) { console.error("Data create error:", error); return res.status(500).json({ error: error.message || "Unable to create record" }); }
+    if (String(req.params.collection) === "users") {
+      return res.status(403).json({ error: "User records are managed by authentication." });
+    }
+    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
-  app.patch("/api/data/:collection/:id", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        const rec = localDb.updateRecord(String(req.params.id), collection, req.user!.uid, req.body?.data || {});
-        if (!rec) return res.status(404).json({ error: "Record not found" });
-        return res.json({ id: rec.id });
-      }
-
-      const result = await pool.query("UPDATE app_records SET data = data || $1::jsonb WHERE id = $2 AND owner_uid = $3 AND collection = $4 RETURNING id", [JSON.stringify(req.body?.data || {}), String(req.params.id), req.user!.uid, collection]);
-      if (!result.rows.length) return res.status(404).json({ error: "Record not found" });
-      return res.json({ id: String(req.params.id) });
-    } catch (error: any) { console.error("Data update error:", error); return res.status(500).json({ error: error.message || "Unable to update record" }); }
+  app.patch("/api/data/:collection/:id", requireAuth, async (_req, res) => {
+    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
-  app.delete("/api/data/:collection/:id", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-      if (global._isUsingLocalFallback) {
-        localDb.deleteRecord(String(req.params.id), collection, req.user!.uid);
-        return res.status(204).end();
-      }
-
-      await pool.query("DELETE FROM app_records WHERE id = $1 AND owner_uid = $2 AND collection = $3", [String(req.params.id), req.user!.uid, collection]);
-      return res.status(204).end();
-    } catch (error: any) { console.error("Data delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete record" }); }
+  app.delete("/api/data/:collection/:id", requireAuth, async (_req, res) => {
+    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
   });
 
-  app.post("/api/storage", requireAuth, async (req, res) => {
-    try {
-      const { path: storagePath, name, type, data } = req.body || {};
-      if (!storagePath || !data) return res.status(400).json({ error: "File path and data are required" });
-      if (Buffer.byteLength(String(data), "utf8") > 5000000) return res.status(413).json({ error: "File is too large for this upload path." });
-
-      if (global._isUsingLocalFallback) {
-        const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
-        const rec = localDb.addRecord('_storage', req.user!.uid, record);
-        return res.status(201).json({ id: rec.id, downloadURL: "/api/storage/" + encodeURIComponent(String(storagePath)) });
-      }
-
-      const id = crypto.randomUUID();
-      const record = { path: String(storagePath), name: String(name || storagePath), type: String(type || "application/octet-stream"), data: String(data) };
-      await pool.query("INSERT INTO app_records (id, owner_uid, collection, data) VALUES ($1, $2, '_storage', $3::jsonb)", [id, req.user!.uid, JSON.stringify(record)]);
-      return res.status(201).json({ id, downloadURL: "/api/storage/" + encodeURIComponent(String(storagePath)) });
-    } catch (error: any) { console.error("Storage upload error:", error); return res.status(500).json({ error: error.message || "Unable to upload file" }); }
+  // File storage is intentionally not implemented through the database.
+  // The canonical platform uses Supabase Storage with its own RLS policies.
+  app.post("/api/storage", requireAuth, async (_req, res) => {
+    return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
   });
 
-  app.get("/api/storage/:path", requireAuth, async (req, res) => {
-    try {
-      const storagePath = decodeURIComponent(String(req.params.path));
-      if (global._isUsingLocalFallback) {
-        const records = localDb.getRecords('_storage', req.user!.uid);
-        const matchRec = [...records].reverse().find(r => r.data?.path === storagePath);
-        if (!matchRec) return res.status(404).send("File not found");
-        const record = matchRec.data;
-        const match = String(record.data).match(/^data:([^;]+);base64,(.+)$/s);
-        if (!match) return res.status(500).send("Stored file is invalid");
-        res.setHeader("Content-Type", record.type || match[1]);
-        return res.send(Buffer.from(match[2], "base64"));
-      }
-
-      const result = await pool.query("SELECT data FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2 ORDER BY created_at DESC LIMIT 1", [req.user!.uid, storagePath]);
-      if (!result.rows.length) return res.status(404).send("File not found");
-      const record: any = result.rows[0].data;
-      const match = String(record.data).match(/^data:([^;]+);base64,(.+)$/s);
-      if (!match) return res.status(500).send("Stored file is invalid");
-      res.setHeader("Content-Type", record.type || match[1]);
-      return res.send(Buffer.from(match[2], "base64"));
-    } catch (error: any) { console.error("Storage download error:", error); return res.status(500).send("Unable to download file"); }
+  app.get("/api/storage/:path", requireAuth, async (_req, res) => {
+    return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
   });
 
-  app.delete("/api/storage/:path", requireAuth, async (req, res) => {
-    try {
-      const storagePath = decodeURIComponent(String(req.params.path));
-      if (global._isUsingLocalFallback) {
-        const records = localDb.getRecords('_storage', req.user!.uid);
-        const matchRec = records.find(r => r.data?.path === storagePath);
-        if (matchRec) {
-          localDb.deleteRecord(matchRec.id, '_storage', req.user!.uid);
-        }
-        return res.status(204).end();
-      }
-
-      await pool.query("DELETE FROM app_records WHERE owner_uid = $1 AND collection = '_storage' AND data->>'path' = $2", [req.user!.uid, storagePath]);
-      return res.status(204).end();
-    } catch (error: any) { console.error("Storage delete error:", error); return res.status(500).json({ error: error.message || "Unable to delete file" }); }
+  app.delete("/api/storage/:path", requireAuth, async (_req, res) => {
+    return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
   });
 
   // Property Intelligence API
   app.get("/api/properties/search", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
-      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Property search requires PostgreSQL/PostGIS." });
-
       const pool = createPool();
-      const params: any[] = [];
-      const where: string[] = [];
+      const params: unknown[] = [req.user!.organizationId];
+      const where = ["p.organization_id = $1"];
       const q = String(req.query.q || "").trim();
       const state = String(req.query.state || "").trim();
       const county = String(req.query.county || "").trim();
-      const postalCode = String(req.query.postalCode || "").trim();
+      const zip = String(req.query.zip || req.query.postalCode || "").trim();
       const propertyType = String(req.query.propertyType || "").trim();
       const minValue = Number(req.query.minValue || 0);
       const maxValue = Number(req.query.maxValue || 0);
-      const minBeds = Number(req.query.minBeds || 0);
-      const vacant = req.query.vacant === "true";
       const taxDelinquent = req.query.taxDelinquent === "true";
-      const preForeclosure = req.query.preForeclosure === "true";
-      const foreclosure = req.query.foreclosure === "true";
+      const absentee = req.query.absentee === "true";
       const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
 
       if (q) {
         params.push("%" + q + "%");
-        where.push("(address_line1 ILIKE $" + params.length + " OR city ILIKE $" + params.length + " OR apn ILIKE $" + params.length + ")");
+        const p = params.length;
+        where.push("(p.address ILIKE $" + p + " OR p.city ILIKE $" + p + " OR p.apn ILIKE $" + p + ")");
       }
-      if (state) { params.push(state); where.push("state = $" + params.length); }
-      if (county) { params.push(county); where.push("county = $" + params.length); }
-      if (postalCode) { params.push(postalCode); where.push("postal_code = $" + params.length); }
-      if (propertyType) { params.push(propertyType); where.push("property_type = $" + params.length); }
-      if (minValue > 0) { params.push(minValue); where.push("COALESCE(estimated_value, assessed_value) >= $" + params.length); }
-      if (maxValue > 0) { params.push(maxValue); where.push("COALESCE(estimated_value, assessed_value) <= $" + params.length); }
-      if (minBeds > 0) { params.push(minBeds); where.push("COALESCE(bedrooms,0) >= $" + params.length); }
-      if (vacant) where.push("vacancy_status = 'vacant'");
-      if (taxDelinquent) where.push("tax_delinquent = true");
-      if (preForeclosure) where.push("pre_foreclosure = true");
-      if (foreclosure) where.push("foreclosure = true");
+      if (state) { params.push(state); where.push("p.state = $" + params.length); }
+      if (county) { params.push(county); where.push("p.county = $" + params.length); }
+      if (zip) { params.push(zip); where.push("p.zip = $" + params.length); }
+      if (propertyType) { params.push(propertyType); where.push("p.property_type = $" + params.length); }
+      if (minValue > 0) { params.push(minValue); where.push("p.estimated_value >= $" + params.length); }
+      if (maxValue > 0) { params.push(maxValue); where.push("p.estimated_value <= $" + params.length); }
+      if (taxDelinquent) where.push("p.tax_delinquent = true");
+      if (absentee) where.push("p.is_absentee_owner = true");
 
-      const sql = "SELECT p.id, p.apn, p.fips, p.state, p.county, p.address_line1, p.city, p.postal_code, p.property_type, p.bedrooms, p.bathrooms, p.living_sqft, p.lot_sqft, p.year_built, p.assessed_value, p.estimated_value, p.estimated_rent, p.last_sale_price, p.last_sale_date, p.latitude, p.longitude, p.vacancy_status, p.owner_occupied, p.tax_delinquent, p.pre_foreclosure, p.foreclosure, p.probate, p.lien_count, p.mortgage_balance, COALESCE(json_agg(json_build_object('ownerId', o.id, 'name', o.canonical_name, 'type', o.owner_type, 'mailingAddress', o.mailing_address)) FILTER (WHERE o.id IS NOT NULL), '[]') AS owners FROM properties p LEFT JOIN property_owner_links pol ON pol.property_id = p.id LEFT JOIN property_owners o ON o.id = pol.owner_id" +
-        (where.length ? " WHERE " + where.join(" AND ") : "") +
-        " GROUP BY p.id ORDER BY p.updated_at DESC LIMIT " + String(limit);
+      const sql = `
+        SELECT
+          p.id,
+          p.apn,
+          p.address,
+          p.city,
+          p.state,
+          p.zip,
+          p.county,
+          p.property_type,
+          p.units_count,
+          p.square_feet,
+          p.year_built,
+          p.estimated_value,
+          p.assessed_tax_value,
+          p.estimated_equity,
+          p.mortgage_balance,
+          p.is_absentee_owner,
+          p.is_corporate_owned,
+          p.tax_delinquent,
+          p.last_sale_date,
+          p.last_sale_price,
+          p.provenance,
+          po.id AS owner_id,
+          po.name AS owner_name,
+          po.entity_type AS owner_type,
+          po.mailing_address,
+          po.mailing_city,
+          po.mailing_state,
+          po.mailing_zip
+        FROM properties p
+        LEFT JOIN property_owners po
+          ON po.id = p.owner_id
+         AND po.organization_id = p.organization_id
+        WHERE ${where.join(" AND ")}
+        ORDER BY p.created_at DESC
+        LIMIT ${Math.min(limit, 200)}
+      `;
       const result = await pool.query(sql, params);
-      return res.json({ count: result.rowCount, properties: result.rows });
+      const properties = result.rows.map((row: any) => ({
+        ...row,
+        address_line1: row.address,
+        postal_code: row.zip,
+        owner_occupied: row.is_absentee_owner === null ? null : !row.is_absentee_owner,
+        estimated_value: row.estimated_value,
+        assessed_value: row.assessed_tax_value,
+        mortgage_balance: row.mortgage_balance,
+        owners: row.owner_id
+          ? [{
+              ownerId: row.owner_id,
+              name: row.owner_name,
+              type: row.owner_type,
+              mailingAddress: row.mailing_address
+                ? [row.mailing_address, row.mailing_city, row.mailing_state, row.mailing_zip].filter(Boolean).join(", ")
+                : null,
+            }]
+          : [],
+      }));
+      return res.json({ count: properties.length, properties });
     } catch (error: any) {
       console.error("Property search error:", error);
       return res.status(500).json({ error: error.message || "Unable to search properties" });
@@ -645,15 +609,35 @@ export function createApp() {
   app.post("/api/property-leads", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
-      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Lead persistence requires PostgreSQL/PostGIS." });
-      const propertyId = Number(req.body?.propertyId);
+      const pool = createPool();
+      const propertyId = String(req.body?.propertyId || "");
       const score = Math.max(0, Math.min(Number(req.body?.score || 0), 100));
       const reasons = Array.isArray(req.body?.reasons) ? req.body.reasons : [];
-      if (!Number.isInteger(propertyId) || propertyId < 1) return res.status(400).json({ error: "Valid propertyId is required" });
-      const pool = createPool();
+      if (!propertyId) return res.status(400).json({ error: "Valid propertyId is required" });
+
+      const property = await pool.query(
+        "SELECT id FROM properties WHERE id=$1 AND organization_id=$2 LIMIT 1",
+        [propertyId, req.user!.organizationId]
+      );
+      if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
+
+      const existing = await pool.query(
+        "SELECT id FROM leads WHERE organization_id=$1 AND primary_property_id=$2 AND owner_id=(SELECT owner_id FROM users WHERE id=$3 LIMIT 1) LIMIT 1",
+        [req.user!.organizationId, propertyId, req.user!.id]
+      );
+      let leadId = existing.rows[0]?.id || crypto.randomUUID();
+
+      if (existing.rows.length) {
+        const result = await pool.query(
+          "UPDATE leads SET lead_score=$1,factors=$2::jsonb,updated_at=now() WHERE id=$3 AND organization_id=$4 RETURNING *",
+          [score, JSON.stringify(reasons), leadId, req.user!.organizationId]
+        );
+        return res.status(200).json({ lead: result.rows[0] });
+      }
+
       const result = await pool.query(
-        "INSERT INTO property_leads(user_id,property_id,score,reasons) VALUES($1,$2,$3,$4::jsonb) ON CONFLICT(user_id,property_id) DO UPDATE SET score=EXCLUDED.score,reasons=EXCLUDED.reasons RETURNING *",
-        [req.user!.id, propertyId, score, JSON.stringify(reasons)]
+        "INSERT INTO leads (id,organization_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4::jsonb,$5) RETURNING *",
+        [leadId, req.user!.organizationId, score, JSON.stringify(reasons), propertyId]
       );
       return res.status(201).json({ lead: result.rows[0] });
     } catch (error: any) {
@@ -665,17 +649,32 @@ export function createApp() {
   app.get("/api/properties/:id", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
-      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Property intelligence requires PostgreSQL/PostGIS." });
       const pool = createPool();
-      const id = Number(req.params.id);
-      if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: "Invalid property id" });
+      const id = String(req.params.id || "");
+      if (!id) return res.status(400).json({ error: "Invalid property id" });
+
       const property = await pool.query(
-        "SELECT p.*, COALESCE(json_agg(json_build_object('ownerId',o.id,'name',o.canonical_name,'type',o.owner_type,'mailingAddress',o.mailing_address)) FILTER (WHERE o.id IS NOT NULL),'[]') AS owners FROM properties p LEFT JOIN property_owner_links pol ON pol.property_id=p.id LEFT JOIN property_owners o ON o.id=pol.owner_id WHERE p.id=$1 GROUP BY p.id",
-        [id]
+        `SELECT
+           p.*,
+           po.id AS owner_id,
+           po.name AS owner_name,
+           po.entity_type AS owner_type,
+           po.mailing_address,
+           po.mailing_city,
+           po.mailing_state,
+           po.mailing_zip
+         FROM properties p
+         LEFT JOIN property_owners po
+           ON po.id=p.owner_id
+          AND po.organization_id=p.organization_id
+         WHERE p.id=$1 AND p.organization_id=$2
+         LIMIT 1`,
+        [id, req.user!.organizationId]
       );
       if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
-      const sources = await pool.query("SELECT * FROM property_sources WHERE property_id=$1 ORDER BY retrieved_at DESC", [id]);
-      return res.json({ property: property.rows[0], sources: sources.rows });
+
+      const sources = property.rows[0].provenance ? [property.rows[0].provenance] : [];
+      return res.json({ property: property.rows[0], sources });
     } catch (error: any) {
       console.error("Property detail error:", error);
       return res.status(500).json({ error: error.message || "Unable to retrieve property" });
@@ -685,7 +684,6 @@ export function createApp() {
   app.post("/api/properties/import", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
-      if (global._isUsingLocalFallback) return res.status(503).json({ error: "Property imports require PostgreSQL/PostGIS." });
       const records = Array.isArray(req.body?.records) ? req.body.records : [];
       if (!records.length) return res.status(400).json({ error: "records array is required" });
       if (records.length > 5000) return res.status(413).json({ error: "Import limited to 5,000 records per request." });
@@ -693,55 +691,106 @@ export function createApp() {
       const pool = createPool();
       let inserted = 0;
       let updated = 0;
+
       for (const input of records) {
         const r = input || {};
         const owner = r.owner || {};
-        const source = r.source || {};
-        let propertyId: number;
-        if (r.apn && r.fips) {
-          const existing = await pool.query("SELECT id FROM properties WHERE apn=$1 AND fips=$2 LIMIT 1", [String(r.apn), String(r.fips)]);
-          if (existing.rows.length) {
-            propertyId = Number(existing.rows[0].id);
-            await pool.query(
-              "UPDATE properties SET state=$1,county=$2,address_line1=$3,city=$4,postal_code=$5,property_type=$6,bedrooms=$7,bathrooms=$8,living_sqft=$9,lot_sqft=$10,year_built=$11,assessed_value=$12,estimated_value=$13,estimated_rent=$14,last_sale_price=$15,last_sale_date=$16,latitude=$17,longitude=$18,vacancy_status=$19,owner_occupied=$20,tax_delinquent=$21,pre_foreclosure=$22,foreclosure=$23,probate=$24,lien_count=$25,mortgage_balance=$26,raw_data=$27::jsonb,updated_at=now() WHERE id=$28",
-              [r.state||null,r.county||null,r.addressLine1||null,r.city||null,r.postalCode||null,r.propertyType||null,r.bedrooms??null,r.bathrooms??null,r.livingSqft??null,r.lotSqft??null,r.yearBuilt??null,r.assessedValue??null,r.estimatedValue??null,r.estimatedRent??null,r.lastSalePrice??null,r.lastSaleDate||null,r.latitude??null,r.longitude??null,r.vacancyStatus||null,r.ownerOccupied??null,Boolean(r.taxDelinquent),Boolean(r.preForeclosure),Boolean(r.foreclosure),Boolean(r.probate),Number(r.lienCount||0),r.mortgageBalance??null,JSON.stringify(r),propertyId]
-            );
-            updated++;
-          } else {
-            const created = await pool.query(
-              "INSERT INTO properties (apn,fips,state,county,address_line1,city,postal_code,property_type,bedrooms,bathrooms,living_sqft,lot_sqft,year_built,assessed_value,estimated_value,estimated_rent,last_sale_price,last_sale_date,latitude,longitude,vacancy_status,owner_occupied,tax_delinquent,pre_foreclosure,foreclosure,probate,lien_count,mortgage_balance,raw_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29) RETURNING id",
-              [r.apn,r.fips,r.state||null,r.county||null,r.addressLine1||null,r.city||null,r.postalCode||null,r.propertyType||null,r.bedrooms??null,r.bathrooms??null,r.livingSqft??null,r.lotSqft??null,r.yearBuilt??null,r.assessedValue??null,r.estimatedValue??null,r.estimatedRent??null,r.lastSalePrice??null,r.lastSaleDate||null,r.latitude??null,r.longitude??null,r.vacancyStatus||null,r.ownerOccupied??null,Boolean(r.taxDelinquent),Boolean(r.preForeclosure),Boolean(r.foreclosure),Boolean(r.probate),Number(r.lienCount||0),r.mortgageBalance??null,JSON.stringify(r)]
-            );
-            propertyId = Number(created.rows[0].id);
-            inserted++;
-          }
-        } else {
-          const created = await pool.query(
-            "INSERT INTO properties (state,county,address_line1,city,postal_code,property_type,bedrooms,bathrooms,living_sqft,lot_sqft,year_built,assessed_value,estimated_value,estimated_rent,latitude,longitude,raw_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id",
-            [r.state||null,r.county||null,r.addressLine1||null,r.city||null,r.postalCode||null,r.propertyType||null,r.bedrooms??null,r.bathrooms??null,r.livingSqft??null,r.lotSqft??null,r.yearBuilt??null,r.assessedValue??null,r.estimatedValue??null,r.estimatedRent??null,r.latitude??null,r.longitude??null,JSON.stringify(r)]
+        const id = String(r.id || crypto.randomUUID());
+        const apn = String(r.apn || "");
+        if (!apn || !r.address || !r.city || !r.state || !r.zip || !r.county || !r.propertyType) {
+          return res.status(400).json({
+            error: "Each property requires apn, address, city, state, zip, county, and propertyType."
+          });
+        }
+
+        let ownerId: string | null = null;
+        if (owner.name || owner.canonicalName) {
+          const ownerName = String(owner.name || owner.canonicalName).trim();
+          const ownerSearch = await pool.query(
+            "SELECT id FROM property_owners WHERE organization_id=$1 AND lower(name)=lower($2) LIMIT 1",
+            [req.user!.organizationId, ownerName]
           );
-          propertyId = Number(created.rows[0].id);
+          if (ownerSearch.rows.length) {
+            ownerId = ownerSearch.rows[0].id;
+          } else {
+            const createdOwner = await pool.query(
+              `INSERT INTO property_owners
+                 (id,organization_id,name,entity_type,mailing_address,mailing_city,mailing_state,mailing_zip)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+               RETURNING id`,
+              [
+                crypto.randomUUID(),
+                req.user!.organizationId,
+                ownerName,
+                String(owner.entityType || owner.ownerType || "individual"),
+                owner.mailingAddress ? String(owner.mailingAddress) : null,
+                owner.mailingCity || owner.city || null,
+                owner.mailingState || owner.state || null,
+                owner.mailingZip || owner.postalCode || null,
+              ]
+            );
+            ownerId = createdOwner.rows[0].id;
+          }
+        }
+
+        const existing = await pool.query(
+          "SELECT id FROM properties WHERE organization_id=$1 AND apn=$2 LIMIT 1",
+          [req.user!.organizationId, apn]
+        );
+
+        const values = [
+          id,
+          req.user!.organizationId,
+          ownerId,
+          String(r.address),
+          String(r.city),
+          String(r.state),
+          String(r.zip),
+          String(r.county),
+          apn,
+          String(r.propertyType),
+          Math.max(1, Number(r.unitsCount || 1)),
+          Math.max(0, Number(r.squareFeet || r.livingSqft || 0)),
+          r.yearBuilt == null ? null : Number(r.yearBuilt),
+          Number(r.estimatedValue || 0),
+          Number(r.assessedTaxValue ?? r.assessedValue ?? 0),
+          Number(r.estimatedEquity || 0),
+          Number(r.mortgageBalance || 0),
+          Boolean(r.isAbsenteeOwner ?? (r.ownerOccupied === false)),
+          Boolean(r.isCorporateOwned),
+          Boolean(r.taxDelinquent),
+          r.lastSaleDate || null,
+          r.lastSalePrice == null ? null : Number(r.lastSalePrice),
+          r.provenance || r.rawData || {},
+        ];
+
+        if (existing.rows.length) {
+          await pool.query(
+            `UPDATE properties SET
+               owner_id=$3,address=$4,city=$5,state=$6,zip=$7,county=$8,apn=$9,
+               property_type=$10,units_count=$11,square_feet=$12,year_built=$13,
+               estimated_value=$14,assessed_tax_value=$15,estimated_equity=$16,
+               mortgage_balance=$17,is_absentee_owner=$18,is_corporate_owned=$19,
+               tax_delinquent=$20,last_sale_date=$21,last_sale_price=$22,provenance=$23,
+               created_at=created_at
+             WHERE organization_id=$2 AND id=$1`,
+            values
+          );
+          updated++;
+        } else {
+          await pool.query(
+            `INSERT INTO properties (
+               id,organization_id,owner_id,address,city,state,zip,county,apn,
+               property_type,units_count,square_feet,year_built,estimated_value,
+               assessed_tax_value,estimated_equity,mortgage_balance,is_absentee_owner,
+               is_corporate_owned,tax_delinquent,last_sale_date,last_sale_price,provenance
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+            values
+          );
           inserted++;
         }
-
-        if (owner.canonicalName) {
-          const normalizedName = String(owner.canonicalName).trim().toLowerCase().replace(/\s+/g, " ");
-          let ownerId: number | null = null;
-          const existingOwner = await pool.query("SELECT id FROM property_owners WHERE normalized_name=$1 LIMIT 1", [normalizedName]);
-          if (existingOwner.rows.length) ownerId = Number(existingOwner.rows[0].id);
-          else {
-            const createdOwner = await pool.query(
-              "INSERT INTO property_owners (canonical_name,owner_type,normalized_name,mailing_address,city,state,postal_code,source,source_record_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
-              [String(owner.canonicalName),owner.ownerType||"person",normalizedName,owner.mailingAddress||null,owner.city||null,owner.state||null,owner.postalCode||null,source.source||null,source.sourceRecordId||null]
-            );
-            ownerId = Number(createdOwner.rows[0].id);
-          }
-          await pool.query("INSERT INTO property_owner_links(property_id,owner_id,role,source) VALUES($1,$2,'owner',$3) ON CONFLICT DO NOTHING",[propertyId,ownerId,source.source||null]);
-        }
-
-        await pool.query("INSERT INTO property_sources(property_id,source,source_record_id,effective_date,confidence,record_hash) VALUES($1,$2,$3,$4,$5,$6)",
-          [propertyId,source.source||"unknown",source.sourceRecordId||null,source.effectiveDate||null,source.confidence??null,crypto.createHash("sha256").update(JSON.stringify(r)).digest("hex")]);
       }
+
       return res.status(201).json({ inserted, updated, total: records.length });
     } catch (error: any) {
       console.error("Property import error:", error);
@@ -750,16 +799,7 @@ export function createApp() {
   });
 
   app.get("/api/metrics", requireAuth, async (_req, res) => {
-    try {
-      if (global._isUsingLocalFallback) {
-        return res.json(localDb.getMetrics());
-      }
-      const data = await db.select().from(financialMetrics);
-      res.json(data);
-    } catch (error: any) {
-      console.error("Error fetching metrics:", error);
-      res.status(500).json({ error: error.message });
-    }
+    return res.json([]);
   });
 
   app.post("/api/gemini/chat", requireAuth, async (req, res) => {

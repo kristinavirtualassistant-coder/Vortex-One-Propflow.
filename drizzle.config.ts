@@ -1,39 +1,16 @@
-// src/db/drizzle.config.ts
 import { defineConfig } from "drizzle-kit";
-import * as dotenv from "dotenv";
+import "dotenv/config";
 
-// Load environment variables from .env file.
-dotenv.config();
-
-const sqlHost = process.env.SQL_HOST;
-const sqlDbName = process.env.SQL_DB_NAME;
-const user = process.env.SQL_ADMIN_USER;
-const password = process.env.SQL_ADMIN_PASSWORD;
-
-if (!sqlHost) {
-  throw new Error("SQL_HOST must be set in environment variables.");
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set for Drizzle tooling.");
 }
-if (!sqlDbName) {
-  throw new Error("SQL_DB_NAME must be set in environment variables.");
-}
-if (!user) {
-  throw new Error("SQL_ADMIN_USER must be set in environment variables.");
-}
-if (!password) {
-  throw new Error("SQL_ADMIN_PASSWORD must be set in environment variables.");
-}
-console.log(`Using user: ${user} to connect to database.`);
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
-  out: "./drizzle", // Output directory for migrations.
+  out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    host: sqlHost,
-    user: user,
-    password: password,
-    database: sqlDbName,
-    ssl: false, // Typically false when connecting via Cloud SQL Auth Proxy.
+    url: process.env.DATABASE_URL,
   },
-  verbose: true, // Enable verbose output.
+  verbose: false,
 });
