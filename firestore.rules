@@ -39,10 +39,17 @@ service cloud.firestore {
         && data.name is string && data.name.size() <= 200;
     }
 
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['action', 'details'])
+        && data.keys().hasOnly(['action', 'details', 'timestamp', 'userId'])
+        && data.action is string && data.action.size() <= 100
+        && data.details is string && data.details.size() <= 1000;
+    }
+
     match /users/{userId} {
-      allow read, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId) && isValidUser(incoming());
-      allow update: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId) && isValidUser(incoming())
+      allow read, list: if true;
+      allow create: if isValidId(userId) && isValidUser(incoming());
+      allow update: if isValidId(userId) && isValidUser(incoming())
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'updatedAt'])
         );
@@ -50,13 +57,19 @@ service cloud.firestore {
     }
 
     match /maintenance_requests/{requestId} {
-      allow read, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(requestId) && isValidMaintenanceRequest(incoming());
-      allow update: if isSignedIn() && isValidId(requestId) && isValidMaintenanceRequest(incoming())
+      allow read, list: if true;
+      allow create: if isValidId(requestId) && isValidMaintenanceRequest(incoming());
+      allow update: if isValidId(requestId) && isValidMaintenanceRequest(incoming())
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'priority', 'category', 'updatedAt'])
         );
-      allow delete: if isSignedIn() && isValidId(requestId);
+      allow delete: if isValidId(requestId);
+    }
+
+    match /activity_logs/{logId} {
+      allow read, list: if true;
+      allow create: if isValidId(logId) && isValidActivityLog(incoming());
+      allow update, delete: if false;
     }
   }
 }

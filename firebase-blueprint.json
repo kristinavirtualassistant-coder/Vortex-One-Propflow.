@@ -68,6 +68,31 @@
         }
       },
       "required": ["email", "name", "role"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Audit log record of property actions.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "The action that took place."
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Descriptive details about the action."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "userId": {
+          "type": "string"
+        }
+      },
+      "required": ["action", "details"]
     }
   },
   "firestore": {
@@ -78,6 +103,10 @@
     "users": {
       "schema": "User",
       "description": "User account profiles and metadata."
+    },
+    "activity_logs": {
+      "schema": "ActivityLog",
+      "description": "Log records of actions on the platform."
     }
   }
 }

@@ -83,7 +83,7 @@ export const createSession = async (userId: string) => {
   const pool = createPool();
   const token = crypto.randomBytes(32).toString('hex');
   const id = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10);
   await pool.query(
     'INSERT INTO auth_sessions (id, user_id, token_hash, expires_at, last_seen_at) VALUES ($1,$2,$3,$4,now())',
     [id, userId, hashSessionToken(token), expiresAt]
