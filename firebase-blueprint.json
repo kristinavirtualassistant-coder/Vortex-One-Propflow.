@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "MaintenanceRequest": {
+      "title": "MaintenanceRequest",
+      "description": "A tenant or manager submitted maintenance or service request.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Short title or summary of the issue."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description of the maintenance problem."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "assigned", "completed"],
+          "description": "Current resolution status."
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "emergency"],
+          "description": "Urgency priority level."
+        },
+        "category": {
+          "type": "string",
+          "description": "Assigned trade category."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "propertyId": {
+          "type": "string",
+          "description": "ID of the affected property."
+        }
+      },
+      "required": ["title", "description", "status"]
+    }
+  },
+  "firestore": {
+    "maintenance_requests": {
+      "schema": "MaintenanceRequest",
+      "description": "Real-time tenant maintenance service request collection."
+    }
+  }
+}

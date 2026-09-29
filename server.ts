@@ -977,7 +977,7 @@ if (!process.env.FIREBASE_CONFIG && isDirectRun) {
       const app = createApp();
       const distPath = path.join(process.cwd(), 'dist');
       app.use(express.static(distPath));
-      app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+      app.get('(.*)', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
 
       const listenPort = 3000;
       app.listen(listenPort, "0.0.0.0", () => {

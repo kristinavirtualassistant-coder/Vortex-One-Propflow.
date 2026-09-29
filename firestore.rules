@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helper validation primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Hardened entity validation helper
+    function isValidMaintenanceRequest(data) {
+      return data.keys().hasAll(['title', 'description', 'status'])
+        && data.keys().hasOnly(['title', 'description', 'status', 'priority', 'category', 'createdAt', 'propertyId', 'updatedAt'])
+        && data.title is string && data.title.size() <= 100
+        && data.description is string && data.description.size() <= 2000
+        && data.status is string && data.status in ['pending', 'assigned', 'completed'];
+    }
+
+    match /maintenance_requests/{requestId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(requestId) && isValidMaintenanceRequest(incoming());
+      allow update: if isSignedIn() && isValidId(requestId) && isValidMaintenanceRequest(incoming())
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'priority', 'category', 'updatedAt'])
+        );
+      allow delete: if isSignedIn() && isValidId(requestId);
+    }
+  }
+}
