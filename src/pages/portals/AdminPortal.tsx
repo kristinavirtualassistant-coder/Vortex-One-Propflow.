@@ -2,6 +2,15 @@ import React from 'react';
 import { ShieldAlert, Users, Settings, Database, Activity, ArrowUpRight, Server, LockKeyhole } from 'lucide-react';
 import AdminAuditLog from '../../components/AdminAuditLog';
 
+function Metric({ label, value, detail, icon: Icon, tone = 'violet' }: { label: string; value: string; detail: string; icon: React.ComponentType<{ className?: string }>; tone?: 'violet' | 'emerald' | 'amber' }) {
+  const tones = {
+    violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  };
+  return <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950"><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</p><span className={`flex h-8 w-8 items-center justify-center rounded-lg ${tones[tone]}`}><Icon className="h-4 w-4" /></span></div><p className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white">{value}</p><p className="mt-1 text-[11px] text-slate-400">{detail}</p></div>;
+}
+
 export default function AdminPortal({ activeTab = 'dashboard' }: { activeTab?: string }) {
   if (activeTab === 'dashboard') {
     return (
