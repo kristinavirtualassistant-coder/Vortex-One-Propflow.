@@ -172,16 +172,16 @@ export default function Dashboard() {
 
     links.push(
       { id: 'zillow', label: 'Property Search', section: 'Portfolio' },
+      { id: 'leasing', label: 'Leasing & Documents', section: 'Portfolio' },
+      { id: 'financials', label: 'Financials', section: 'Portfolio' },
+      { id: 'documents', label: 'Documents', section: 'Portfolio' },
       { id: 'prospecting', label: 'Prospecting', section: 'Growth' },
       { id: 'crm', label: 'CRM & Workflows', section: 'Growth' },
       { id: 'leads', label: 'Leads', section: 'Growth' },
-      { id: 'leasing', label: 'Leasing & Documents', section: 'Portfolio' },
       { id: 'maintenance', label: 'Maintenance & Ops', section: 'Operations' },
       { id: 'messages', label: 'Messages', section: 'Operations' },
       { id: 'utilities', label: 'Utilities', section: 'Operations' },
       { id: 'vendors', label: 'Vendors', section: 'Operations' },
-      { id: 'financials', label: 'Financials', section: 'Portfolio' },
-      { id: 'documents', label: 'Documents', section: 'Portfolio' },
       { id: 'communications', label: 'Communications', section: 'Operations' }
     );
 
@@ -203,10 +203,10 @@ export default function Dashboard() {
     if (userData.role === 'property_manager' || userData.role === 'admin') {
       links.push(
         { id: 'billing', label: 'Subscription & Billing', section: 'Administration' },
-        { id: 'security', label: 'Security & Access', section: 'Administration' }
+        { id: 'security', label: 'Settings', section: 'Administration' }
       );
     } else {
-      links.push({ id: 'security', label: 'Security & Settings', section: 'Administration' });
+      links.push({ id: 'security', label: 'Settings', section: 'Administration' });
     }
 
     links.push({ id: 'support', label: 'Support', section: 'Administration' });
@@ -230,7 +230,7 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="h-[78px] bg-white/78 dark:bg-slate-950/72 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between px-5 sm:px-8 flex-shrink-0 shadow-[0_10px_40px_rgba(15,23,42,.05)]">
+        <header className="h-[72px] bg-white/82 dark:bg-slate-950/72 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between px-4 sm:px-7 flex-shrink-0 shadow-[0_10px_40px_rgba(15,23,42,.05)]">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
               className="md:hidden text-slate-500 hover:text-slate-900 dark:hover:text-white"
@@ -263,8 +263,8 @@ export default function Dashboard() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(124,92,255,.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(33,212,253,.06),transparent_24%)] p-4 sm:p-6">
-          <div className="max-w-[1600px] mx-auto animate-slide-in">
+        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(124,92,255,.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(33,212,253,.06),transparent_24%)] p-4 sm:p-6 lg:p-7">
+          <div className="max-w-[1680px] mx-auto animate-slide-in">
             <div className="flex items-center justify-between gap-4 mb-5">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
@@ -272,7 +272,7 @@ export default function Dashboard() {
                   Vortex One
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white truncate">{activeLabel}</h1>
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white truncate">{activeLabel}</h1>
                   <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-emerald-50/90 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-400/10">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Live
