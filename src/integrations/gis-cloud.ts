@@ -91,3 +91,33 @@ export const syncPropertyFeature = async (property: GisCloudProperty, featureId?
   if (id == null) throw new Error("GIS Cloud created the feature but did not return a feature ID");
   return { featureId: String(id), hash, operation: "created" as const };
 };
+
+export const syncPropertyFeatureViaEdge = async (propertyId: string, cookieHeader: string | undefined) => {
+  const supabaseUrl = process.env.SUPABASE_URL || "https://qnmcobypbhnkuvqctspy.supabase.co";
+  const response = await fetch(`${supabaseUrl}/functions/v1/gis-cloud-sync`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+    },
+    body: JSON.stringify({ property_id: propertyId }),
+  });
+
+  const text = await response.text();
+  let body: any = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+
+  if (!response.ok) {
+    throw new Error(
+      `Supabase GIS Cloud Edge Function ${response.status}: ${typeof body === "string" ? body : JSON.stringify(body)}`,
+    );
+  }
+
+  return body as {
+    operation: "created" | "updated" | "unchanged";
+    featureId: string;
+    mapId: number;
+    layerId: number;
+    hash: string;
+  };
+};
