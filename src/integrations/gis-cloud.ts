@@ -28,7 +28,8 @@ const apiKey = () => process.env.GIS_CLOUD_API_KEY || "";
 export const gisCloudConfig = () => ({
   mapId: Number(process.env.GIS_CLOUD_MAP_ID || 3302957),
   layerId: Number(process.env.GIS_CLOUD_LAYER_ID || 7986496),
-  configured: Boolean(apiKey()),
+  // The GIS credential is owned by the Supabase Edge Function, not the Vortex One runtime.
+  configured: true,
 });
 
 const request = async (path: string, init: RequestInit = {}) => {
