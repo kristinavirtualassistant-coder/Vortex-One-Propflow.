@@ -137,185 +137,35 @@ export default function TenantPortal({ activeTab = 'dashboard' }: { activeTab?: 
 
   return (
     <div className="space-y-6">
-      {/* Payments Overview */}
-      <div className="bg-indigo-600 dark:bg-indigo-700 rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
-          <p className="text-indigo-100 text-sm font-medium mb-1">Current Balance Due</p>
-          <div className="text-4xl font-bold">$1,450.00</div>
-          <p className="text-indigo-200 text-xs mt-1">Due by Aug 1st, 2026</p>
+      <section className="relative overflow-hidden rounded-[22px] bg-slate-950 px-6 py-7 text-white shadow-xl md:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(124,58,237,.28),transparent_38%),radial-gradient(circle_at_10%_100%,rgba(6,182,212,.14),transparent_35%)]" />
+        <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div><div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Resident workspace</div><h2 className="text-3xl font-black tracking-tight md:text-4xl">Home at a glance</h2><p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">Payments, maintenance, community updates, and lease details in one focused workspace.</p></div>
+          <button onClick={() => setIsPaymentModalOpen(true)} className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-950 shadow-lg transition-transform duration-200 hover:-translate-y-0.5">Pay $1,450.00</button>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <button 
-            onClick={() => setIsPaymentModalOpen(true)}
-            className="flex-1 md:flex-none px-6 py-2.5 bg-white text-indigo-600 font-bold rounded-lg shadow hover:bg-slate-50 transition-colors"
-          >
-            Pay Now
-          </button>
-          <button className="flex-1 md:flex-none px-6 py-2.5 bg-indigo-500 text-white font-bold rounded-lg border border-indigo-400 hover:bg-indigo-400 transition-colors">
-            Auto-Pay: OFF
-          </button>
-        </div>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Balance due</p><p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">$1,450</p><p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Due Aug 1, 2026</p></div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Maintenance</p><p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">{requests.length}</p><p className="mt-1 text-xs text-slate-500">{requests.filter(r => r.status === 'resolved').length} resolved</p></div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Lease</p><p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">Aug 31</p><p className="mt-1 text-xs text-slate-500">Current term end</p></div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PaymentHistoryChart />
-        <CommunityBoard />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-950"><div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-800"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-400">Maintenance</p><h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">Recent requests</h3></div><button onClick={() => setIsModalOpen(true)} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700">New request</button></div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">{requests.slice(0,4).map(req => <div key={req.id} className="flex items-center justify-between gap-4 px-5 py-4"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-950 dark:text-white">{req.title}</p><p className="mt-1 text-xs text-slate-500">{req.createdAt?.toDate ? format(req.createdAt.toDate(), 'MMM d, yyyy') : 'Just now'}</p></div><div className="flex items-center gap-2">{getStatusIcon(req.status)}<span className="text-xs font-semibold capitalize text-slate-500">{req.status?.replace('_',' ')}</span></div></div>)}{requests.length === 0 && <div className="px-5 py-10 text-center text-sm text-slate-500">No maintenance requests yet.</div>}</div>
+          </section>
+          <div className="grid gap-6 lg:grid-cols-2"><PaymentHistoryChart /><CommunityBoard /></div>
+        </div>
+        <aside className="space-y-6">
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-400">Lease</p><h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">Apartment 4B</h3><div className="mt-5 space-y-3 text-sm"><div className="flex justify-between border-b border-slate-100 pb-3 dark:border-slate-800"><span className="text-slate-500">Rent</span><span className="font-semibold text-slate-950 dark:text-white">$1,450 / mo</span></div><div className="flex justify-between border-b border-slate-100 pb-3 dark:border-slate-800"><span className="text-slate-500">Term</span><span className="font-semibold text-slate-950 dark:text-white">12 months</span></div><div className="flex justify-between border-b border-slate-100 pb-3 dark:border-slate-800"><span className="text-slate-500">Start</span><span className="font-semibold text-slate-950 dark:text-white">Sep 1, 2025</span></div><div className="flex justify-between"><span className="text-slate-500">End</span><span className="font-semibold text-slate-950 dark:text-white">Aug 31, 2026</span></div></div><button className="mt-5 w-full rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-violet-600 hover:bg-slate-50 dark:border-slate-800 dark:text-violet-400 dark:hover:bg-slate-900">Download lease agreement</button></section>
+        </aside>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex justify-between items-center mt-4">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">My Maintenance Requests</h2>
-              <p className="text-slate-500 dark:text-slate-400">Track and manage your property issues.</p>
-            </div>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-indigo-700 transition-colors"
-            >
-              <Plus className="h-5 w-5 mr-2" /> New Request
-            </button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {requests.length === 0 ? (
-              <div className="col-span-full p-12 text-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
-                <p className="text-slate-500 dark:text-slate-400 text-lg">No maintenance requests found.</p>
-              </div>
-            ) : (
-              requests.map(req => (
-                <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-semibold text-lg text-slate-900 dark:text-white line-clamp-1">{req.title}</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                        req.priority === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                        req.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                        'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300'
-                      }`}>
-                        {req.priority}
-                      </span>
-                      {getStatusIcon(req.status)}
-                    </div>
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-4">{req.description || "No description provided."}</p>
-                  <div className="text-xs text-slate-500 dark:text-slate-500 mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
-                    Created: {req.createdAt?.toDate ? format(req.createdAt.toDate(), 'MMM d, yyyy') : 'Just now'}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-6 mt-4 lg:mt-0">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-4">Lease Details</h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Apartment 4B</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Rent</span>
-                <span className="font-semibold text-slate-900 dark:text-white">$1,450.00 / mo</span>
-              </div>
-              <div className="flex justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Lease Term</span>
-                <span className="font-semibold text-slate-900 dark:text-white">12 Months</span>
-              </div>
-              <div className="flex justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Start Date</span>
-                <span className="font-semibold text-slate-900 dark:text-white">Sep 1, 2025</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">End Date</span>
-                <span className="font-semibold text-slate-900 dark:text-white">Aug 31, 2026</span>
-              </div>
-            </div>
-            
-            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-              <button className="w-full text-indigo-600 dark:text-indigo-400 font-medium text-sm hover:underline">
-                Download Lease Agreement (PDF)
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="relative max-w-2xl w-full">
-            <button 
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 z-10"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <MaintenanceRequest onClose={() => setIsModalOpen(false)} />
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
-            <button 
-              onClick={() => setIsPaymentModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Make a Payment</h2>
-            <div className="space-y-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-slate-500 dark:text-slate-400">Total Due</span>
-                  <span className="font-bold text-slate-900 dark:text-white">$1,450.00</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Processing Fee</span>
-                  <span className="text-slate-900 dark:text-white">$0.00</span>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Payment Method</label>
-                <select className="w-full rounded-lg border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-4 py-3 border focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option>Credit Card (ends in 4242)</option>
-                  <option>Bank Account (ACH)</option>
-                  <option>Add New Method...</option>
-                </select>
-              </div>
-
-              <div className="pt-4">
-                <button 
-                  onClick={() => setIsPaymentModalOpen(false)}
-                  className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl hover:bg-indigo-700 transition-colors"
-                >
-                  Pay $1,450.00
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Chatbot Widget */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
-        {isChatbotOpen && (
-          <div className="mb-4 w-[350px] sm:w-[400px]">
-            <TenantChatbot onClose={() => setIsChatbotOpen(false)} />
-          </div>
-        )}
-        {!isChatbotOpen && (
-          <button
-            onClick={() => setIsChatbotOpen(true)}
-            className="bg-indigo-600 text-white p-4 rounded-full shadow-2xl hover:bg-indigo-700 transition-colors flex items-center justify-center"
-          >
-            <MessageSquare className="w-6 h-6" />
-          </button>
-        )}
-      </div>
-
+      {isModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-2xl"><button onClick={() => setIsModalOpen(false)} className="absolute right-4 top-4 z-10 text-slate-400 hover:text-white"><X className="h-6 w-6" /></button><MaintenanceRequest onClose={() => setIsModalOpen(false)} /></div></div>}
+      {isPaymentModalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"><div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-950"><button onClick={() => setIsPaymentModalOpen(false)} className="absolute right-4 top-4 text-slate-400"><X className="h-5 w-5" /></button><h2 className="text-xl font-black text-slate-950 dark:text-white">Make a payment</h2><div className="mt-6 space-y-4"><div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex justify-between"><span className="text-sm text-slate-500">Total due</span><span className="font-bold text-slate-950 dark:text-white">$1,450.00</span></div><div className="mt-2 flex justify-between text-xs text-slate-500"><span>Processing fee</span><span>$0.00</span></div></div><label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Payment method<select className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"><option>Credit Card (ends in 4242)</option><option>Bank Account (ACH)</option><option>Add New Method...</option></select></label><button onClick={() => setIsPaymentModalOpen(false)} className="w-full rounded-xl bg-violet-600 py-3 font-bold text-white hover:bg-violet-700">Pay $1,450.00</button></div></div></div>}
+      <div className="fixed bottom-6 right-6 z-40">{isChatbotOpen ? <div className="w-[350px] sm:w-[400px]"><TenantChatbot onClose={() => setIsChatbotOpen(false)} /></div> : <button onClick={() => setIsChatbotOpen(true)} className="rounded-full bg-violet-600 p-4 text-white shadow-2xl hover:bg-violet-700"><MessageSquare className="h-6 w-6" /></button>}</div>
     </div>
   );
 }
