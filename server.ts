@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
+import { gisCloudConfig, syncPropertyFeature, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
@@ -591,6 +592,92 @@ export function createApp() {
 
   app.delete("/api/storage/:path", requireAuth, async (_req, res) => {
     return res.status(501).json({ error: "File storage must use the canonical Supabase Storage integration." });
+  });
+
+  // GIS Cloud integration
+  app.get("/api/integrations/gis-cloud/status", requireAuth, async (_req, res) => {
+    const config = gisCloudConfig();
+    return res.json({ configured: config.configured, mapId: config.mapId, layerId: config.layerId });
+  });
+
+  app.post("/api/integrations/gis-cloud/properties/:id/sync", requireAuth, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      const propertyId = String(req.params.id || "");
+      if (!propertyId) return res.status(400).json({ error: "Invalid property id" });
+      const config = gisCloudConfig();
+      if (!config.configured) return res.status(503).json({ error: "GIS Cloud is not configured on the server" });
+
+      const propertyResult = await pool.query(
+        `SELECT
+           p.id, p.apn, p.address, p.city, p.state, p.zip, p.county,
+           p.property_type, p.year_built, p.owner_id,
+           po.name AS owner_name,
+           CASE WHEN p.is_absentee_owner IS NULL THEN NULL ELSE NOT p.is_absentee_owner END AS owner_occupied,
+           p.estimated_value, p.estimated_equity,
+           COALESCE(l.lead_score, 0) AS lead_score,
+           COALESCE(l.stage, 'identified') AS lead_status,
+           p.updated_at,
+           extensions.st_astext(p.location::extensions.geometry) AS geometry_wkt
+         FROM properties p
+         LEFT JOIN property_owners po
+           ON po.id=p.owner_id AND po.organization_id=p.organization_id
+         LEFT JOIN LATERAL (
+           SELECT lead_score, stage
+           FROM leads
+           WHERE organization_id=p.organization_id AND primary_property_id=p.id
+           ORDER BY updated_at DESC
+           LIMIT 1
+         ) l ON true
+         WHERE p.id=$1 AND p.organization_id=$2
+         LIMIT 1`,
+        [propertyId, req.user!.organizationId]
+      );
+      if (!propertyResult.rows.length) return res.status(404).json({ error: "Property not found" });
+
+      const syncResult = await pool.query(
+        `SELECT gis_feature_id, sync_hash
+           FROM gis_cloud_sync
+          WHERE organization_id=$1 AND vortex_property_id=$2 AND gis_layer_id=$3
+          LIMIT 1`,
+        [req.user!.organizationId, propertyId, config.layerId]
+      );
+      const previousFeatureId = syncResult.rows[0]?.gis_feature_id || null;
+      const property = propertyResult.rows[0] as GisCloudProperty;
+      const result = await syncPropertyFeature(property, previousFeatureId);
+
+      await pool.query(
+        `INSERT INTO gis_cloud_sync
+          (id, organization_id, vortex_property_id, gis_map_id, gis_layer_id, gis_feature_id, sync_hash, sync_status, last_pushed_at, error_message, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'synced',now(),NULL,now())
+         ON CONFLICT (organization_id, vortex_property_id, gis_layer_id)
+         DO UPDATE SET gis_feature_id=EXCLUDED.gis_feature_id, gis_map_id=EXCLUDED.gis_map_id,
+                       sync_hash=EXCLUDED.sync_hash, sync_status='synced',
+                       last_pushed_at=now(), error_message=NULL, updated_at=now()`,
+        [crypto.randomUUID(), req.user!.organizationId, propertyId, config.mapId, config.layerId, result.featureId, result.hash]
+      );
+
+      return res.json({ ...result, mapId: config.mapId, layerId: config.layerId });
+    } catch (error: any) {
+      console.error("GIS Cloud property sync error:", error);
+      try {
+        const propertyId = String(req.params.id || "");
+        if (propertyId && req.user?.organizationId) {
+          const config = gisCloudConfig();
+          await pool.query(
+            `INSERT INTO gis_cloud_sync
+              (id, organization_id, vortex_property_id, gis_map_id, gis_layer_id, sync_hash, sync_status, error_message, updated_at)
+             VALUES ($1,$2,$3,$4,$5,'error','error',$6,now())
+             ON CONFLICT (organization_id, vortex_property_id, gis_layer_id)
+             DO UPDATE SET sync_status='error', error_message=EXCLUDED.error_message, updated_at=now()`,
+            [crypto.randomUUID(), req.user.organizationId, propertyId, config.mapId, config.layerId, error.message || "GIS Cloud sync failed"]
+          );
+        }
+      } catch (auditError) {
+        console.error("GIS Cloud sync audit error:", auditError);
+      }
+      return res.status(502).json({ error: error.message || "GIS Cloud synchronization failed" });
+    }
   });
 
   // Property Intelligence API
