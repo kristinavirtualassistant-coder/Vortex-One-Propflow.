@@ -44,7 +44,6 @@ This cleanup branch removes verified obsolete repository artifacts without chang
 - `npm run build` passes in GitHub Actions.
 - The previous high-severity `nanoid` audit finding and the `qs` findings were patched through lockfile-backed npm overrides.
 - Four moderate development-only findings remain in the `drizzle-kit` → `@esbuild-kit` chain; automatic remediation would require a breaking Drizzle Kit downgrade and was not applied.
-- Vercel's GitHub status continues to report a platform build-rate limit; this is not a repository build failure.
 - No production deployment or database migration was performed.
 
 
@@ -62,20 +61,11 @@ Applied evidence-based fixes without changing the database or authentication arc
 
 - Previous CI validation: npm ci, typecheck, and production build passed on the cleanup branch before the Phase 3 server commits.
 - Latest Phase 3 commit: CI has not yet produced a new run; do not treat the earlier green run as validation of these newest changes.
-- Latest commit status currently reports Vercel as pending.
 - Production deployment and database migration remain intentionally untouched.
 
+## Deployment architecture — 2026-09-30
 
-## Auth incident findings — 2026-09-29
-
-Production auth failures were traced to two verified deployment/database mismatches:
-
-- Vercel runtime logs showed signup attempts connecting to **127.0.0.1:5432/5433**. A Vercel production function cannot reach the developer's local PostgreSQL instance. The production `DATABASE_URL` must point to the Supabase PostgreSQL database.
-- The live Supabase `public.users` table initially contained only the canonical auth columns, while the application expected additional profile/OAuth columns. The database was updated additively with the fields already used by the server and frontend: `uid`, onboarding profile fields, `auth_provider`, `auth_provider_subject`, and `avatar_url`.
-- A case-insensitive unique index was added for user email addresses.
-- A SQL transaction test verified that the production schema can insert a representative organization, user, and auth session using the application's current column set; the test transaction was rolled back.
-- The application now returns a clear configuration error when Vercel receives a loopback `DATABASE_URL`, and duplicate signup attempts return HTTP 409 instead of a generic server error.
-
-### Current blocker for real sign-in/sign-up
-
-The code and live database schema are now aligned, but real authentication cannot succeed until the Vercel production `DATABASE_URL` is corrected from the observed loopback target to the Supabase PostgreSQL connection string for project `vortex-one-production`. No database password or secret is stored in the repository or exposed in this document.
+- Vercel deployment configuration and repository references are intentionally not part of the active deployment architecture.
+- Firebase Hosting and Firebase Functions are the repository deployment path.
+- Supabase PostgreSQL remains the production application database.
+- Deployment credentials must remain in GitHub/Firebase secret storage and must not be committed to the repository.
