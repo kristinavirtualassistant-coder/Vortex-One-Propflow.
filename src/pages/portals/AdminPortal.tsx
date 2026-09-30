@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Users, Settings, Database, Activity } from 'lucide-react';
+import { ShieldAlert, Users, Settings, Database, Activity, ArrowUpRight, Server, LockKeyhole } from 'lucide-react';
 import AdminAuditLog from '../../components/AdminAuditLog';
 
 export default function AdminPortal({ activeTab = 'dashboard' }: { activeTab?: string }) {
