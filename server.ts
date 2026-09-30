@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
-import { gisCloudConfig, syncPropertyFeature, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
+import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
@@ -606,7 +606,7 @@ export function createApp() {
       const propertyId = String(req.params.id || "");
       if (!propertyId) return res.status(400).json({ error: "Invalid property id" });
       const config = gisCloudConfig();
-      if (!config.configured) return res.status(503).json({ error: "GIS Cloud is not configured on the server" });
+      if (!config.configured) return res.status(503).json({ error: "GIS Cloud Edge Function is not configured" });
 
       const propertyResult = await pool.query(
         `SELECT
@@ -644,7 +644,7 @@ export function createApp() {
       );
       const previousFeatureId = syncResult.rows[0]?.gis_feature_id || null;
       const property = propertyResult.rows[0] as GisCloudProperty;
-      const result = await syncPropertyFeature(property, previousFeatureId);
+      const result = await syncPropertyFeatureViaEdge(propertyId, req.headers.cookie);
 
       await pool.query(
         `INSERT INTO gis_cloud_sync
