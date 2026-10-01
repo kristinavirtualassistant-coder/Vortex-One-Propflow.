@@ -1,48 +1,61 @@
 # Vortex One PropFlow — Design System
 
 ## Product character
-Operational intelligence for property teams. The interface should feel precise, calm, fast, and alive without becoming decorative.
+Property intelligence and operations infrastructure. Vortex One should feel precise, calm, fast, and information-dense without looking like a generic SaaS template.
+
+## Design thesis
+**Follow the relationship, not the module.** Property, parcel, owner, entity, contact, activity, campaign, and workflow are connected intelligence objects. The interface should expose those relationships progressively.
 
 ## Visual direction
-- Base surfaces: graphite navigation + warm-neutral light workspace.
-- Accent: electric violet with a restrained cyan secondary signal.
-- Success: emerald; warning: amber; danger: rose.
-- Prefer hierarchy, spacing, dividers, and tonal surfaces over nested cards.
-- Radius: 14–18px for primary surfaces; 10–12px for controls.
-- Shadows are soft and directional; avoid heavy floating-card stacks.
+- Workspace: warm-neutral light canvas with white operational surfaces.
+- Navigation: graphite/near-black rail for persistent orientation.
+- Primary accent: electric violet for Vortex actions and identity.
+- Secondary intelligence signal: restrained teal/cyan for connected-data states.
+- Semantic: emerald success, amber warning, rose/red danger.
+- Avoid stacked cards; prefer one primary surface with clear sub-regions, rules, and whitespace.
+- Primary surface radius: 16px.
+- Controls: 10–12px radius.
+- Shadows: soft and directional, never heavy floating-card stacks.
 
 ## Typography
-- Primary: system sans / Inter-compatible stack.
-- Display: strong semibold/black for page titles.
-- Body: 14–16px.
-- Utility/data: 11–13px with deliberate tracking.
+- Product/display: strong semibold/black sans.
+- Interface: system sans / Inter-compatible stack.
+- Data: monospace for APNs, IDs, coordinates, timestamps, and provenance values.
+- Use sentence case for product labels. Reserve uppercase tracking for tiny utility eyebrows.
 
-## Motion
-- Page enter: 220–420ms ease-out.
-- Navigation: 180–260ms.
-- Micro-interactions: 120–220ms.
-- Motion communicates state, hierarchy, and continuity.
-- Respect prefers-reduced-motion.
+## Signature interaction
+The **Vortex Command Layer** is available throughout authenticated product surfaces:
+- Search
+- Ask about the current object
+- Jump to related objects
+- Trigger a workflow
+- Enrich a record
+
+The command layer is contextual rather than a separate chatbot destination.
+
+## Core object language
+Property <-> Parcel <-> Owner <-> Entity <-> Portfolio <-> Contact <-> Activity <-> Campaign <-> Workflow
 
 ## Application shell
-- Dark, persistent navigation rail.
-- Top command bar for global search, status, notifications, theme, and identity.
-- Content area uses a single document surface; avoid card-on-card nesting.
-- Active navigation uses a clear left signal and restrained surface tint.
+- Persistent dark sidebar.
+- Top command/search bar.
+- Single document surface in the main workspace.
+- Responsive drawer on mobile.
+- Active navigation uses a left signal and restrained surface tint.
 
-## Settings
-Settings is a workspace, not a single form. Use a local settings index with clear sections and persistent save feedback.
+## Responsive model
+- Desktop: navigation + full intelligence workspace.
+- Tablet: compact navigation and two-column detail views where space allows.
+- Mobile: task-first experience; prioritize Search, Calls/Activity, Contacts, Properties, Tasks, Notifications.
 
-## Dashboard
-The dashboard is the operational starting point. It should prioritize:
-1. What needs attention.
-2. What changed.
-3. What can be acted on now.
-4. Portfolio/system health.
-5. Deeper analytics below the fold.
+## Motion
+- 160–260ms interaction transitions.
+- 300–420ms page/route reveals where useful.
+- Motion communicates hierarchy and state, never decoration.
+- Respect prefers-reduced-motion.
 
 ## Accessibility
-Target WCAG 2.2 AA. Every action has semantic HTML, visible focus, keyboard access, and a non-motion equivalent.
+Target WCAG 2.2 AA. Use semantic HTML, visible focus, keyboard-accessible actions, accessible names, stable layouts, and non-motion equivalents.
 
 ## Durable rule
-New screens extend these primitives instead of inventing screen-local visual systems.
+Extend shared primitives. Do not create screen-local interaction or token systems when a reusable pattern already exists.
