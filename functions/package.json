@@ -5,7 +5,7 @@
   "engines": {
     "node": "20"
   },
-  "main": "index.js",
+  "main": "lib/functions/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

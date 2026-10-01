@@ -1,0 +1,2 @@
+export async function getIntegrationStatus(){ const r=await fetch('/api/integrations/3min/status',{credentials:'same-origin',cache:'no-store'}); if(!r.ok) throw new Error('Unable to load integration status'); return r.json(); }
+export async function test3MinIntegration(){ const r=await fetch('/api/integrations/3min/test',{method:'POST',credentials:'same-origin'}); const d=await r.json(); if(!r.ok) throw new Error(d.error||'3Min test failed'); return d; }

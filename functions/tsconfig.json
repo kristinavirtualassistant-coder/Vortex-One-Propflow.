@@ -11,6 +11,11 @@
     "strict": false,
     "sourceMap": false
   },
-  "include": ["../server.ts"],
-  "exclude": ["../node_modules", "../functions"]
+  "include": [
+    "../server.ts",
+    "index.ts"
+  ],
+  "exclude": [
+    "../node_modules"
+  ]
 }

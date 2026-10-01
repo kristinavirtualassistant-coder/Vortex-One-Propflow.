@@ -5,7 +5,7 @@ import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
-import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
+import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES, buildThreeMinSignature } from "./src/integrations/three-min.js";
 import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
@@ -151,9 +151,55 @@ export function createApp() {
   const PORT = 3000;
 
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '1mb' }));
+  app.use((req, res, next) => {
+    if (req.path === "/api/integrations/3min/webhook" && req.is("application/json")) return next();
+    return express.json({ limit: "1mb" })(req, res, next);
+  });
 
 
+
+  app.get("/api/integrations/3min/status", requireAuth, async (_req, res) => {
+    const secretConfigured = Boolean(String(process.env.THREEMIN_WEBHOOK_SECRET || "").trim());
+    const tokenConfigured = Boolean(String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim());
+    const allowUnauthenticated = String(process.env.THREEMIN_WEBHOOK_ALLOW_UNAUTHENTICATED || "false").toLowerCase() === "true";
+    return res.json({
+      configured: secretConfigured && tokenConfigured,
+      secretConfigured,
+      tokenConfigured,
+      allowUnauthenticated,
+      receiverPath: "/api/integrations/3min/webhook",
+      productionIsActive: secretConfigured,
+      sandboxIsActive: tokenConfigured,
+    });
+  });
+
+  app.post("/api/integrations/3min/test", requireAuth, async (req, res) => {
+    const token = String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim();
+    if (!token) return res.status(503).json({ error: "3Min webhook token is not configured" });
+    const webhookId = `vortex-test-${crypto.randomUUID()}`;
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const payload = JSON.stringify({
+      event_type: "vortex_one_test",
+      source: "vortex-one",
+      organization_id: req.user!.organizationId,
+      idempotency_key: webhookId,
+      payload: { test: true },
+    });
+    const signature = buildThreeMinSignature(payload, webhookId, timestamp);
+    const verification = verifyThreeMinWebhook(payload, {
+      "webhook-id": webhookId,
+      "webhook-timestamp": timestamp,
+      "webhook-signature": `v1,${signature}`,
+    });
+    return res.json({
+      ok: verification.valid,
+      message: verification.valid
+        ? "3Min webhook signing verification passed. The production receiver is ready for an end-to-end signed delivery."
+        : verification.reason || "3Min signing verification failed.",
+      receiverPath: "/api/integrations/3min/webhook",
+      testMode: "local-signature-verification",
+    });
+  });
 
   app.post("/api/integrations/3min/webhook", express.raw({ type: "application/json", limit: THREE_MIN_MAX_BODY_BYTES }), async (req, res) => {
     try {
@@ -214,6 +260,22 @@ export function createApp() {
     } catch (error: any) {
       console.error("3Min webhook error:", error);
       return res.status(500).json({ error: "Unable to process 3Min webhook" });
+    }
+  });
+
+  app.get("/api/integrations/gis-cloud/maps", requireAuth, async (_req, res) => {
+    try {
+      const token = String(process.env.GIS_CLOUD_ACCESS_TOKEN || "").trim();
+      const baseUrl = String(process.env.GIS_CLOUD_API_BASE_URL || "https://api.giscloud.com").replace(/\/$/, "");
+      if (!token) return res.status(503).json({ error: "GIS Cloud access token is not configured" });
+      const response = await fetch(`${baseUrl}/1/maps`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) return res.status(response.status).json({ error: payload?.error || "GIS Cloud request failed" });
+      const maps = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.maps) ? payload.maps : [];
+      return res.json({ maps });
+    } catch (error: any) {
+      console.error("GIS Cloud maps error:", error);
+      return res.status(500).json({ error: error?.message || "Unable to load GIS Cloud maps" });
     }
   });
 
