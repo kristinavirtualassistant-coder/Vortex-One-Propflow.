@@ -3,10 +3,10 @@
   "appId": "1:431081192919:web:480ae7fd7a0c32da695f92",
   "apiKey": "AIzaSyCeeyqTOmpOqflGgDZ8hHkgJfheM0GlNgY",
   "authDomain": "vortex-one-propflow.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-propflow-e7772a74-4cce-4f55-8de0-069d13286eb6",
   "storageBucket": "vortex-one-propflow.firebasestorage.app",
   "messagingSenderId": "431081192919",
   "measurementId": "G-P8N7WKFYC8",
   "oAuthClientId": "431081192919-h5futbpe8j0t57sp1vpcinp4c6e6ksl7.apps.googleusercontent.com",
-  "recaptchaSiteKey": "",
-  "firestoreDatabaseId": "ai-studio-propflow-e7772a74-4cce-4f55-8de0-069d13286eb6"
+  "recaptchaSiteKey": ""
 }

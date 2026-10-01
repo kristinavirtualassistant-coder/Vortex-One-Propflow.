@@ -155,5 +155,9 @@ service cloud.firestore {
       allow create, update: if isValidId(id) && isValidRentalIncomeTrend(incoming());
       allow delete: if true;
     }
+
+    match /test/{id} {
+      allow read: if true;
+    }
   }
 }
