@@ -151,9 +151,38 @@ export function createApp() {
   const PORT = 3000;
 
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '1mb' }));
+  app.use((req, res, next) => {
+    if (req.path === "/api/integrations/3min/webhook" && req.is("application/json")) return next();
+    return express.json({ limit: "1mb" })(req, res, next);
+  });
 
 
+
+  app.get("/api/integrations/3min/status", requireAuth, async (_req, res) => {
+    const secretConfigured = Boolean(String(process.env.THREEMIN_WEBHOOK_SECRET || "").trim());
+    const tokenConfigured = Boolean(String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim());
+    const allowUnauthenticated = String(process.env.THREEMIN_WEBHOOK_ALLOW_UNAUTHENTICATED || "false").toLowerCase() === "true";
+    return res.json({
+      configured: secretConfigured && tokenConfigured,
+      secretConfigured,
+      tokenConfigured,
+      allowUnauthenticated,
+      receiverPath: "/api/integrations/3min/webhook",
+      productionIsActive: secretConfigured,
+      sandboxIsActive: tokenConfigured,
+    });
+  });
+
+  app.post("/api/integrations/3min/test", requireAuth, async (_req, res) => {
+    const token = String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim();
+    if (!token) return res.status(503).json({ error: "3Min webhook token is not configured" });
+    return res.json({
+      ok: true,
+      message: "3Min receiver configuration is present. Use the 3Min sandbox sender to perform an end-to-end signed delivery test.",
+      receiverPath: "/api/integrations/3min/webhook",
+      testMode: "configuration",
+    });
+  });
 
   app.post("/api/integrations/3min/webhook", express.raw({ type: "application/json", limit: THREE_MIN_MAX_BODY_BYTES }), async (req, res) => {
     try {
