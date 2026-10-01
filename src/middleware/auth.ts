@@ -78,12 +78,14 @@ export const clearSessionCookie = (res: Response) => {
   res.setHeader('Set-Cookie', [`${sessionCookieName()}=; ${attributes.join('; ')}`]);
 };
 
+export const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+
 export const createSession = async (userId: string) => {
   await ensureDatabaseReady();
   const pool = createPool();
   const token = crypto.randomBytes(32).toString('hex');
   const id = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10);
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await pool.query(
     'INSERT INTO auth_sessions (id, user_id, token_hash, expires_at, last_seen_at) VALUES ($1,$2,$3,$4,now())',
     [id, userId, hashSessionToken(token), expiresAt]
@@ -123,7 +125,14 @@ export const requireAuth = async (
     );
     if (!result.rows.length) return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
     req.user = { ...result.rows[0], organizationId: result.rows[0].organization_id };
-    await pool.query('UPDATE auth_sessions SET last_seen_at=now() WHERE token_hash=$1', [hashSessionToken(token)]);
+    // Rolling expiry: every authenticated request pushes the session 30 days out
+    // (this also clamps legacy long-lived sessions) and refreshes the cookie.
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+    await pool.query('UPDATE auth_sessions SET last_seen_at=now(), expires_at=$2 WHERE token_hash=$1', [
+      hashSessionToken(token),
+      expiresAt,
+    ]);
+    setSessionCookie(res, token, expiresAt);
     return next();
   } catch (error) {
     console.error('Error verifying application session:', error);
