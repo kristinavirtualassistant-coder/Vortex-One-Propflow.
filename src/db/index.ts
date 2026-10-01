@@ -9,8 +9,34 @@ declare global {
   var _databaseReadyPromise: Promise<void> | undefined;
 }
 
-export const createPool = () => {
-  if (!global._postgresPool) {
+export const formatPemCertificate = (cert: string | undefined): string | undefined => {
+  if (!cert) return undefined;
+  const trimmed = cert.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.includes('\n')) return trimmed;
+  if (trimmed.includes('\\n')) {
+    return trimmed.replace(/\\n/g, '\n');
+  }
+  const match = trimmed.match(/-----BEGIN [A-Z ]+-----(.+?)-----END [A-Z ]+-----/);
+  if (match) {
+    const headerMatch = trimmed.match(/-----BEGIN [A-Z ]+-----/);
+    const footerMatch = trimmed.match(/-----END [A-Z ]+-----/);
+    const header = headerMatch ? headerMatch[0] : '-----BEGIN CERTIFICATE-----';
+    const footer = footerMatch ? footerMatch[0] : '-----END CERTIFICATE-----';
+    const body = match[1].replace(/\s+/g, '');
+    const lines = body.match(/.{1,64}/g) || [body];
+    return `${header}\n${lines.join('\n')}\n${footer}`;
+  }
+  return trimmed;
+};
+
+export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
+  if (!global._postgresPool || options?.forceAllowUnauthorized) {
+    if (global._postgresPool && options?.forceAllowUnauthorized) {
+      global._postgresPool.end().catch(() => {});
+      global._postgresPool = undefined;
+    }
+
     const rawConnectionString = process.env.DATABASE_URL;
     let connectionString = rawConnectionString ? rawConnectionString.replace(/:\s+/, ':').replace(/\s+@/, '@') : rawConnectionString;
 
@@ -34,14 +60,14 @@ export const createPool = () => {
         // Let pg surface an invalid connection string at connection time.
       }
 
-      const sslCa = process.env.DATABASE_SSL_CA?.trim();
+      const sslCa = formatPemCertificate(process.env.DATABASE_SSL_CA);
       const isSupabase = connectionString.includes('supabase.co') || connectionString.includes('pooler.supabase');
-      const rejectUnauthorized =
-        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
-          ? true
-          : isSupabase || !process.env.DATABASE_SSL_REJECT_UNAUTHORIZED
-          ? false
-          : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false';
+      const rejectUnauthorized = options?.forceAllowUnauthorized
+        ? false
+        : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+        ? Boolean(sslCa) || !isSupabase
+        : false;
+
       global._postgresPool = new Pool({
         connectionString,
         max: 1,
@@ -63,6 +89,14 @@ export const createPool = () => {
         );
       }
 
+      const sslCa = formatPemCertificate(process.env.DATABASE_SSL_CA);
+      const isSupabase = host.includes('supabase.co') || host.includes('pooler.supabase');
+      const rejectUnauthorized = options?.forceAllowUnauthorized
+        ? false
+        : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+        ? Boolean(sslCa) || !isSupabase
+        : false;
+
       global._postgresPool = new Pool({
         host,
         port: Number(process.env.SQL_PORT || 5432),
@@ -71,15 +105,10 @@ export const createPool = () => {
         database,
         max: 1,
         connectionTimeoutMillis: 15000,
-        ssl: process.env.SQL_SSL === 'true' || host.includes('supabase.co')
+        ssl: process.env.SQL_SSL === 'true' || isSupabase
           ? {
-              rejectUnauthorized:
-                process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
-                  ? true
-                  : host.includes('supabase.co') || !process.env.DATABASE_SSL_REJECT_UNAUTHORIZED
-                  ? false
-                  : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
-              ...(process.env.DATABASE_SSL_CA?.trim() ? { ca: process.env.DATABASE_SSL_CA.trim() } : {}),
+              rejectUnauthorized,
+              ...(sslCa ? { ca: sslCa } : {}),
             }
           : undefined,
       });
@@ -93,7 +122,13 @@ export const createPool = () => {
   return global._postgresPool;
 };
 
-const pool = createPool();
+export const pool = new Proxy({} as pg.Pool, {
+  get(_target, prop) {
+    const current = createPool();
+    const val = (current as any)[prop];
+    return typeof val === 'function' ? val.bind(current) : val;
+  }
+});
 
 try {
   const raw = process.env.DATABASE_URL;
@@ -310,7 +345,23 @@ export const ensureThreeMinEventsTable = async () => {
 export const ensureDatabaseReady = async () => {
   if (!global._databaseReadyPromise) {
     global._databaseReadyPromise = (async () => {
-      await pool.query('SELECT 1');
+      try {
+        await pool.query('SELECT 1');
+      } catch (error: any) {
+        if (
+          error &&
+          (error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
+            (error.message && error.message.toLowerCase().includes('self-signed certificate')))
+        ) {
+          console.warn(
+            'PostgreSQL SSL self-signed certificate in chain detected. Automatically retrying connection with rejectUnauthorized: false...'
+          );
+          createPool({ forceAllowUnauthorized: true });
+          await pool.query('SELECT 1');
+        } else {
+          throw error;
+        }
+      }
       await bootstrapDatabaseTables();
       await verifyCanonicalSchema();
       await ensureThreeMinEventsTable();
