@@ -308,7 +308,7 @@ export default function Dashboard() {
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={goToTab} 
         links={sidebarLinks} 
       />
 
