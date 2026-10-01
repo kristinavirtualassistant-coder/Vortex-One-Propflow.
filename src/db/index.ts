@@ -276,7 +276,7 @@ export const ensureThreeMinEventsTable = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS public.integration_events (
       id varchar PRIMARY KEY,
-      organization_id varchar NULL,
+      organization_id varchar NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
       source varchar NOT NULL,
       event_type varchar NOT NULL,
       external_id varchar NULL,
@@ -291,6 +291,9 @@ export const ensureThreeMinEventsTable = async () => {
       ON public.integration_events (idempotency_key)
       WHERE idempotency_key IS NOT NULL
   `);
+
+  await pool.query(`ALTER TABLE public.integration_events ENABLE ROW LEVEL SECURITY`);
+  await pool.query(`DROP POLICY IF EXISTS integration_events_backend_access ON public.integration_events`);
 };
 
 export const ensureDatabaseReady = async () => {
