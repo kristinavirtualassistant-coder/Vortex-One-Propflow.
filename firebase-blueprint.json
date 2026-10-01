@@ -10,6 +10,7 @@
         "status": { "type": "string", "enum": ["pending", "assigned", "completed"] },
         "priority": { "type": "string", "enum": ["low", "medium", "high", "emergency"] },
         "category": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "propertyId": { "type": "string" }
       },
@@ -103,7 +104,8 @@
         "contactName": { "type": "string" },
         "phone": { "type": "string" },
         "email": { "type": "string" },
-        "category": { "type": "string" }
+        "category": { "type": "string" },
+        "services": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["companyName"]
     },

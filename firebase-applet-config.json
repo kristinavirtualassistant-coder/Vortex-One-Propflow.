@@ -7,5 +7,6 @@
   "messagingSenderId": "431081192919",
   "measurementId": "G-P8N7WKFYC8",
   "oAuthClientId": "431081192919-h5futbpe8j0t57sp1vpcinp4c6e6ksl7.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "recaptchaSiteKey": "",
+  "firestoreDatabaseId": "ai-studio-propflow-e7772a74-4cce-4f55-8de0-069d13286eb6"
 }

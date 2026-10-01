@@ -14,8 +14,6 @@ import LeaseExpirationsWidget from '../../components/LeaseExpirationsWidget';
 
 export default function PropertyManagerPortal({ activeTab = 'dashboard' }: { activeTab?: string }) {
   const [requests, setRequests] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(false);
   const [connectedSystems, setConnectedSystems] = useState<Record<string, boolean>>({
     'QuickBooks Online': true,
     'Stripe': true,
@@ -52,16 +50,6 @@ export default function PropertyManagerPortal({ activeTab = 'dashboard' }: { act
 
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === 'dashboard') {
-      setLoadingEvents(true);
-      GoogleWorkspaceService.getUpcomingEvents()
-        .then(res => setEvents(res.items || []))
-        .catch(err => console.error('Failed to load events:', err))
-        .finally(() => setLoadingEvents(false));
-    }
-  }, [activeTab]);
 
   if (activeTab === 'market_intel') {
     return (
