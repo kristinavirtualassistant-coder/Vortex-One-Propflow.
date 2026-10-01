@@ -34,8 +34,14 @@ export const createPool = () => {
         // Let pg surface an invalid connection string at connection time.
       }
 
-      const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false";
       const sslCa = process.env.DATABASE_SSL_CA?.trim();
+      const isSupabase = connectionString.includes('supabase.co') || connectionString.includes('pooler.supabase');
+      const rejectUnauthorized =
+        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+          ? true
+          : isSupabase || !process.env.DATABASE_SSL_REJECT_UNAUTHORIZED
+          ? false
+          : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false';
       global._postgresPool = new Pool({
         connectionString,
         max: 1,
@@ -67,7 +73,12 @@ export const createPool = () => {
         connectionTimeoutMillis: 15000,
         ssl: process.env.SQL_SSL === 'true' || host.includes('supabase.co')
           ? {
-              rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
+              rejectUnauthorized:
+                process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
+                  ? true
+                  : host.includes('supabase.co') || !process.env.DATABASE_SSL_REJECT_UNAUTHORIZED
+                  ? false
+                  : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
               ...(process.env.DATABASE_SSL_CA?.trim() ? { ca: process.env.DATABASE_SSL_CA.trim() } : {}),
             }
           : undefined,
