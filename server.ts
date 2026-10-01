@@ -187,6 +187,14 @@ export function createApp() {
     keyGenerator: ipKey,
     message: { error: "Too many sign-up attempts. Please try again later." },
   });
+  // Runs before requireAuth so unauthenticated floods are cut off before any database lookup.
+  const geminiIpLimiter = rateLimit({
+    ...limiterBase,
+    windowMs: 60 * 1000,
+    limit: 30,
+    keyGenerator: ipKey,
+    message: { error: "Too many requests. Please wait a minute and try again." },
+  });
   const geminiLimiter = rateLimit({
     ...limiterBase,
     windowMs: 60 * 1000,
@@ -1079,7 +1087,7 @@ export function createApp() {
     return res.json([]);
   });
 
-  app.post("/api/gemini/chat", requireAuth, geminiLimiter, async (req, res) => {
+  app.post("/api/gemini/chat", geminiIpLimiter, requireAuth, geminiLimiter, async (req, res) => {
     try {
       // The system prompt is fixed on the server; clients cannot override it. Optional
       // `context` (e.g. lease text) is passed as untrusted reference data in the user turn.
@@ -1131,7 +1139,7 @@ Question: ${message}`
     }
   });
 
-  app.post("/api/maintenance/analyze", requireAuth, geminiLimiter, async (req, res) => {
+  app.post("/api/maintenance/analyze", geminiIpLimiter, requireAuth, geminiLimiter, async (req, res) => {
     try {
       const { description } = req.body;
       if (!description || !description.trim()) return res.status(400).json({ error: "Description is required" });
