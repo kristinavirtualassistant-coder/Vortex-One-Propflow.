@@ -67,19 +67,13 @@ export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
       // Create a temporary assistant message to stream into
       setMessages(prev => [...prev, { role: 'model', parts: [{ text: '' }] }]);
 
-      const systemInstruction = `You are a helpful and professional real estate AI assistant for PropertyFlow, specifically helping a tenant. Use the following lease documentation to answer their questions accurately. Do not invent policies not covered in the text. 
-      
-      LEASE DOCUMENTATION:
-      ${leaseContext}
-      `;
-
       const response = await fetch('/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           history: messages,
           message: userMessage,
-          systemInstruction,
+          context: leaseContext,
         })
       });
 
