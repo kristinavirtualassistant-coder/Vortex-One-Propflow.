@@ -276,120 +276,23 @@ export default function LandlordPortal({ activeTab = 'dashboard' }: { activeTab?
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Portfolio Overview</h2>
-        <p className="text-slate-500 dark:text-slate-400">Manage properties, track revenue, and monitor property managers.</p>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-[22px] bg-slate-950 px-6 py-7 text-white shadow-xl md:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_15%,rgba(124,58,237,.28),transparent_38%),radial-gradient(circle_at_8%_100%,rgba(16,185,129,.12),transparent_35%)]" />
+        <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div><div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Ownership workspace</div><h2 className="text-3xl font-black tracking-tight md:text-4xl">Portfolio at a glance</h2><p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">Track property performance, revenue, occupancy, and the people operating your portfolio.</p></div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur"><p className="text-xs font-semibold text-white">Portfolio health</p><p className="mt-1 text-lg font-black text-emerald-300">94% occupied</p></div>
+        </div>
+      </section>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Properties</p><p className="mt-2 text-3xl font-black text-slate-950 dark:text-white">12</p><p className="mt-1 text-xs text-slate-500">Across your portfolio</p></div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Revenue</p><p className="mt-2 text-3xl font-black text-emerald-600">$52k</p><p className="mt-1 text-xs text-slate-500">Monthly gross</p></div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Occupancy</p><p className="mt-2 text-3xl font-black text-slate-950 dark:text-white">94%</p><p className="mt-1 text-xs text-slate-500">Current portfolio</p></div>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">Tenants</p><p className="mt-2 text-3xl font-black text-slate-950 dark:text-white">142</p><p className="mt-1 text-xs text-slate-500">Active residents</p></div>
       </div>
-
-      {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Properties</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">12</h3>
-            </div>
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-              <Building2 className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Monthly Revenue</p>
-              <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-500 mt-1">$52k</h3>
-            </div>
-            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-500">
-              <DollarSign className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Occupancy Rate</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">94%</h3>
-            </div>
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-500">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Active Tenants</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">142</h3>
-            </div>
-            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-500">
-              <Users className="h-5 w-5" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Financial Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Revenue vs Expenses</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={financialData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <Tooltip 
-                  cursor={{fill: 'transparent'}}
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
-                />
-                <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Property List */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm flex flex-col">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Properties</h3>
-            <button className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md font-semibold hover:bg-indigo-700">Add Property</button>
-          </div>
-          <div className="flex-1 overflow-auto p-4 space-y-4">
-            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-slate-900 dark:text-white">Skyline Apartments</h4>
-                <p className="text-sm text-slate-500">120 Units • Downtown Core</p>
-              </div>
-              <div className="text-right">
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded font-semibold dark:bg-emerald-900/30 dark:text-emerald-400">98% Occupied</span>
-                <p className="text-xs text-slate-500 mt-1">PM: Sarah Jenkins</p>
-              </div>
-            </div>
-            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-slate-900 dark:text-white">Oakwood Plaza</h4>
-                <p className="text-sm text-slate-500">45 Units • Northwest Region</p>
-              </div>
-              <div className="text-right">
-                <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded font-semibold dark:bg-amber-900/30 dark:text-amber-400">84% Occupied</span>
-                <p className="text-xs text-slate-500 mt-1">PM: David Martinez</p>
-              </div>
-            </div>
-            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-slate-900 dark:text-white">The Lex Penthouse</h4>
-                <p className="text-sm text-slate-500">Single Unit • East Side Suburbs</p>
-              </div>
-              <div className="text-right">
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded font-semibold dark:bg-emerald-900/30 dark:text-emerald-400">100% Occupied</span>
-                <p className="text-xs text-slate-500 mt-1">PM: Sarah Jenkins</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,.9fr)]">
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-400">Financial pulse</p><h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">Revenue vs expenses</h3></div><span className="text-xs font-semibold text-slate-500">6 months</span></div><div className="mt-5 h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={financialData} margin={{top:0,right:0,left:-20,bottom:0}}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.12}/><XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#64748b',fontSize:12}}/><YAxis axisLine={false} tickLine={false} tick={{fill:'#64748b',fontSize:12}}/><Tooltip cursor={{fill:'transparent'}} contentStyle={{backgroundColor:'#0f172a',borderColor:'#334155',borderRadius:'10px',color:'#fff'}}/><Bar dataKey="revenue" name="Revenue" fill="#8b5cf6" radius={[5,5,0,0]}/><Bar dataKey="expenses" name="Expenses" fill="#10b981" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section>
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-950"><div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-800"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-600 dark:text-violet-400">Portfolio</p><h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">Properties</h3></div><button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700">Add property</button></div><div className="divide-y divide-slate-100 dark:divide-slate-800">{[['Skyline Apartments','120 Units • Downtown Core','98% Occupied','Sarah Jenkins'],['Oakwood Plaza','45 Units • Northwest Region','84% Occupied','David Martinez'],['The Lex Penthouse','Single Unit • East Side Suburbs','100% Occupied','Sarah Jenkins']].map(([name,meta,occupancy,pm])=><div key={name} className="flex items-center justify-between gap-4 px-5 py-4"><div><p className="font-semibold text-slate-950 dark:text-white">{name}</p><p className="mt-1 text-xs text-slate-500">{meta}</p></div><div className="text-right"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${occupancy === '84% Occupied' ? 'bg-amber-500/10 text-amber-600' : 'bg-emerald-500/10 text-emerald-600'}`}>{occupancy}</span><p className="mt-1 text-[11px] text-slate-500">PM: {pm}</p></div></div>)}</div></section>
       </div>
     </div>
   );

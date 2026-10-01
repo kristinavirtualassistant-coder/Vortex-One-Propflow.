@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { GoogleWorkspaceService } from '../lib/workspace';
 import { Wrench, Loader2, CheckCircle, Clock, AlertTriangle, Plus, Search, Filter, FileText, Sparkles, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import OpenMultiSelect from './OpenMultiSelect';
 
 export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { onClose?: () => void; defaultTab?: 'submit' | 'track' }) {
   const { user } = useAuth();
@@ -15,7 +16,7 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [urgency, setUrgency] = useState<'routine' | 'high' | 'urgent'>('routine');
-  const [category, setCategory] = useState<string>('general');
+  const [categories, setCategories] = useState<string[]>(['General Repairs']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedMessage, setSubmittedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
         setUrgency(data.priority);
       }
       if (data.category) {
-        setCategory(data.category);
+        setCategories([data.category]);
       }
       if (data.explanation) {
         setAiExplanation(data.explanation);
@@ -118,7 +119,8 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
         unit,
         urgency,
         priority: urgency, // maintain compatibility with both keys
-        category,
+        category: categories.join(', ') || 'General Repairs',
+        categories: categories.length > 0 ? categories : ['General Repairs'],
         status: 'pending',
         userId: user?.uid || 'anonymous',
         userEmail: user?.email || 'tenant@propertyflow.app',
@@ -132,7 +134,7 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
       setTitle('');
       setDescription('');
       setUrgency('routine');
-      setCategory('general');
+      setCategories(['General Repairs']);
       setAiExplanation(null);
       setAiFeedback(null);
       setActiveTab('track');
@@ -334,23 +336,18 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
 
             {/* Category selection */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Trade Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold capitalize"
-              >
-                <option value="general">General Repairs</option>
-                <option value="plumbing">Plumbing</option>
-                <option value="electrical">Electrical</option>
-                <option value="hvac">HVAC / Heating & Cooling</option>
-                <option value="appliance">Appliance repair</option>
-                <option value="structural">Structural</option>
-                <option value="carpentry">Carpentry</option>
-                <option value="pest_control">Pest Control</option>
-              </select>
+              <OpenMultiSelect
+                label="Trade Categories (Select one or more, or add custom)"
+                presetOptions={[
+                  'General Repairs', 'Plumbing', 'Electrical', 'HVAC',
+                  'Appliance Repair', 'Structural', 'Carpentry', 'Pest Control',
+                  'Roofing', 'Locksmith', 'Painting'
+                ]}
+                selectedValues={categories}
+                onChange={setCategories}
+                placeholder="Type additional trade category & press Enter..."
+                helperText="Select all relevant categories or enter custom trade tags."
+              />
             </div>
 
             {/* Priority/Urgency selection */}
@@ -485,14 +482,22 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
                     <div>
                       <div className="flex justify-between items-start gap-3 mb-3">
                         <div>
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
                             <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                               {req.unit || 'General Unit'}
                             </span>
                             <span className="text-[10px] text-slate-400">•</span>
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[9px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-300">
-                              {req.category || 'general'}
-                            </span>
+                            {(Array.isArray(req.categories) && req.categories.length > 0
+                              ? req.categories
+                              : (req.category ? String(req.category).split(',').map((s: string) => s.trim()) : ['general'])
+                            ).map((catName: string, idx: number) => (
+                              <span
+                                key={idx}
+                                className="px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-[9px] uppercase font-bold tracking-wider text-violet-700 dark:text-violet-300 border border-violet-200/50 dark:border-violet-700/40"
+                              >
+                                {catName}
+                              </span>
+                            ))}
                           </div>
                           <h3 className="font-bold text-lg text-slate-900 dark:text-white line-clamp-1">
                             {req.title || 'Untitled Request'}

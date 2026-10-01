@@ -33,6 +33,8 @@ export class GoogleWorkspaceService {
 
   // Calendar API: Get upcoming events
   static async getUpcomingEvents() {
+    const token = await getAccessToken();
+    if (!token) return { items: [] };
     const timeMin = new Date().toISOString();
     return this.request(`/calendar/v3/calendars/primary/events?timeMin=${timeMin}&maxResults=10&orderBy=startTime&singleEvents=true`);
   }

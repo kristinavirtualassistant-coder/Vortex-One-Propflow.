@@ -1,0 +1,4 @@
+project_id = "qnmcobypbhnkuvqctspy"
+
+[functions.gis-cloud-sync]
+verify_jwt = false

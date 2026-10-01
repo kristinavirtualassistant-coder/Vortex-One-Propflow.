@@ -6,6 +6,7 @@ import {
   ShieldCheck, Home, PawPrint, Check, Sparkles, Wrench
 } from 'lucide-react';
 import { useAuth, UserRole } from '../contexts/AuthContext';
+import OpenMultiSelect from './OpenMultiSelect';
 
 // Zod Validation Schemas
 const passwordSchema = z.string()
@@ -613,22 +614,15 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
                 {errors.companyName && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.companyName}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Property Types
-                  </label>
-                  <select 
-                    value={formData.propertyTypes}
-                    onChange={e => updateField('propertyTypes', e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                  >
-                    <option value="Residential">Residential</option>
-                    <option value="Commercial">Commercial</option>
-                    <option value="Mixed-use">Mixed-use</option>
-                    <option value="Industrial">Industrial</option>
-                  </select>
-                </div>
+              <div className="space-y-3">
+                <OpenMultiSelect
+                  label="Managed Property Types (Select multiple or add custom)"
+                  presetOptions={['Residential', 'Commercial', 'Mixed-use', 'Industrial', 'HOA / Condos', 'Multi-Family', 'Single-Family']}
+                  selectedValues={formData.propertyTypes ? formData.propertyTypes.split(',').map(s => s.trim()).filter(Boolean) : ['Residential']}
+                  onChange={vals => updateField('propertyTypes', vals.join(', '))}
+                  placeholder="Type custom property type & press Enter..."
+                  helperText="Select all property types managed in your portfolio."
+                />
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
@@ -669,22 +663,14 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
           {role === 'technician' && (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                  Primary Trade Specialty
-                </label>
-                <select 
-                  value={formData.tradeSpecialty}
-                  onChange={e => updateField('tradeSpecialty', e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                >
-                  <option value="Plumbing">Plumbing</option>
-                  <option value="Electrical">Electrical</option>
-                  <option value="HVAC">HVAC Maintenance</option>
-                  <option value="General Contracting">General Contracting</option>
-                  <option value="Appliance Repair">Appliance Repair</option>
-                  <option value="Cleaning">Cleaning / Janitorial</option>
-                  <option value="Locksmith">Locksmith / Security</option>
-                </select>
+                <OpenMultiSelect
+                  label="Trade Specialties & Services (Select multiple or add custom)"
+                  presetOptions={['Plumbing', 'Electrical', 'HVAC', 'General Contracting', 'Appliance Repair', 'Cleaning', 'Locksmith', 'Roofing', 'Painting']}
+                  selectedValues={formData.tradeSpecialty ? formData.tradeSpecialty.split(',').map(s => s.trim()).filter(Boolean) : ['Plumbing']}
+                  onChange={vals => updateField('tradeSpecialty', vals.join(', '))}
+                  placeholder="Type additional trade specialty & press Enter..."
+                  helperText="Select one or more trade specialties, or add custom services."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
