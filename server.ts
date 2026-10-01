@@ -7,7 +7,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
 import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES, buildThreeMinSignature } from "./src/integrations/three-min.js";
 import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
-import { clientIp, rateLimit } from "./src/middleware/rate-limit.js";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { type AuthRequest, clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
@@ -162,24 +162,37 @@ export function createApp() {
   // Set TRUST_PROXY_HOPS to the number of trusted proxies in front of the app (default 1).
   app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
 
-  const emailKey = (req: express.Request) => String(req.body?.email || '').trim().toLowerCase();
-  const loginLimiter = rateLimit({
+  // In-memory stores: counts are per server instance (see PR notes).
+  const limiterBase = { standardHeaders: true, legacyHeaders: false } as const;
+  const ipKey = (req: express.Request) => ipKeyGenerator(req.ip || "unknown");
+  const emailKey = (req: express.Request) => String(req.body?.email || "").trim().toLowerCase() || ipKey(req);
+  const loginIpLimiter = rateLimit({
+    ...limiterBase,
     windowMs: 15 * 60 * 1000,
-    max: 10,
-    keys: (req) => [`login:ip:${clientIp(req)}`, `login:email:${emailKey(req)}`],
-    message: 'Too many login attempts. Please try again in a few minutes.',
+    limit: 10,
+    keyGenerator: ipKey,
+    message: { error: "Too many login attempts. Please try again in a few minutes." },
+  });
+  const loginEmailLimiter = rateLimit({
+    ...limiterBase,
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    keyGenerator: emailKey,
+    message: { error: "Too many login attempts. Please try again in a few minutes." },
   });
   const signupLimiter = rateLimit({
+    ...limiterBase,
     windowMs: 60 * 60 * 1000,
-    max: 5,
-    keys: (req) => [`signup:ip:${clientIp(req)}`],
-    message: 'Too many sign-up attempts. Please try again later.',
+    limit: 5,
+    keyGenerator: ipKey,
+    message: { error: "Too many sign-up attempts. Please try again later." },
   });
   const geminiLimiter = rateLimit({
+    ...limiterBase,
     windowMs: 60 * 1000,
-    max: 10,
-    keys: (req) => [`gemini:user:${(req as AuthRequest).user?.id ?? clientIp(req)}`],
-    message: 'AI request limit reached. Please wait a minute and try again.',
+    limit: 10,
+    keyGenerator: (req) => ((req as AuthRequest).user?.id ? `user:${(req as AuthRequest).user!.id}` : ipKey(req)),
+    message: { error: "AI request limit reached. Please wait a minute and try again." },
   });
   app.use((req, res, next) => {
     if (req.path === "/api/integrations/3min/webhook" && req.is("application/json")) return next();
@@ -554,7 +567,7 @@ export function createApp() {
     }
   });
 
-  app.post("/api/auth/login", loginLimiter, async (req, res) => {
+  app.post("/api/auth/login", loginIpLimiter, loginEmailLimiter, async (req, res) => {
     try {
       await ensureDatabaseReady();
       const { email, password } = req.body ?? {};
