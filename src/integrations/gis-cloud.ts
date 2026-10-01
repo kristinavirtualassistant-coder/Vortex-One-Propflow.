@@ -23,7 +23,7 @@ export type GisCloudProperty = {
 };
 
 const apiBase = () => process.env.GIS_CLOUD_API_BASE_URL || "https://api.giscloud.com/1";
-const apiKey = () => process.env.GIS_CLOUD_API_KEY || "";
+const apiKey = () => process.env.GIS_CLOUD_ACCESS_TOKEN || process.env.GIS_CLOUD_API_KEY || "";
 
 export const gisCloudConfig = () => ({
   mapId: Number(process.env.GIS_CLOUD_MAP_ID || 3302957),
@@ -94,7 +94,8 @@ export const syncPropertyFeature = async (property: GisCloudProperty, featureId?
 };
 
 export const syncPropertyFeatureViaEdge = async (propertyId: string, cookieHeader: string | undefined) => {
-  const supabaseUrl = process.env.SUPABASE_URL || "https://qnmcobypbhnkuvqctspy.supabase.co";
+  const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
+  if (!supabaseUrl) throw new Error("SUPABASE_URL is not configured");
   const response = await fetch(`${supabaseUrl}/functions/v1/gis-cloud-sync`, {
     method: "POST",
     headers: {
