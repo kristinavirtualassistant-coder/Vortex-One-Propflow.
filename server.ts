@@ -5,7 +5,7 @@ import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
 import { createPool, ensureDatabaseReady } from "./src/db/index.js";
-import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES } from "./src/integrations/three-min.js";
+import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES, buildThreeMinSignature } from "./src/integrations/three-min.js";
 import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
@@ -173,14 +173,31 @@ export function createApp() {
     });
   });
 
-  app.post("/api/integrations/3min/test", requireAuth, async (_req, res) => {
+  app.post("/api/integrations/3min/test", requireAuth, async (req, res) => {
     const token = String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim();
     if (!token) return res.status(503).json({ error: "3Min webhook token is not configured" });
+    const webhookId = `vortex-test-${crypto.randomUUID()}`;
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const payload = JSON.stringify({
+      event_type: "vortex_one_test",
+      source: "vortex-one",
+      organization_id: req.user!.organizationId,
+      idempotency_key: webhookId,
+      payload: { test: true },
+    });
+    const signature = buildThreeMinSignature(payload, webhookId, timestamp);
+    const verification = verifyThreeMinWebhook(payload, {
+      "webhook-id": webhookId,
+      "webhook-timestamp": timestamp,
+      "webhook-signature": `v1,${signature}`,
+    });
     return res.json({
-      ok: true,
-      message: "3Min receiver configuration is present. Use the 3Min sandbox sender to perform an end-to-end signed delivery test.",
+      ok: verification.valid,
+      message: verification.valid
+        ? "3Min webhook signing verification passed. The production receiver is ready for an end-to-end signed delivery."
+        : verification.reason || "3Min signing verification failed.",
       receiverPath: "/api/integrations/3min/webhook",
-      testMode: "configuration",
+      testMode: "local-signature-verification",
     });
   });
 
