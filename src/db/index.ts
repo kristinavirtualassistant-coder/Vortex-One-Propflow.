@@ -30,6 +30,12 @@ export const formatPemCertificate = (cert: string | undefined): string | undefin
   return trimmed;
 };
 
+// Pool size: default 10, override with DATABASE_POOL_MAX (keep within the provider's connection limit).
+const poolMax = () => {
+  const configured = Number(process.env.DATABASE_POOL_MAX);
+  return Number.isInteger(configured) && configured > 0 ? configured : 10;
+};
+
 export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
   if (!global._postgresPool || options?.forceAllowUnauthorized) {
     if (global._postgresPool && options?.forceAllowUnauthorized) {
@@ -70,7 +76,7 @@ export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
 
       global._postgresPool = new Pool({
         connectionString,
-        max: 1,
+        max: poolMax(),
         connectionTimeoutMillis: 15000,
         ssl: {
           rejectUnauthorized,
@@ -103,7 +109,7 @@ export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
         user,
         password,
         database,
-        max: 1,
+        max: poolMax(),
         connectionTimeoutMillis: 15000,
         ssl: process.env.SQL_SSL === 'true' || isSupabase
           ? {
@@ -120,6 +126,23 @@ export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
   }
 
   return global._postgresPool;
+};
+
+// Runs fn inside a transaction on a dedicated client so BEGIN/COMMIT/ROLLBACK never
+// interleave with other requests sharing the pool. Always use client.query inside fn.
+export const withTransaction = async <T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> => {
+  const client = await createPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const pool = new Proxy({} as pg.Pool, {

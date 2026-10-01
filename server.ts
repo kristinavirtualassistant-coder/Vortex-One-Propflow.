@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { hashPassword, verifyPassword } from "./src/security/password.js";
 import { and, eq, gt } from "drizzle-orm";
-import { createPool, ensureDatabaseReady } from "./src/db/index.js";
+import { createPool, ensureDatabaseReady, withTransaction } from "./src/db/index.js";
 import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES, buildThreeMinSignature } from "./src/integrations/three-min.js";
 import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
 import { clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
@@ -409,25 +409,20 @@ export function createApp() {
       if (!account) {
         const organizationId = crypto.randomUUID();
         const userId = crypto.randomUUID();
-        await pool.query('BEGIN');
-        try {
-          await pool.query(
+        account = await withTransaction(async (client) => {
+          await client.query(
             'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
             [organizationId, profile.name ? `${profile.name} Organization` : 'Vortex One Organization', `vortex-${userId.slice(0,8)}`]
           );
-          const created = await pool.query(
+          const created = await client.query(
             `INSERT INTO users
               (id,organization_id,uid,email,password_hash,name,role,auth_provider,auth_provider_subject,avatar_url)
              VALUES ($1,$2,$1,$3,$4,$5,$6,$7,$8,$9)
              RETURNING ${userColumns}`,
             [userId, organizationId, profile.email, await socialPasswordHash(provider, profile.subject), profile.name, stateData.role, provider, profile.subject, profile.avatarUrl || null]
           );
-          account = created.rows[0];
-          await pool.query('COMMIT');
-        } catch (error) {
-          await pool.query('ROLLBACK');
-          throw error;
-        }
+          return created.rows[0];
+        });
       } else {
         const updated = await pool.query(
           `UPDATE users
@@ -493,28 +488,23 @@ export function createApp() {
         body.emergencyDispatch ? String(body.emergencyDispatch).trim() : null,
       ];
 
-      await pool.query('BEGIN');
-      try {
-        await pool.query(
+      const created = await withTransaction(async (client) => {
+        await client.query(
           'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
           [organizationId, `${String(name).trim()} Organization`, `vortex-${userId.slice(0,8)}`]
         );
-        const created = await pool.query(
+        return client.query(
           `INSERT INTO users
             (id,organization_id,uid,email,password_hash,name,role,phone,company_name,portfolio_size,primary_market,current_address,monthly_income,employment_status,move_in_date,occupants_count,has_pets,trade_specialty,hourly_rate,property_types,management_fee,service_radius,emergency_dispatch)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
            RETURNING ${userColumns}`,
           userValues
         );
-        await pool.query('COMMIT');
-        const user = toUser(created.rows[0]);
-        const session = await createSession(user.id);
-        setSessionCookie(res, session.id, session.expiresAt);
-        return res.status(201).json({ user });
-      } catch (error) {
-        await pool.query('ROLLBACK');
-        throw error;
-      }
+      });
+      const user = toUser(created.rows[0]);
+      const session = await createSession(user.id);
+      setSessionCookie(res, session.id, session.expiresAt);
+      return res.status(201).json({ user });
     } catch (error: any) {
       console.error("Signup error:", error);
       if (error?.code === '23505') {
