@@ -32,6 +32,12 @@ const constantTimeEqual = (a: string, b: string) => {
 
 const decodeSecret = (secret: string) => Buffer.from(secret.replace(/^whsec_/, ""), "base64");
 
+export const buildThreeMinSignature = (rawBody: string, webhookId: string, timestamp: string) => {
+  const secret = String(process.env.THREEMIN_WEBHOOK_SECRET || "").trim();
+  if (!secret) throw new Error("THREEMIN_WEBHOOK_SECRET is not configured");
+  return crypto.createHmac("sha256", decodeSecret(secret)).update(`${webhookId}.${timestamp}.${rawBody}`).digest("base64");
+};
+
 export const verifyThreeMinWebhook = (rawBody: string, headers: Record<string, string | string[] | undefined>): ThreeMinVerification => {
   const secret = String(process.env.THREEMIN_WEBHOOK_SECRET || "").trim();
   if (!secret) return { valid: false, reason: "THREEMIN_WEBHOOK_SECRET is not configured" };
