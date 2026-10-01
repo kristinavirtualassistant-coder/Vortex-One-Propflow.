@@ -112,7 +112,11 @@ const getOAuthProfile = async (provider: 'google' | 'microsoft', accessToken: st
   const data = await response.json() as Record<string, unknown>;
   return {
     subject: String(data.sub || ''),
-    email: String(data.email || data.preferred_username || '').trim().toLowerCase(),
+    // Only the `email` claim is used (never Microsoft's preferred_username, which is
+    // a UPN and not a verified address). Google asserts email_verified; Microsoft's
+    // userinfo endpoint does not, so Microsoft emails are treated as unverified.
+    email: String(data.email || '').trim().toLowerCase(),
+    emailVerified: provider === 'google' && (data.email_verified === true || data.email_verified === 'true'),
     name: String(data.name || data.given_name || data.email || 'Vortex One User').trim(),
     avatarUrl: String(data.picture || ''),
   };
@@ -391,19 +395,21 @@ export function createApp() {
       const accessToken = await exchangeOAuthCode(provider, code);
       const profile = await getOAuthProfile(provider, accessToken);
       if (!profile.subject || !profile.email) return res.status(400).send('Provider did not return a usable email identity.');
+      if (!profile.emailVerified) return res.status(400).send('Your email address could not be verified by the sign-in provider.');
 
+      // Accounts are matched by provider + subject only. Never link to an existing
+      // account by email: that would let a social identity take over a password account.
       const existingBySubject = await pool.query(
-        `SELECT ${userColumns} FROM users WHERE auth_provider_subject=$1 LIMIT 1`,
-        [profile.subject]
+        `SELECT ${userColumns} FROM users WHERE auth_provider=$1 AND auth_provider_subject=$2 LIMIT 1`,
+        [provider, profile.subject]
       );
-      const existingByEmail = await pool.query(
-        `SELECT ${userColumns} FROM users WHERE lower(email)=lower($1) LIMIT 1`,
-        [profile.email]
-      );
-      let account = existingBySubject.rows[0] || existingByEmail.rows[0];
+      let account = existingBySubject.rows[0];
 
-      if (account && account.auth_provider !== 'password' && account.auth_provider !== provider) {
-        return res.status(409).send('This email is already linked to a different sign-in provider.');
+      if (!account) {
+        const emailTaken = await pool.query('SELECT 1 FROM users WHERE lower(email)=lower($1) LIMIT 1', [profile.email]);
+        if (emailTaken.rows.length) {
+          return res.status(409).send('An account with this email already exists. Sign in with your existing method.');
+        }
       }
 
       if (!account) {
