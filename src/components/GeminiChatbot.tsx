@@ -45,6 +45,10 @@ export default function GeminiChatbot() {
         })
       });
 
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw Object.assign(new Error(body?.error || 'Request failed'), { userFacing: true });
+      }
       if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
@@ -81,7 +85,9 @@ export default function GeminiChatbot() {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
         if (lastMessage.role === 'model') {
-          lastMessage.parts[0].text = "Sorry, I encountered an error. Please try again.";
+          lastMessage.parts[0].text = (error as { userFacing?: boolean })?.userFacing
+            ? (error as Error).message
+            : "Sorry, I encountered an error. Please try again.";
         }
         return newMessages;
       });
