@@ -340,7 +340,7 @@ export function createApp() {
       return res.json({ maps });
     } catch (error: any) {
       console.error("GIS Cloud maps error:", error);
-      return res.status(500).json({ error: error?.message || "Unable to load GIS Cloud maps" });
+      return res.status(500).json({ error: "Unable to load GIS Cloud maps" });
     }
   });
 
@@ -356,7 +356,7 @@ export function createApp() {
       return res.json({ status: "ready", database: "postgresql" });
     } catch (error: any) {
       res.setHeader("Cache-Control", "no-store");
-      return res.status(503).json({ status: "not_ready", database: "postgresql", error: error?.message || "Database unavailable" });
+      return res.status(503).json({ status: "not_ready", database: "postgresql", error: "Database unavailable" });
     }
   });
 
@@ -425,7 +425,7 @@ export function createApp() {
         !process.env.GOOGLE_CLIENT_SECRET ? 'GOOGLE_CLIENT_SECRET' : null,
       ].filter(Boolean);
       console.error('Google OAuth configuration check failed', { missing });
-      return res.status(503).send(error.message || 'Google OAuth is not configured');
+      return res.status(503).send('Google sign-in is not available right now.');
     }
   });
 
@@ -440,7 +440,7 @@ export function createApp() {
         !process.env.MICROSOFT_CLIENT_SECRET ? 'MICROSOFT_CLIENT_SECRET' : null,
       ].filter(Boolean);
       console.error('Microsoft OAuth configuration check failed', { missing });
-      return res.status(503).send(error.message || 'Microsoft OAuth is not configured');
+      return res.status(503).send('Microsoft sign-in is not available right now.');
     }
   });
 
@@ -507,7 +507,7 @@ export function createApp() {
       return res.redirect('/dashboard');
     } catch (error: any) {
       console.error(`${provider} OAuth callback error:`, error);
-      return res.status(500).send(error.message || 'Unable to complete social sign-in');
+      return res.status(500).send('Unable to complete social sign-in');
     }
   };
 
@@ -577,7 +577,7 @@ export function createApp() {
       if (error?.code === '23505') {
         return res.status(409).json({ error: 'An account with that email already exists. Please sign in instead.' });
       }
-      return res.status(500).json({ error: error.message || "Unable to create account" });
+      return res.status(500).json({ error: "Unable to create account" });
     }
   });
 
@@ -608,7 +608,7 @@ export function createApp() {
       return res.json({ user: toUser(user) });
     } catch (error: any) {
       console.error("Login error:", error);
-      return res.status(503).json({ error: error.message || "Authentication service unavailable" });
+      return res.status(503).json({ error: "Authentication service unavailable" });
     }
   });
 
@@ -638,7 +638,7 @@ export function createApp() {
       return res.json({ user: toUser(updated.rows[0]) });
     } catch (error: any) {
       console.error("Error updating user profile:", error);
-      return res.status(500).json({ error: error.message || "Failed to update profile" });
+      return res.status(500).json({ error: "Failed to update profile" });
     }
   });
 
@@ -680,7 +680,7 @@ export function createApp() {
       return res.status(404).json({ error: "Collection not available in the canonical database model." });
     } catch (error: any) {
       console.error("Data read error:", error);
-      return res.status(500).json({ error: error.message || "Unable to read records" });
+      return res.status(500).json({ error: "Unable to read records" });
     }
   });
 
@@ -795,7 +795,7 @@ export function createApp() {
       } catch (auditError) {
         console.error("GIS Cloud sync audit error:", auditError);
       }
-      return res.status(502).json({ error: error.message || "GIS Cloud synchronization failed" });
+      return res.status(502).json({ error: "GIS Cloud synchronization failed" });
     }
   });
 
@@ -892,7 +892,7 @@ export function createApp() {
       return res.json({ count: properties.length, properties });
     } catch (error: any) {
       console.error("Property search error:", error);
-      return res.status(500).json({ error: error.message || "Unable to search properties" });
+      return res.status(500).json({ error: "Unable to search properties" });
     }
   });
 
@@ -932,7 +932,7 @@ export function createApp() {
       return res.status(201).json({ lead: result.rows[0] });
     } catch (error: any) {
       console.error("Property lead error:", error);
-      return res.status(500).json({ error: error.message || "Unable to save property lead" });
+      return res.status(500).json({ error: "Unable to save property lead" });
     }
   });
 
@@ -967,7 +967,7 @@ export function createApp() {
       return res.json({ property: property.rows[0], sources });
     } catch (error: any) {
       console.error("Property detail error:", error);
-      return res.status(500).json({ error: error.message || "Unable to retrieve property" });
+      return res.status(500).json({ error: "Unable to retrieve property" });
     }
   });
 
@@ -1085,7 +1085,7 @@ export function createApp() {
       return res.status(201).json({ inserted, updated, total: records.length });
     } catch (error: any) {
       console.error("Property import error:", error);
-      return res.status(500).json({ error: error.message || "Unable to import properties" });
+      return res.status(500).json({ error: "Unable to import properties" });
     }
   });
 
@@ -1141,7 +1141,8 @@ Question: ${message}`
       res.end();
     } catch (error: any) {
       console.error("Gemini API Error:", error);
-      res.status(500).json({ error: error.message });
+      if (res.headersSent) return res.end();
+      res.status(500).json({ error: "The AI assistant is unavailable right now. Please try again." });
     }
   });
 
@@ -1175,8 +1176,17 @@ Question: ${message}`
       res.json(JSON.parse(jsonText));
     } catch (error: any) {
       console.error("Maintenance analysis Gemini API error:", error);
-      res.status(500).json({ error: error.message || "Failed to analyze description" });
+      res.status(500).json({ error: "Failed to analyze description" });
     }
+  });
+
+  // Last-resort handler so Express never sends its default error page (stack traces) to clients.
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("Unhandled request error:", err);
+    if (res.headersSent) return res.end();
+    if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "Invalid request body" });
+    if (err?.type === "entity.too.large") return res.status(413).json({ error: "Request body too large" });
+    return res.status(500).json({ error: "Internal server error" });
   });
 
   return app;
