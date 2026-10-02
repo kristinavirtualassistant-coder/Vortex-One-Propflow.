@@ -28,12 +28,25 @@ Not verified (I cannot see these):
 
 Consequence of the facts above: **any rule that requires a signed-in user blocks every one of those 24 files today**, because the browser has no Firebase user. There is no rule change that is both safe and useful without a code change.
 
+## 1a. Hosting constraint: the Firebase project is on the free Spark plan
+
+The repo owner is on the Spark (no-cost) plan. Deploying Cloud Functions requires the Blaze (pay-as-you-go) plan; on Spark the deploy fails with "Your project must be on the Blaze (pay-as-you-go) plan to complete this command" (confirmed from public sources, not from the Firebase console). Functions secrets (Secret Manager) are, as far as I know, also Blaze-only; I have not confirmed that.
+
+What this means here:
+- The whole Express backend (login, sessions, properties, Gemini, webhooks) is packaged as the Cloud Function `api` (`functions/index.ts`) and reached through the Hosting rewrite `/api/**`. **That function cannot be deployed on Spark.** The `Deploy Hosting and Functions` workflow also asks for `--only hosting,functions`, so it would fail on the plan even once its credentials step is fixed.
+- `docs/FIREBASE_DEPLOYMENT.md` says Vercel deployment was removed and Firebase Functions is the intended API runtime, and `docs/INTEGRATION_MATRIX.md` says the former Vercel API entrypoint was removed. Together with the Spark limit, this suggests **the API may not be running anywhere right now**, and only static Hosting (or a Vercel preview) is serving the frontend. This is an inference; the owner should confirm it.
+- Spark is fine for: Hosting, Firestore (within the free quota) and deploying Firestore rules. So **option A below works on Spark as is.**
+- Options B and C both need a server that is running, so each needs a decision on where the backend runs first.
+
+Free or cheap places to run the Express API instead, for the owner to choose between: Vercel (free serverless functions; the project already exists), Render or Railway (free or low-cost tiers), Cloudflare Workers (needs the Express code adapted), or Supabase Edge Functions (already used for `gis-cloud-sync`, also needs adapting). Upgrading the Firebase project to Blaze is the smallest code change (Blaze has a monthly free tier for Functions, but needs a billing account and a budget alert). I have not priced or tested any of these.
+
 ## 2. Step zero (you, no code, do this first whichever option you pick)
 
 1. Firebase console, project `vortex-one-propflow`, named database `ai-studio-propflow-...`: read the live rules and note them down.
 2. Check what is in the database: collection names, document counts, whether it is real tenant/landlord data or test data.
 3. Export a backup before anything changes (`gcloud firestore export` for that database).
 4. Check the Firestore usage and request graphs for traffic that is not from your own app.
+5. Find out where the live site's `/api` actually runs today (open the live site, check whether login works, and check the network tab for `/api/*` responses). On Spark it cannot be a Firebase Function.
 
 If step 2 shows the data is test-only, the plan collapses to option A below and the rest is optional.
 
@@ -49,7 +62,7 @@ If step 2 shows the data is test-only, the plan collapses to option A below and 
 After the normal Postgres login, the server mints a Firebase custom token carrying the user id plus `org` and `role` claims. The browser calls `signInWithCustomToken`. Rules then require `request.auth != null`.
 - Keeps the 24 files working for logged-in users and closes public access.
 - Does **not** isolate organizations: any logged-in user could still read every organization's Firestore data, because documents have no organization field. It is a floor, not a fix.
-- Needs: a new server endpoint, a client sign-in step, `firebase-admin` added to `functions/package.json`, an IAM grant so the function's service account can sign tokens (typically "Service Account Token Creator"), and a rules deploy to the named database (a `firestore` entry in `firebase.json` for that database id, to be checked against current firebase-tools docs before the PR).
+- Needs a running backend (see 1a), plus: a new server endpoint, a client sign-in step, `firebase-admin` added to `functions/package.json`, an IAM grant so the function's service account can sign tokens (typically "Service Account Token Creator"), and a rules deploy to the named database (a `firestore` entry in `firebase.json` for that database id, to be checked against current firebase-tools docs before the PR).
 - Throwaway work if you go straight to option C.
 
 ### C. Move the screens to `/api` (the real fix)
@@ -57,6 +70,7 @@ Replace direct Firestore access with endpoints that check organization and role 
 - Fixes both Critical items: one database, access checked on the server.
 - This is the migration you asked me to hold. It depends on the Postgres schema being reconciled first (audit #10, #7), because the target tables must exist and match.
 - Largest effort; delivered as one PR per area so each can be reviewed and rolled back alone.
+- Needs a backend host first (see 1a). On Spark that means either moving to Blaze or choosing another host.
 
 ## 4. Recommended sequence
 
@@ -81,4 +95,4 @@ Replace direct Firestore access with endpoints that check organization and role 
 1. Is the Firestore data real? (Step zero.)
 2. Are you lifting the hold on the migration (option C)? If yes, who owns the schema decision in phase C1?
 3. If real data and a long migration: do you want the stopgap bridge (option B)?
-4. How is production actually deployed today? The Firebase workflow fails, so rules and functions may be deployed some other way.
+4. Where does the backend run today, and where should it run? On Spark it cannot run as a Firebase Function: move to Blaze, or choose another host (see 1a).
