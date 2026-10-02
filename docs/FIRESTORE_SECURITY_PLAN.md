@@ -87,14 +87,14 @@ Replace direct Firestore access with endpoints that check organization and role 
    2. Copy that area's Firestore documents into Postgres with an organization id. Documents written by `'anonymous'` cannot be mapped to an organization and need a decision.
    3. Reconcile: compare counts and spot-check records between Firestore and Postgres.
    4. Handle writes that happen during the copy. Simplest for a small app: a short maintenance window for that area, with that collection's Firestore rules set to read-only while steps 2 to 3 are re-run for any new documents. The alternative is dual-writing (screens write to both) until cutover, which is more code.
-   5. Switch the screens to `/api`, then verify before moving to the next area. Firestore data is not modified until the last area is done, so any area can be switched back.
+   5. Switch the screens to `/api`, then verify before moving to the next area. Once a screen writes to Postgres, Firestore no longer receives those writes, so switching back is only safe if Firestore was kept in sync for the rollback window (dual-writing) or the newer Postgres writes are copied back to Firestore and reconciled first; otherwise users would see stale data and lose sight of recent writes. Decide per area which of the two you will use before switching, and keep the rollback window short.
 6. **Phase C3, close**: deny-all rules, remove `dataClient.ts` Firestore access and the bridge if one was built.
 
 ## 5. Rollout and rollback
 
 - Every phase is its own PR with typecheck and build run, and the rules file is the last thing to change in each phase.
 - Before any rules deploy: backup exists, and the previous live rules are saved in this repo or the PR so they can be restored.
-- A rules deploy is reversible by redeploying the saved rules. The copy into Postgres (phase C2, step 2) does not change Firestore, so it is reversible by deleting the copied rows, and Firestore remains the source of truth until a screen is switched. Switching a screen is reversible while Firestore is still intact. The step-zero backup protects against anything that does modify Firestore, such as the final deny-all rules or a decision to delete old data.
+- A rules deploy is reversible by redeploying the saved rules. The copy into Postgres (phase C2, step 2) does not change Firestore, so it is reversible by deleting the copied rows, and Firestore remains the source of truth until a screen is switched. Switching a screen back is reversible only under the condition in phase C2, step 5: Firestore kept in sync (dual-writing), or newer Postgres writes reverse-copied and reconciled first. Without one of those, a switch back shows stale Firestore data. The step-zero backup protects against anything that does modify Firestore, such as the final deny-all rules or a decision to delete old data.
 - Because the deploy workflow currently fails at its credentials step, rules would be deployed by hand with `firebase deploy --only firestore:rules` unless that is fixed first.
 
 ## 6. Decisions needed from you
