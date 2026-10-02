@@ -1200,9 +1200,10 @@ if (!process.env.FIREBASE_CONFIG && isDirectRun) {
     try {
       await ensureDatabaseReady();
       const app = createApp();
-      const distPath = path.join(process.cwd(), 'dist');
-      app.use(express.static(distPath));
-      app.get('*path', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+      // `npm run build` writes the web bundle to public/ (vite build --outDir public).
+      const publicPath = path.join(process.cwd(), 'public');
+      app.use(express.static(publicPath));
+      app.get('*path', (_req, res) => res.sendFile(path.join(publicPath, 'index.html')));
 
       const listenPort = 3000;
       app.listen(listenPort, "0.0.0.0", () => {
