@@ -187,6 +187,16 @@ export function createApp() {
     keyGenerator: ipKey,
     message: { error: "Too many sign-up attempts. Please try again later." },
   });
+  // General safety net for every route (API, authenticated routes, the 3Min webhook and, in
+  // standalone mode, static files). Generous on purpose: the route-specific limiters are the tight ones.
+  app.use(rateLimit({
+    ...limiterBase,
+    windowMs: 60 * 1000,
+    limit: 300,
+    keyGenerator: ipKey,
+    message: { error: "Too many requests. Please slow down." },
+  }));
+
   // Runs before requireAuth so unauthenticated floods are cut off before any database lookup.
   const geminiIpLimiter = rateLimit({
     ...limiterBase,
