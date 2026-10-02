@@ -30,19 +30,24 @@ export const formatPemCertificate = (cert: string | undefined): string | undefin
   return trimmed;
 };
 
+// TLS certificate verification is ON by default. It can only be turned off by an
+// explicit DATABASE_SSL_REJECT_UNAUTHORIZED=false; there is no automatic downgrade.
+const buildSslOptions = (sslCa: string | undefined) => {
+  const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false';
+  if (!rejectUnauthorized) {
+    console.warn('DATABASE_SSL_REJECT_UNAUTHORIZED=false: PostgreSQL TLS certificate verification is disabled.');
+  }
+  return { rejectUnauthorized, ...(sslCa ? { ca: sslCa } : {}) };
+};
+
 // Pool size: default 10, override with DATABASE_POOL_MAX (keep within the provider's connection limit).
 const poolMax = () => {
   const configured = Number(process.env.DATABASE_POOL_MAX);
   return Number.isInteger(configured) && configured > 0 ? configured : 10;
 };
 
-export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
-  if (!global._postgresPool || options?.forceAllowUnauthorized) {
-    if (global._postgresPool && options?.forceAllowUnauthorized) {
-      global._postgresPool.end().catch(() => {});
-      global._postgresPool = undefined;
-    }
-
+export const createPool = () => {
+  if (!global._postgresPool) {
     const rawConnectionString = process.env.DATABASE_URL;
     let connectionString = rawConnectionString ? rawConnectionString.replace(/:\s+/, ':').replace(/\s+@/, '@') : rawConnectionString;
 
@@ -68,20 +73,11 @@ export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
 
       const sslCa = formatPemCertificate(process.env.DATABASE_SSL_CA);
       const isSupabase = connectionString.includes('supabase.co') || connectionString.includes('pooler.supabase');
-      const rejectUnauthorized = options?.forceAllowUnauthorized
-        ? false
-        : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
-        ? Boolean(sslCa) || !isSupabase
-        : false;
-
       global._postgresPool = new Pool({
         connectionString,
         max: poolMax(),
         connectionTimeoutMillis: 15000,
-        ssl: {
-          rejectUnauthorized,
-          ...(sslCa ? { ca: sslCa } : {}),
-        },
+        ssl: buildSslOptions(sslCa),
       });
     } else {
       const host = process.env.SQL_HOST;
@@ -97,12 +93,6 @@ export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
 
       const sslCa = formatPemCertificate(process.env.DATABASE_SSL_CA);
       const isSupabase = host.includes('supabase.co') || host.includes('pooler.supabase');
-      const rejectUnauthorized = options?.forceAllowUnauthorized
-        ? false
-        : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true'
-        ? Boolean(sslCa) || !isSupabase
-        : false;
-
       global._postgresPool = new Pool({
         host,
         port: Number(process.env.SQL_PORT || 5432),
@@ -111,12 +101,7 @@ export const createPool = (options?: { forceAllowUnauthorized?: boolean }) => {
         database,
         max: poolMax(),
         connectionTimeoutMillis: 15000,
-        ssl: process.env.SQL_SSL === 'true' || isSupabase
-          ? {
-              rejectUnauthorized,
-              ...(sslCa ? { ca: sslCa } : {}),
-            }
-          : undefined,
+        ssl: process.env.SQL_SSL === 'true' || isSupabase ? buildSslOptions(sslCa) : undefined,
       });
     }
 
@@ -368,23 +353,7 @@ export const ensureThreeMinEventsTable = async () => {
 export const ensureDatabaseReady = async () => {
   if (!global._databaseReadyPromise) {
     global._databaseReadyPromise = (async () => {
-      try {
-        await pool.query('SELECT 1');
-      } catch (error: any) {
-        if (
-          error &&
-          (error.code === 'SELF_SIGNED_CERT_IN_CHAIN' ||
-            (error.message && error.message.toLowerCase().includes('self-signed certificate')))
-        ) {
-          console.warn(
-            'PostgreSQL SSL self-signed certificate in chain detected. Automatically retrying connection with rejectUnauthorized: false...'
-          );
-          createPool({ forceAllowUnauthorized: true });
-          await pool.query('SELECT 1');
-        } else {
-          throw error;
-        }
-      }
+      await pool.query('SELECT 1');
       await bootstrapDatabaseTables();
       await verifyCanonicalSchema();
       await ensureThreeMinEventsTable();
