@@ -1181,8 +1181,15 @@ Question: ${message}`
   });
 
   // Last-resort handler so Express never sends its default error page (stack traces) to clients.
-  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error("Unhandled request error:", err);
+  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const bodyError = err?.type === "entity.parse.failed" || err?.type === "entity.too.large";
+    if (bodyError) {
+      // body-parser attaches the rejected request body to these errors, and a JSON parse message can
+      // quote part of it, so never log the error object or its message (the body may hold a password).
+      console.error("Request body rejected:", { type: err.type, status: err.status, contentLength: req.headers["content-length"] });
+    } else {
+      console.error("Unhandled request error:", err);
+    }
     if (res.headersSent) return res.end();
     if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "Invalid request body" });
     if (err?.type === "entity.too.large") return res.status(413).json({ error: "Request body too large" });
