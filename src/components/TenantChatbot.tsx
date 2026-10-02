@@ -10,6 +10,9 @@ type Message = {
   parts: { text: string }[];
 };
 
+// Must stay within the server's /api/gemini/chat context limit.
+const MAX_CONTEXT_CHARS = 20000;
+
 export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -17,6 +20,7 @@ export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [docsLoaded, setDocsLoaded] = useState(false);
   const [leaseContext, setLeaseContext] = useState('');
+  const [contextTruncated, setContextTruncated] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -42,7 +46,8 @@ export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
           contextText = "No specific lease documents found. Provide general tenant advice.";
         }
 
-        setLeaseContext(contextText);
+        setContextTruncated(contextText.length > MAX_CONTEXT_CHARS);
+        setLeaseContext(contextText.slice(0, MAX_CONTEXT_CHARS));
         setDocsLoaded(true);
       } catch (error) {
         console.error("Failed to load lease documents:", error);
@@ -67,22 +72,20 @@ export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
       // Create a temporary assistant message to stream into
       setMessages(prev => [...prev, { role: 'model', parts: [{ text: '' }] }]);
 
-      const systemInstruction = `You are a helpful and professional real estate AI assistant for PropertyFlow, specifically helping a tenant. Use the following lease documentation to answer their questions accurately. Do not invent policies not covered in the text. 
-      
-      LEASE DOCUMENTATION:
-      ${leaseContext}
-      `;
-
       const response = await fetch('/api/gemini/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           history: messages,
           message: userMessage,
-          systemInstruction,
+          context: leaseContext,
         })
       });
 
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw Object.assign(new Error(body?.error || 'Request failed'), { userFacing: true });
+      }
       if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
@@ -119,7 +122,9 @@ export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
         const newMessages = [...prev];
         const lastMessage = newMessages[newMessages.length - 1];
         if (lastMessage.role === 'model') {
-          lastMessage.parts[0].text = "Sorry, I encountered an error. Please try again.";
+          lastMessage.parts[0].text = (error as { userFacing?: boolean })?.userFacing
+            ? (error as Error).message
+            : "Sorry, I encountered an error. Please try again.";
         }
         return newMessages;
       });
@@ -140,7 +145,7 @@ export default function TenantChatbot({ onClose }: { onClose?: () => void }) {
             <h3 className="font-bold text-white">Lease Assistant</h3>
             <p className="text-xs text-indigo-100 flex items-center gap-1">
               {docsLoaded ? (
-                <>Powered by AI & Lease Docs</>
+                <>Powered by AI & Lease Docs{contextTruncated ? ' (long documents shortened)' : ''}</>
               ) : (
                 <><Loader2 className="w-3 h-3 animate-spin" /> Loading Docs...</>
               )}
