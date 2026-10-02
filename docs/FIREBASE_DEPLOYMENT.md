@@ -1,6 +1,8 @@
 # Vortex One PropFlow — Firebase deployment
 
-Vortex One PropFlow is no longer configured for Vercel deployment. Firebase Hosting is the web hosting target, with Firebase Functions reserved for the server API runtime.
+> **Note:** Cloud Functions cannot be deployed on the free Spark plan, so the live site currently runs on Vercel (frontend and API). See `docs/VERCEL_DEPLOYMENT.md`. The Firebase setup below applies only if the project is moved to the Blaze plan.
+
+Vortex One PropFlow can be deployed with Firebase Hosting as the web hosting target and Firebase Functions as the server API runtime.
 
 Create a Firebase project and set its project ID in .firebaserc. Do not commit service-account credentials.
 
