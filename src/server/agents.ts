@@ -204,7 +204,7 @@ export const runAgent = async (ctx: Ctx, key: string, rawInput: unknown) => {
     return { runId: id, status: 'completed' as const, output };
   } catch (error: any) {
     const message = error instanceof HttpError || error?.status ? error.message : 'Agent failed';
-    if (!(error instanceof HttpError)) console.error(`Agent ${key} failed:`, error);
+    if (!(error instanceof HttpError)) console.error('Agent %s failed:', String(key), error);
     await db.query(`UPDATE agent_runs SET status='failed', error=$2, finished_at=now() WHERE id=$1`, [id, message]);
     await logActivity(db, agentCtx, 'agent.failed', `${agent.name} failed: ${message}`, {}, { agentRunId: id });
     return { runId: id, status: 'failed' as const, error: message };

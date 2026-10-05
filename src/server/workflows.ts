@@ -263,7 +263,7 @@ export const executeWorkflow = async (ctx: Ctx, wf: WorkflowRow, trigger: Trigge
           steps.push({ index, type: action.type, status: 'completed', output });
         } catch (e: any) {
           const message = e instanceof HttpError || e?.status || e?.name === 'ZodError' ? String(e.message) : 'Action failed';
-          if (!(e instanceof HttpError) && !e?.status) console.error(`Workflow ${wf.id} action ${action.type} failed:`, e);
+          if (!(e instanceof HttpError) && !e?.status) console.error('Workflow %s action %s failed:', String(wf.id), String(action.type), e);
           steps.push({ index, type: action.type, status: 'failed', error: message });
           status = 'failed'; error = `Step ${index + 1} (${action.type}): ${message}`;
           break;

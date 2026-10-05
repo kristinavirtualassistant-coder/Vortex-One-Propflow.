@@ -529,7 +529,7 @@ export function createApp() {
       setSessionCookie(res, session.id, session.expiresAt);
       return res.redirect('/dashboard');
     } catch (error: any) {
-      console.error(`${provider} OAuth callback error:`, error);
+      console.error('%s OAuth callback error:', String(provider), error);
       return res.status(500).send('Unable to complete social sign-in');
     }
   };

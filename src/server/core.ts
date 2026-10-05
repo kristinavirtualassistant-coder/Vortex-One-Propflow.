@@ -113,7 +113,7 @@ export const route = (permission: Permission | null, handler: Handler) =>
         });
       }
       if ((error as any)?.code === '22P02') return res.status(400).json({ error: 'Invalid value', code: 'bad_request' });
-      console.error(`Unhandled error on ${req.method} ${req.path}:`, error);
+      console.error('Unhandled error on %s %s:', String(req.method), String(req.path), error);
       return res.status(500).json({ error: 'Internal server error' });
     }
   };
@@ -241,6 +241,6 @@ export const emit = async (ctx: Ctx, type: EventType, payload: Record<string, an
   try {
     await handler(ctx, type, payload);
   } catch (error) {
-    console.error(`Workflow dispatch failed for ${type}:`, error);
+    console.error('Workflow dispatch failed for %s:', String(type), error);
   }
 };
