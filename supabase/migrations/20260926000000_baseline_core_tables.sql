@@ -42,6 +42,11 @@ CREATE TABLE IF NOT EXISTS public.users (
   created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Auth (server.ts signup/login) relies on one account per email, case-insensitively,
+-- and on 23505 as the race fallback. Live has no such index; no duplicates exist (checked).
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique_idx
+  ON public.users (lower(email));
+
 CREATE TABLE IF NOT EXISTS public.auth_sessions (
   id varchar PRIMARY KEY,
   user_id varchar NOT NULL,
