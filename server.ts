@@ -8,6 +8,10 @@ import { createPool, ensureDatabaseReady, withTransaction } from "./src/db/index
 import { verifyThreeMinBodySize, verifyThreeMinWebhook, parseThreeMinEvent, THREE_MIN_MAX_BODY_BYTES, buildThreeMinSignature } from "./src/integrations/three-min.js";
 import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } from "./src/integrations/gis-cloud.js";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
+import { apiRouter } from "./src/server/index.js";
+import { blockInDemo, startDemoSession } from "./src/server/demo.js";
+import { permissionsFor } from "./src/server/core.js";
+import { z } from "zod";
 import { type AuthRequest, clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
@@ -166,6 +170,17 @@ export function createApp() {
   // Set TRUST_PROXY_HOPS to the number of trusted proxies in front of the app (default 1).
   app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
 
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (process.env.NODE_ENV === "production" || process.env.FIREBASE_CONFIG) {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+    next();
+  });
+
   // In-memory stores: counts are per server instance (see PR notes).
   const limiterBase = { standardHeaders: true, legacyHeaders: false } as const;
   const ipKey = (req: express.Request) => ipKeyGenerator(req.ip || "unknown");
@@ -190,6 +205,13 @@ export function createApp() {
     limit: 5,
     keyGenerator: ipKey,
     message: { error: "Too many sign-up attempts. Please try again later." },
+  });
+  const demoLimiter = rateLimit({
+    ...limiterBase,
+    windowMs: 60 * 60 * 1000,
+    limit: 10,
+    keyGenerator: ipKey,
+    message: { error: "Too many demo sessions from this address. Please try again later." },
   });
   // General safety net for every route (API, authenticated routes, the 3Min webhook and, in
   // standalone mode, static files). Generous on purpose: the route-specific limiters are the tight ones.
@@ -238,7 +260,7 @@ export function createApp() {
     });
   });
 
-  app.post("/api/integrations/3min/test", requireAuth, async (req, res) => {
+  app.post("/api/integrations/3min/test", requireAuth, blockInDemo, async (req, res) => {
     const token = String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim();
     if (!token) return res.status(503).json({ error: "3Min webhook token is not configured" });
     const webhookId = `vortex-test-${crypto.randomUUID()}`;
@@ -328,7 +350,7 @@ export function createApp() {
     }
   });
 
-  app.get("/api/integrations/gis-cloud/maps", requireAuth, async (_req, res) => {
+  app.get("/api/integrations/gis-cloud/maps", requireAuth, blockInDemo, async (_req, res) => {
     try {
       const token = String(process.env.GIS_CLOUD_ACCESS_TOKEN || "").trim();
       const baseUrl = String(process.env.GIS_CLOUD_API_BASE_URL || "https://api.giscloud.com").replace(/\/$/, "");
@@ -396,6 +418,7 @@ export function createApp() {
   });
 
   const profileFields: Record<string, string> = {
+    name: 'name',
     phone: 'phone',
     companyName: 'company_name',
     portfolioSize: 'portfolio_size',
@@ -506,7 +529,7 @@ export function createApp() {
       setSessionCookie(res, session.id, session.expiresAt);
       return res.redirect('/dashboard');
     } catch (error: any) {
-      console.error(`${provider} OAuth callback error:`, error);
+      console.error('%s OAuth callback error:', String(provider), error);
       return res.status(500).send('Unable to complete social sign-in');
     }
   };
@@ -613,13 +636,44 @@ export function createApp() {
   });
 
   app.get("/api/auth/me", requireAuth, async (req, res) => {
-    res.json({ user: req.user });
+    res.json({
+      user: {
+        ...toUser(req.user),
+        organizationId: req.user!.organizationId,
+        isDemo: Boolean(req.user!.isDemo),
+        permissions: permissionsFor(req.user!.role),
+      },
+    });
   });
+
+  const profileSchema = z.object({
+    name: z.string().trim().min(1).max(150),
+    phone: z.string().trim().max(40).nullable(),
+    companyName: z.string().trim().max(200).nullable(),
+    portfolioSize: z.string().trim().max(60).nullable(),
+    primaryMarket: z.string().trim().max(120).nullable(),
+    currentAddress: z.string().trim().max(250).nullable(),
+    monthlyIncome: z.string().trim().max(60).nullable(),
+    employmentStatus: z.string().trim().max(80).nullable(),
+    moveInDate: z.string().trim().max(40).nullable(),
+    occupantsCount: z.coerce.number().int().min(0).max(50).nullable(),
+    hasPets: z.string().trim().max(40).nullable(),
+    tradeSpecialty: z.string().trim().max(120).nullable(),
+    hourlyRate: z.string().trim().max(40).nullable(),
+    propertyTypes: z.string().trim().max(200).nullable(),
+    managementFee: z.string().trim().max(60).nullable(),
+    serviceRadius: z.string().trim().max(60).nullable(),
+    emergencyDispatch: z.string().trim().max(60).nullable(),
+  }).partial().strict();
 
   app.patch("/api/auth/me", requireAuth, async (req, res) => {
     try {
       await ensureDatabaseReady();
-      const body = req.body ?? {};
+      const parsed = profileSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid profile data", issues: parsed.error.issues.map(i => ({ path: i.path.join("."), message: i.message })) });
+      }
+      const body = parsed.data as Record<string, unknown>;
       const entries = Object.entries(profileFields).filter(([key]) => body[key] !== undefined);
       if (!entries.length) return res.json({ user: req.user });
 
@@ -642,6 +696,38 @@ export function createApp() {
     }
   });
 
+  const passwordSchema = z.object({
+    currentPassword: z.string().min(1).max(200),
+    newPassword: z.string().min(10, "New password must be at least 10 characters").max(200),
+  });
+
+  // Change password: requires the current password; every OTHER session of the user is signed out.
+  app.post("/api/auth/password", loginIpLimiter, requireAuth, blockInDemo, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      const parsed = passwordSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });
+      }
+      const row = (await pool.query('SELECT password_hash, auth_provider FROM users WHERE id=$1', [req.user!.id])).rows[0];
+      if (!row?.password_hash || row.auth_provider) {
+        return res.status(400).json({ error: "This account signs in with a social provider and has no password to change." });
+      }
+      const check = await verifyPassword(parsed.data.currentPassword, row.password_hash);
+      if (!check.valid) return res.status(400).json({ error: "Current password is incorrect" });
+      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [await hashPassword(parsed.data.newPassword), req.user!.id]);
+      const token = getSessionToken(req);
+      await pool.query('DELETE FROM auth_sessions WHERE user_id=$1 AND token_hash<>$2', [
+        req.user!.id,
+        token ? crypto.createHash('sha256').update(token).digest('hex') : '',
+      ]);
+      return res.json({ ok: true });
+    } catch (error: any) {
+      console.error("Password change error:", error);
+      return res.status(500).json({ error: "Unable to change password" });
+    }
+  });
+
   app.post("/api/auth/logout", requireAuth, async (req, res) => {
     try {
       const token = getSessionToken(req);
@@ -652,52 +738,6 @@ export function createApp() {
     }
   });
 
-
-  app.get("/api/data/:collection", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-
-      if (collection === "users") {
-        const result = await pool.query(
-          `SELECT id, email, name, role
-             FROM users
-            WHERE organization_id=$1`,
-          [req.user!.organizationId]
-        );
-        let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
-        const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
-        for (const raw of whereParams) {
-          try {
-            const w = JSON.parse(String(raw));
-            records = records.filter((r: any) => r.data?.[w.field] === w.value);
-          } catch {}
-        }
-        const max = Number(req.query.limit || 0);
-        if (max > 0) records = records.slice(0, max);
-        return res.json({ records });
-      }
-
-      return res.status(404).json({ error: "Collection not available in the canonical database model." });
-    } catch (error: any) {
-      console.error("Data read error:", error);
-      return res.status(500).json({ error: "Unable to read records" });
-    }
-  });
-
-  app.post("/api/data/:collection", requireAuth, async (req, res) => {
-    if (String(req.params.collection) === "users") {
-      return res.status(403).json({ error: "User records are managed by authentication." });
-    }
-    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
-  });
-
-  app.patch("/api/data/:collection/:id", requireAuth, async (_req, res) => {
-    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
-  });
-
-  app.delete("/api/data/:collection/:id", requireAuth, async (_req, res) => {
-    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
-  });
 
   // File storage is intentionally not implemented through the database.
   // The canonical platform uses Supabase Storage with its own RLS policies.
@@ -719,7 +759,7 @@ export function createApp() {
     return res.json({ configured: config.configured, mapId: config.mapId, layerId: config.layerId });
   });
 
-  app.post("/api/integrations/gis-cloud/properties/:id/sync", requireAuth, async (req, res) => {
+  app.post("/api/integrations/gis-cloud/properties/:id/sync", requireAuth, blockInDemo, async (req, res) => {
     try {
       await ensureDatabaseReady();
       const propertyId = String(req.params.id || "");
@@ -799,301 +839,7 @@ export function createApp() {
     }
   });
 
-  // Property Intelligence API
-  app.get("/api/properties/search", requireAuth, async (req, res) => {
-    try {
-      await ensureDatabaseReady();
-      const pool = createPool();
-      const params: unknown[] = [req.user!.organizationId];
-      const where = ["p.organization_id = $1"];
-      const q = String(req.query.q || "").trim();
-      const state = String(req.query.state || "").trim();
-      const county = String(req.query.county || "").trim();
-      const zip = String(req.query.zip || req.query.postalCode || "").trim();
-      const propertyType = String(req.query.propertyType || "").trim();
-      const minValue = Number(req.query.minValue || 0);
-      const maxValue = Number(req.query.maxValue || 0);
-      const taxDelinquent = req.query.taxDelinquent === "true";
-      const absentee = req.query.absentee === "true";
-      const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
-
-      if (q) {
-        params.push("%" + q + "%");
-        const p = params.length;
-        where.push("(p.address ILIKE $" + p + " OR p.city ILIKE $" + p + " OR p.apn ILIKE $" + p + ")");
-      }
-      if (state) { params.push(state); where.push("p.state = $" + params.length); }
-      if (county) { params.push(county); where.push("p.county = $" + params.length); }
-      if (zip) { params.push(zip); where.push("p.zip = $" + params.length); }
-      if (propertyType) { params.push(propertyType); where.push("p.property_type = $" + params.length); }
-      if (minValue > 0) { params.push(minValue); where.push("p.estimated_value >= $" + params.length); }
-      if (maxValue > 0) { params.push(maxValue); where.push("p.estimated_value <= $" + params.length); }
-      if (taxDelinquent) where.push("p.tax_delinquent = true");
-      if (absentee) where.push("p.is_absentee_owner = true");
-
-      const sql = `
-        SELECT
-          p.id,
-          p.apn,
-          p.address,
-          p.city,
-          p.state,
-          p.zip,
-          p.county,
-          p.property_type,
-          p.units_count,
-          p.square_feet,
-          p.year_built,
-          p.estimated_value,
-          p.assessed_tax_value,
-          p.estimated_equity,
-          p.mortgage_balance,
-          p.is_absentee_owner,
-          p.is_corporate_owned,
-          p.tax_delinquent,
-          p.last_sale_date,
-          p.last_sale_price,
-          p.provenance,
-          po.id AS owner_id,
-          po.name AS owner_name,
-          po.entity_type AS owner_type,
-          po.mailing_address,
-          po.mailing_city,
-          po.mailing_state,
-          po.mailing_zip
-        FROM properties p
-        LEFT JOIN property_owners po
-          ON po.id = p.owner_id
-         AND po.organization_id = p.organization_id
-        WHERE ${where.join(" AND ")}
-        ORDER BY p.created_at DESC
-        LIMIT ${Math.min(limit, 200)}
-      `;
-      const result = await pool.query(sql, params);
-      const properties = result.rows.map((row: any) => ({
-        ...row,
-        address_line1: row.address,
-        postal_code: row.zip,
-        owner_occupied: row.is_absentee_owner === null ? null : !row.is_absentee_owner,
-        estimated_value: row.estimated_value,
-        assessed_value: row.assessed_tax_value,
-        mortgage_balance: row.mortgage_balance,
-        owners: row.owner_id
-          ? [{
-              ownerId: row.owner_id,
-              name: row.owner_name,
-              type: row.owner_type,
-              mailingAddress: row.mailing_address
-                ? [row.mailing_address, row.mailing_city, row.mailing_state, row.mailing_zip].filter(Boolean).join(", ")
-                : null,
-            }]
-          : [],
-      }));
-      return res.json({ count: properties.length, properties });
-    } catch (error: any) {
-      console.error("Property search error:", error);
-      return res.status(500).json({ error: "Unable to search properties" });
-    }
-  });
-
-  app.post("/api/property-leads", requireAuth, async (req, res) => {
-    try {
-      await ensureDatabaseReady();
-      const pool = createPool();
-      const propertyId = String(req.body?.propertyId || "");
-      const score = Math.max(0, Math.min(Number(req.body?.score || 0), 100));
-      const reasons = Array.isArray(req.body?.reasons) ? req.body.reasons : [];
-      if (!propertyId) return res.status(400).json({ error: "Valid propertyId is required" });
-
-      const property = await pool.query(
-        "SELECT id FROM properties WHERE id=$1 AND organization_id=$2 LIMIT 1",
-        [propertyId, req.user!.organizationId]
-      );
-      if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
-
-      const existing = await pool.query(
-        "SELECT id FROM leads WHERE organization_id=$1 AND primary_property_id=$2 AND owner_id=$3 LIMIT 1",
-        [req.user!.organizationId, propertyId, req.user!.id]
-      );
-      let leadId = existing.rows[0]?.id || crypto.randomUUID();
-
-      if (existing.rows.length) {
-        const result = await pool.query(
-          "UPDATE leads SET lead_score=$1,factors=$2::jsonb,updated_at=now() WHERE id=$3 AND organization_id=$4 RETURNING *",
-          [score, JSON.stringify(reasons), leadId, req.user!.organizationId]
-        );
-        return res.status(200).json({ lead: result.rows[0] });
-      }
-
-      const result = await pool.query(
-        "INSERT INTO leads (id,organization_id,owner_id,lead_score,factors,primary_property_id) VALUES ($1,$2,$3,$4,$5::jsonb,$6) RETURNING *",
-        [leadId, req.user!.organizationId, req.user!.id, score, JSON.stringify(reasons), propertyId]
-      );
-      return res.status(201).json({ lead: result.rows[0] });
-    } catch (error: any) {
-      console.error("Property lead error:", error);
-      return res.status(500).json({ error: "Unable to save property lead" });
-    }
-  });
-
-  app.get("/api/properties/:id", requireAuth, async (req, res) => {
-    try {
-      await ensureDatabaseReady();
-      const pool = createPool();
-      const id = String(req.params.id || "");
-      if (!id) return res.status(400).json({ error: "Invalid property id" });
-
-      const property = await pool.query(
-        `SELECT
-           p.*,
-           po.id AS owner_id,
-           po.name AS owner_name,
-           po.entity_type AS owner_type,
-           po.mailing_address,
-           po.mailing_city,
-           po.mailing_state,
-           po.mailing_zip
-         FROM properties p
-         LEFT JOIN property_owners po
-           ON po.id=p.owner_id
-          AND po.organization_id=p.organization_id
-         WHERE p.id=$1 AND p.organization_id=$2
-         LIMIT 1`,
-        [id, req.user!.organizationId]
-      );
-      if (!property.rows.length) return res.status(404).json({ error: "Property not found" });
-
-      const sources = property.rows[0].provenance ? [property.rows[0].provenance] : [];
-      return res.json({ property: property.rows[0], sources });
-    } catch (error: any) {
-      console.error("Property detail error:", error);
-      return res.status(500).json({ error: "Unable to retrieve property" });
-    }
-  });
-
-  app.post("/api/properties/import", requireAuth, async (req, res) => {
-    try {
-      await ensureDatabaseReady();
-      const records = Array.isArray(req.body?.records) ? req.body.records : [];
-      if (!records.length) return res.status(400).json({ error: "records array is required" });
-      if (records.length > 5000) return res.status(413).json({ error: "Import limited to 5,000 records per request." });
-
-      const pool = createPool();
-      let inserted = 0;
-      let updated = 0;
-
-      for (const input of records) {
-        const r = input || {};
-        const owner = r.owner || {};
-        const id = String(r.id || crypto.randomUUID());
-        const apn = String(r.apn || "");
-        if (!apn || !r.address || !r.city || !r.state || !r.zip || !r.county || !r.propertyType) {
-          return res.status(400).json({
-            error: "Each property requires apn, address, city, state, zip, county, and propertyType."
-          });
-        }
-
-        let ownerId: string | null = null;
-        if (owner.name || owner.canonicalName) {
-          const ownerName = String(owner.name || owner.canonicalName).trim();
-          const ownerSearch = await pool.query(
-            "SELECT id FROM property_owners WHERE organization_id=$1 AND lower(name)=lower($2) LIMIT 1",
-            [req.user!.organizationId, ownerName]
-          );
-          if (ownerSearch.rows.length) {
-            ownerId = ownerSearch.rows[0].id;
-          } else {
-            const createdOwner = await pool.query(
-              `INSERT INTO property_owners
-                 (id,organization_id,name,entity_type,mailing_address,mailing_city,mailing_state,mailing_zip)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-               RETURNING id`,
-              [
-                crypto.randomUUID(),
-                req.user!.organizationId,
-                ownerName,
-                String(owner.entityType || owner.ownerType || "individual"),
-                owner.mailingAddress ? String(owner.mailingAddress) : null,
-                owner.mailingCity || owner.city || null,
-                owner.mailingState || owner.state || null,
-                owner.mailingZip || owner.postalCode || null,
-              ]
-            );
-            ownerId = createdOwner.rows[0].id;
-          }
-        }
-
-        const existing = await pool.query(
-          "SELECT id FROM properties WHERE organization_id=$1 AND apn=$2 LIMIT 1",
-          [req.user!.organizationId, apn]
-        );
-
-        const values = [
-          id,
-          req.user!.organizationId,
-          ownerId,
-          String(r.address),
-          String(r.city),
-          String(r.state),
-          String(r.zip),
-          String(r.county),
-          apn,
-          String(r.propertyType),
-          Math.max(1, Number(r.unitsCount || 1)),
-          Math.max(0, Number(r.squareFeet || r.livingSqft || 0)),
-          r.yearBuilt == null ? null : Number(r.yearBuilt),
-          Number(r.estimatedValue || 0),
-          Number(r.assessedTaxValue ?? r.assessedValue ?? 0),
-          Number(r.estimatedEquity || 0),
-          Number(r.mortgageBalance || 0),
-          Boolean(r.isAbsenteeOwner ?? (r.ownerOccupied === false)),
-          Boolean(r.isCorporateOwned),
-          Boolean(r.taxDelinquent),
-          r.lastSaleDate || null,
-          r.lastSalePrice == null ? null : Number(r.lastSalePrice),
-          r.provenance || r.rawData || {},
-        ];
-
-        if (existing.rows.length) {
-          const updateValues = [existing.rows[0].id, ...values.slice(1)];
-          await pool.query(
-            `UPDATE properties SET
-               owner_id=$3,address=$4,city=$5,state=$6,zip=$7,county=$8,apn=$9,
-               property_type=$10,units_count=$11,square_feet=$12,year_built=$13,
-               estimated_value=$14,assessed_tax_value=$15,estimated_equity=$16,
-               mortgage_balance=$17,is_absentee_owner=$18,is_corporate_owned=$19,
-               tax_delinquent=$20,last_sale_date=$21,last_sale_price=$22,provenance=$23,
-               created_at=created_at
-             WHERE organization_id=$2 AND id=$1`,
-            updateValues
-          );
-          updated++;
-        } else {
-          await pool.query(
-            `INSERT INTO properties (
-               id,organization_id,owner_id,address,city,state,zip,county,apn,
-               property_type,units_count,square_feet,year_built,estimated_value,
-               assessed_tax_value,estimated_equity,mortgage_balance,is_absentee_owner,
-               is_corporate_owned,tax_delinquent,last_sale_date,last_sale_price,provenance
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
-            values
-          );
-          inserted++;
-        }
-      }
-
-      return res.status(201).json({ inserted, updated, total: records.length });
-    } catch (error: any) {
-      console.error("Property import error:", error);
-      return res.status(500).json({ error: "Unable to import properties" });
-    }
-  });
-
-  app.get("/api/metrics", requireAuth, async (_req, res) => {
-    return res.json([]);
-  });
-
-  app.post("/api/gemini/chat", geminiIpLimiter, requireAuth, geminiLimiter, async (req, res) => {
+  app.post("/api/gemini/chat", geminiIpLimiter, requireAuth, blockInDemo, geminiLimiter, async (req, res) => {
     try {
       // The system prompt is fixed on the server; clients cannot override it. Optional
       // `context` (e.g. lease text) is passed as untrusted reference data in the user turn.
@@ -1146,7 +892,7 @@ Question: ${message}`
     }
   });
 
-  app.post("/api/maintenance/analyze", geminiIpLimiter, requireAuth, geminiLimiter, async (req, res) => {
+  app.post("/api/maintenance/analyze", geminiIpLimiter, requireAuth, blockInDemo, geminiLimiter, async (req, res) => {
     try {
       const { description } = req.body;
       if (!description || !description.trim()) return res.status(400).json({ error: "Description is required" });
@@ -1179,6 +925,16 @@ Question: ${message}`
       res.status(500).json({ error: "Failed to analyze description" });
     }
   });
+
+  // Public demo entry point: creates an isolated, seeded demo organization (see src/server/demo.ts).
+  app.post("/api/demo/session", demoLimiter, startDemoSession);
+
+  // CRM, properties, dialer, campaigns, workflows, agents, dashboard, org and demo-reset routes.
+  // Authentication is enforced here; each handler also enforces its permission and tenant scope.
+  app.use("/api", requireAuth, apiRouter);
+
+  // Unknown API paths return JSON, never the SPA shell.
+  app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));
 
   // Last-resort handler so Express never sends its default error page (stack traces) to clients.
   app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

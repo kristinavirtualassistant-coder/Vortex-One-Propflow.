@@ -4,6 +4,10 @@ export type UserRole = 'tenant' | 'landlord' | 'property_manager' | 'technician'
 
 export interface UserData {
   uid: string;
+  id?: string;
+  organizationId?: string;
+  isDemo?: boolean;
+  permissions?: string[];
   email: string;
   name: string;
   role: UserRole;
@@ -44,6 +48,7 @@ interface AuthContextType {
   signupWithEmail: (email: string, password: string, role: UserRole, name?: string, onboardingData?: Record<string, any>) => Promise<void>;
   loginWithGoogle: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
   loginWithMicrosoft: (isSignUp?: boolean, role?: UserRole) => Promise<void>;
+  startDemo: () => Promise<void>;
   updateProfile: (onboardingData: Record<string, any>) => Promise<void>;
 }
 
@@ -84,6 +89,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     void loadSession();
+    // Any API call that gets a 401 (expired/revoked session) signs the user out of the UI.
+    const expired = () => { setUser(null); setUserData(null); };
+    window.addEventListener('vortex:session-expired', expired);
+    return () => window.removeEventListener('vortex:session-expired', expired);
   }, []);
 
   const authenticate = async (url: string, body: Record<string, unknown>) => {
@@ -121,6 +130,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startOAuth('microsoft', role, _isSignUp);
   };
 
+  /** Starts an isolated, seeded demo workspace (server creates it and sets the session cookie). */
+  const startDemo = async () => {
+    const response = await fetch('/api/demo/session', { method: 'POST', credentials: 'same-origin' });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Unable to start the demo');
+    await loadSession();
+  };
+
   const logout = async () => {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -153,12 +170,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       userData,
       loading,
-      isDemoMode: false,
+      isDemoMode: Boolean(userData?.isDemo),
       logout,
       loginWithEmail,
       signupWithEmail,
       loginWithGoogle,
       loginWithMicrosoft,
+      startDemo,
       updateProfile,
     }}>
       {!loading && children}

@@ -50,6 +50,7 @@ export const createPool = () => {
   if (!global._postgresPool) {
     const rawConnectionString = process.env.DATABASE_URL;
     let connectionString = rawConnectionString ? rawConnectionString.replace(/:\s+/, ':').replace(/\s+@/, '@') : rawConnectionString;
+    let loopbackHost = false;
 
     if (connectionString) {
       try {
@@ -62,6 +63,8 @@ export const createPool = () => {
             'DATABASE_URL points to a local database from Firebase. Configure the Firebase production runtime DATABASE_URL with the Supabase PostgreSQL connection string.'
           );
         }
+        // Local development/CI databases on loopback do not speak TLS; hosted databases always do.
+        loopbackHost = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(parsed.hostname) && !process.env.FIREBASE_CONFIG;
         parsed.searchParams.delete('sslmode');
         parsed.searchParams.delete('sslrootcert');
         parsed.searchParams.delete('sslcert');
@@ -77,7 +80,7 @@ export const createPool = () => {
         connectionString,
         max: poolMax(),
         connectionTimeoutMillis: 15000,
-        ssl: buildSslOptions(sslCa),
+        ssl: loopbackHost ? false : buildSslOptions(sslCa),
       });
     } else {
       const host = process.env.SQL_HOST;
@@ -150,7 +153,14 @@ try {
   console.log('PostgreSQL runtime target: invalid connection string');
 }
 
-export const db = drizzle(pool, { schema });
+// Built lazily so importing this module (e.g. in unit tests) never requires database configuration.
+let drizzleDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(_target, prop) {
+    drizzleDb ??= drizzle(pool, { schema });
+    return (drizzleDb as any)[prop];
+  },
+});
 
 const verifyCanonicalSchema = async () => {
   const requiredTables = [
@@ -160,6 +170,17 @@ const verifyCanonicalSchema = async () => {
     'properties',
     'property_owners',
     'leads',
+    // CRM / dialer / automation tables (supabase/migrations/20261006000000_crm_dialer_workflows.sql)
+    'contacts',
+    'tasks',
+    'notes',
+    'activities',
+    'campaigns',
+    'campaign_contacts',
+    'calls',
+    'workflows',
+    'workflow_runs',
+    'agent_runs',
   ];
 
   const result = await pool.query(

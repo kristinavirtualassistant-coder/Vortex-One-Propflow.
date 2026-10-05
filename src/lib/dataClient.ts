@@ -14,8 +14,7 @@ import {
   addDoc as firestoreAddDoc, 
   updateDoc as firestoreUpdateDoc, 
   deleteDoc as firestoreDeleteDoc,
-  serverTimestamp as firestoreServerTimestamp,
-  getDocFromServer
+  serverTimestamp as firestoreServerTimestamp
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -71,18 +70,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-
-// Connection check verification on boot
-async function testConnection() {
-  try {
-    await getDocFromServer(firestoreDoc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-void testConnection();
 
 // Compatibility adapters to seamlessly translate the legacy query format to Firestore
 type Constraint = { type: 'orderBy' | 'limit' | 'where'; field?: string; direction?: 'asc' | 'desc'; value?: unknown };

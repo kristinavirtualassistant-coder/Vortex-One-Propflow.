@@ -1,130 +1,87 @@
-# Vortex One PropFlow — Property Intelligence Platform
+# Vortex One
 
-**Vortex One PropFlow** is a multi-tenant property intelligence platform for authenticated users, property data, owner intelligence, lead scoring, search, and AI-assisted workflows.
+Real-estate operations platform: **CRM, simulated power dialer, campaigns, property & owner intelligence, workflow automation and modular AI agents** on one organization-scoped record graph.
 
----
+> Status: the CRM/dialer/workflow stack is implemented and covered by tests. The dialer is **simulated** (no telephony provider is wired up), the agents are **rule-based**, and email/SMS sending does not exist. See [What is real](#what-is-real-vs-simulated).
 
-## 🌟 Key Features & Role-Based Portals
+## Quick start (local)
 
-### 🏢 1. Property Manager Portal
-- **Portfolio Oversight**: Real-time occupancy rates, lease renewals, and rent collection health.
-- **Tenant Screening & Leases**: Automated application processing, lease generation, and verification tracking.
-- **Vendor & Maintenance Dispatch**: Unified ticket triage, priority assignment, and contractor dispatching.
-- **Document Management**: Secure file vault for leases, inspection sheets, and compliance docs.
-
-### 🏠 2. Landlord / Owner Portal
-- **Financial Performance & Analytics**: Net Operating Income (NOI), cap rate tracking, and payout schedules.
-- **Unit Breakdown**: Property valuation summaries, expense categorization, and tax documentation.
-- **Direct Manager Sync**: Transparency into active work orders and tenant turnover.
-
-### 🛋️ 3. Tenant Resident Portal
-- **Online Rent Payments**: Automated recurring payments, receipt generation, and transaction history.
-- **Maintenance Ticketing**: Instant request submission with photo attachments, status updates, and emergency flags.
-- **Community & Amenities**: Resident announcements, utility tracking, and direct landlord communication.
-
-### 🔧 4. Contractor & Technician Portal
-- **Mobile-First Work Orders**: Field ticket status updates (Pending, In Progress, Resolved).
-- **Job Costing & Time Logs**: Material tracking, labor hours, and invoice submissions.
-- **Priority Filtering**: Emergency dispatch alerts with location details.
-
-### 🛡️ 5. System Admin & Operations
-- **Security & Governance**: Role-based access control (RBAC), authentication audit logs, and session management.
-- **Global Search & Directory**: Fast lookup across all properties, tenants, and contractor rosters.
-
-### 🤖 6. AI Assistant & Intelligence Layer
-- **Gemini-Powered Assistant**: Server-side AI assistant for property analysis, lease drafting, and triage.
-- **Grounding Support**: Google Search and Maps capabilities for location insights and market research.
-
----
-
-## 🏗️ Architecture & Technology Stack
-
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend** | React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Recharts |
-| **Backend / API** | Node.js, Express, tsx |
-| **Authentication & Realtime** | Supabase PostgreSQL-backed sessions and canonical multi-tenant application data, without fabricated demo data |
-| **AI Integration** | Google GenAI SDK (`@google/genai`) with Gemini models |
-| **Database** | PostgreSQL / Drizzle ORM |
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- **Node.js**: `v20.x` or higher
-- **npm 10+**
-
-### 2. Installation
-
-Clone the repository and install dependencies:
+Requirements: Node 20+, PostgreSQL 14+ (plain Postgres is enough; PostGIS is only needed for the GIS Cloud sync).
 
 ```bash
 npm install
+createdb vortex_dev
+export DATABASE_URL=postgres://postgres@127.0.0.1:5432/vortex_dev
+npm run db:migrate:local        # applies the app-level supabase/migrations
+npm run dev                     # Express + Vite on http://localhost:3000
 ```
 
-### 3. Environment Configuration
+Open http://localhost:3000 and click **Try the live demo** (an isolated, seeded sandbox), or create an account.
 
-Create a `.env` file based on `.env.example`.
+| Script | What it does |
+|---|---|
+| `npm run dev` | API + Vite dev server (port 3000) |
+| `npm run build` | Production frontend build into `public/` |
+| `npm start` | Serve the API and the built frontend (`tsx server.ts`) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Unit tests + PostgreSQL integration tests (needs `TEST_DATABASE_URL`; integration tests are skipped without it) |
+| `npm run test:unit` | Unit tests only (no database) |
+| `npm run db:migrate:local` | Apply app migrations to a local/CI database |
 
-For hosted deployments, set `DATABASE_URL`, `APP_URL`, and the OAuth/AI secrets in the deployment environment. Do not commit real credentials. Do not commit real credentials.
+Tests: `TEST_DATABASE_URL=postgres://… npm test` (create the database and run `DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate:local` first). Never point it at production.
 
+## Architecture
 
-### 4. Database contract
-
-Vortex One PropFlow uses the canonical Supabase production schema. The application verifies the required tables on startup and does not run schema-changing SQL during requests or cold starts. Database changes must be tracked as Supabase migrations.
-
-Property, owner, lead, and user records are organization-scoped.
-
-### 5. Running the Development Server
-
-Start the full-stack dev server (Express + Vite):
-
-```bash
-npm run dev
+```
+React 19 + Vite + Tailwind (src/)         role-based nav, CRM UI in src/features/crm
+        │  fetch /api/*  (HttpOnly cookie session)
+Express 5 (server.ts)                      security headers, rate limits, auth, OAuth, 3Min webhook, Gemini chat
+        │  requireAuth  →  /api router (src/server/*)
+Service layer (src/server/*)               permission check → tenant-scoped SQL → activity log → event
+        │                                  workflows subscribe to events; agents call the same services
+PostgreSQL (Supabase in production)        migrations in supabase/migrations
 ```
 
-The app will be accessible at `http://localhost:3000`.
+Details, data ownership, the permission matrix and the API list are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-### 6. Production Build
+**Multi-tenancy:** every row carries `organization_id`; every query filters on the caller's organization; IDs supplied in request bodies are verified to belong to that organization. Authorization is enforced server-side per route (`src/server/core.ts` → `ROLE_PERMISSIONS`); the UI only mirrors it.
 
-Build the frontend assets:
+## Features
 
-```bash
-npm run build
-```
+- **CRM**: contacts, leads (pipeline stages, scoring), tasks, notes, tags, assignment, archive/restore, search, filter, sort, pagination, relationship views (property ↔ owner ↔ contact ↔ lead ↔ campaign ↔ calls ↔ tasks), one activity log.
+- **Property & owner intelligence**: properties (APN, characteristics, coordinates, valuation, signals), owners with derived portfolio values, import by APN, transparent rule-based lead scoring.
+- **Dialer & campaigns**: campaign lifecycle (draft → active ⇄ paused → completed, archive), queue-based power dialing, call state machine (dialing → ringing → connected → completed | failed | no answer | busy | canceled), outcomes, notes, follow-up tasks, Do Not Call enforcement, metrics derived from call records.
+- **Workflows**: trigger → conditions → actions with persisted runs (queued/running/completed/failed) and per-step results.
+- **AI agents**: registry with name, purpose, permissions, typed input/output, run history. Four rule-based agents ship; see ARCHITECTURE.md to add model-backed ones.
+- **Demo mode**: per-visitor isolated organization with realistic fictional data, reset, 24h expiry.
+- **Integrations**: 3Min webhook receiver, GIS Cloud sync (via Supabase Edge Function), Gemini chat assistant.
 
----
+## What is real vs. simulated
 
-## 🔐 Authentication
+| Capability | State |
+|---|---|
+| Auth (email/password, Google, Microsoft), sessions, RBAC, tenant isolation | Real |
+| CRM, properties, owners, campaigns, tasks, workflows, agents, activity, dashboard | Real (PostgreSQL) |
+| Phone calls | **Simulated.** `TELEPHONY_PROVIDER` other than `simulated` is not implemented; calls are labeled simulated everywhere and never touch a network |
+| Email / SMS | **Not implemented** (workflow notifications are in-app only) |
+| AI agents | Rule-based; no external model is called |
+| Gemini assistant (`/api/gemini/chat`) | Real when `GEMINI_API_KEY` is set; blocked in demo mode |
+| GIS Cloud sync | Real only with the Supabase Edge Function deployed and its secrets set; blocked in demo mode |
+| Password reset / email verification | **Not implemented** (needs an email provider) |
+| Tenant & technician portals | Legacy, Firestore-backed UI from before the Postgres migration; **not verified** (see docs/REPOSITORY_CLEANUP.md) |
 
-PropFlow does not ship with fabricated user accounts, demo personas, sample properties, or seeded portfolio records. User and property data must be created by authenticated users or loaded from connected production data sources.
+## Configuration
 
+Copy `.env.example`. Required in production: `DATABASE_URL`, `APP_URL`, `AUTH_SESSION_PEPPER`/`SOCIAL_AUTH_PEPPER` (OAuth state signing). Optional: `GEMINI_API_KEY`, OAuth client ids/secrets, 3Min secrets, GIS Cloud settings, `DEMO_MODE_ENABLED` (default `true`), `TRUST_PROXY_HOPS`. Secrets are server-side only; nothing but `firebase-applet-config.json` (public web config used by the legacy portals) ships to the browser.
 
-## 🔒 Security & Best Practices
-- **Server-Side API Keys**: All AI and third-party API credentials remain strictly server-side.
-- **Role-Based Access**: Granular permission checks ensure users access only their authorized portals.
-- **Parameterized Queries**: Secure SQL queries through Drizzle ORM prevent injection vulnerabilities.
+## Database
 
+The app verifies required tables at startup and never runs DDL at runtime. **Apply `supabase/migrations/*` before deploying** (the newest, `20261006000000_crm_dialer_workflows.sql`, is idempotent and adds the CRM tables; the startup check fails loudly if it is missing). `db/migrations/*` are an older schema generation kept for reference — do not apply them to production.
 
-## Validation
+## Deployment
 
-The repository uses npm as its package manager. CI runs:
+Firebase Hosting (static `public/`) + Firebase Function `api` (`functions/`) in front of Supabase PostgreSQL — see `docs/FIREBASE_DEPLOYMENT.md`. `server.ts` also runs standalone (`npm run build && npm start`).
 
-```bash
-npm ci
-npm run typecheck
-npm run build
-```
+## Security notes
 
-There is currently no application test suite wired into CI. Adding one is tracked as engineering follow-up work.
-
-## Database migrations
-
-The repository contains legacy property-intelligence migrations alongside the newer organization-scoped PostgreSQL schema. These histories are not interchangeable. Do not apply `db/migrations/001_property_intelligence.sql` and `002_postgis_property_spatial.sql` blindly to production until they are reconciled with the canonical schema in `src/db/schema.ts`.
-
-### 3Min API integration
-
-PropFlow can receive integration events from 3Min API at `POST /api/integrations/3min/webhook`. The receiver requires an organization-scoped `organization_id` and supports HMAC or bearer/token authentication. Duplicate deliveries can be suppressed with an `idempotency_key`.
-
-Set `THREEMIN_WEBHOOK_SECRET` or `THREEMIN_WEBHOOK_TOKEN` in the deployment environment. Keep webhook credentials server-side and configure the matching value in 3Min API.
+HttpOnly SameSite=Lax session cookie (`__Host-` prefixed in production), scrypt password hashing, in-memory rate limits (per instance), JSON-only bodies with a 1 MB cap, security headers, zod validation on every CRM route, parameterized SQL, demo orgs cannot reach paid/external routes. Known gaps are listed in docs/ARCHITECTURE.md → *Known limitations*.

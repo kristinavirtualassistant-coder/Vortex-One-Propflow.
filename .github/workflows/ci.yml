@@ -2,13 +2,29 @@ name: CI
 
 on:
   push:
-    branches: ["main", "fix/**", "design/**"]
+    branches: ["main", "fix/**", "design/**", "claude/**"]
   pull_request:
     branches: ["main"]
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: vortex_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres@127.0.0.1:5432/vortex_test
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -24,6 +40,12 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Apply migrations to the test database
+        run: DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate:local
+
+      - name: Test (unit + PostgreSQL integration)
+        run: npm test
 
       - name: Build
         run: npm run build
