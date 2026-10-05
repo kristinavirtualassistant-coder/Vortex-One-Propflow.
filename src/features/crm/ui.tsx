@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError, api, errorMessage, qs } from './api';
 
 // ------------------------------------------------------------------ toasts (success/error feedback, announced)
@@ -12,17 +13,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const push = useCallback((kind: Toast['kind'], message: string) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, kind, message }]);
-    // Errors stay until dismissed (UX contract); successes fade.
-    if (kind === 'success') setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
+    // Successes fade quickly; errors stay long enough to read (15s) and can be dismissed. Persistent,
+    // field-level errors are rendered inline by the forms themselves.
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === 'success' ? 4000 : 15000);
   }, []);
   const value = useMemo(() => ({ success: (m: string) => push('success', m), error: (m: string) => push('error', m) }), [push]);
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-12 right-4 z-[70] flex flex-col gap-2 w-[min(92vw,380px)]" role="region" aria-label="Notifications">
+      <div className="fixed bottom-12 right-4 z-[70] flex flex-col gap-2 w-[min(92vw,380px)] pointer-events-none" role="region" aria-label="Notifications">
         {toasts.map((t) => (
           <div key={t.id} role={t.kind === 'error' ? 'alert' : 'status'}
-            className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg ${t.kind === 'success'
+            className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg ${t.kind === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/80 dark:border-emerald-800 dark:text-emerald-200'
               : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/80 dark:border-red-800 dark:text-red-200'}`}>
             {t.kind === 'success' ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
@@ -464,22 +466,40 @@ export function Pagination({ total, limit, offset, onChange }: { total: number; 
   );
 }
 
-/** Shared list state: search + filters + sort + page, with a fetch that ignores stale responses. */
+/**
+ * Shared list state: search + filters + sort + page, with a fetch that ignores stale responses.
+ * Per the UX contract the state lives in the URL (?q=&f_type=&sort=&dir=&offset=) so views can be
+ * reloaded, shared and navigated back to; `base` carries page-level params that are not persisted.
+ */
 export function useList<T>(resource: string, base: Record<string, string | number | boolean | undefined> = {}, pageSize = 25) {
-  const [q, setQ] = useState('');
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [sort, setSort] = useState<string | undefined>();
-  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
-  const [offset, setOffset] = useState(0);
-  const dq = useDebounced(q, 300);
+  const [params, setParams] = useSearchParams();
+  const q = params.get('q') ?? '';
+  const sort = params.get('sort') ?? undefined;
+  const dir = (params.get('dir') === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc';
+  const offset = Math.max(Number(params.get('offset')) || 0, 0);
+  const filters: Record<string, string> = {};
+  params.forEach((v, k) => { if (k.startsWith('f_') && v) filters[k.slice(2)] = v; });
+
+  const update = (changes: Record<string, string | null>, resetPage = true) => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    for (const [k, v] of Object.entries(changes)) { if (v === null || v === '') next.delete(k); else next.set(k, v); }
+    if (resetPage) next.delete('offset');
+    return next;
+  }, { replace: true });
+
+  // The text box edits a local value immediately and writes the URL after a short pause.
+  const [text, setText] = useState(q);
+  const dq = useDebounced(text, 300);
+  useEffect(() => { if (dq !== q) update({ q: dq || null }); }, [dq]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const baseKey = JSON.stringify(base);
   const result = useFetch<{ items: T[]; total: number; limit: number; offset: number }>(
-    () => api.get(`/${resource}${qs({ ...base, ...filters, q: dq, sort, dir, limit: pageSize, offset })}`),
-    [resource, dq, JSON.stringify(filters), sort, dir, offset, baseKey],
+    () => api.get(`/${resource}${qs({ ...base, ...filters, q, sort, dir, limit: pageSize, offset })}`),
+    [resource, q, JSON.stringify(filters), sort, dir, offset, baseKey],
   );
-  const toggleSort = (key: string) => { if (sort === key) setDir((d) => (d === 'asc' ? 'desc' : 'asc')); else { setSort(key); setDir('asc'); } setOffset(0); };
+  const toggleSort = (key: string) => update(sort === key ? { dir: dir === 'asc' ? 'desc' : 'asc' } : { sort: key, dir: 'asc' });
   return {
-    ...result, q, setQ: (v: string) => { setQ(v); setOffset(0); }, filters, setFilter: (k: string, v: string) => { setFilters((f) => ({ ...f, [k]: v })); setOffset(0); },
-    sort, dir, toggleSort, offset, setOffset, pageSize,
+    ...result, q: text, setQ: setText, filters, setFilter: (k: string, v: string) => update({ [`f_${k}`]: v }),
+    sort, dir, toggleSort, offset, setOffset: (o: number) => update({ offset: o ? String(o) : null }, false), pageSize,
   };
 }
