@@ -48,13 +48,30 @@ describe('authentication', { skip }, () => {
     assert.notEqual(adminAttempt.body.user.role, 'admin', 'self-service signup can never mint an admin');
   });
 
+  test('change password: requires current password, signs out other sessions', async () => {
+    const { client, email } = await signup(api, 'property_manager', 'pw');
+    const other = new Client(api.base);
+    assert.equal((await other.post('/api/auth/login', { email, password: 'correct-horse-9' })).status, 200);
+    assert.equal((await client.post('/api/auth/password', { currentPassword: 'nope-nope-nope', newPassword: 'a-new-password-1' })).status, 400);
+    assert.equal((await client.post('/api/auth/password', { currentPassword: 'correct-horse-9', newPassword: 'short' })).status, 400);
+    assert.equal((await client.post('/api/auth/password', { currentPassword: 'correct-horse-9', newPassword: 'a-new-password-1' })).status, 200);
+    assert.equal((await client.get('/api/auth/me')).status, 200, 'current session survives');
+    assert.equal((await other.get('/api/auth/me')).status, 401, 'other sessions are revoked');
+    const fresh = new Client(api.base);
+    assert.equal((await fresh.post('/api/auth/login', { email, password: 'correct-horse-9' })).status, 401);
+    assert.equal((await fresh.post('/api/auth/login', { email, password: 'a-new-password-1' })).status, 200);
+    assert.equal((await new Client(api.base).post('/api/auth/password', { currentPassword: 'x', newPassword: 'a-new-password-1' })).status, 401);
+  });
+
   test('profile update validates input', async () => {
     const { client } = await signup(api, 'property_manager', 'profile');
     assert.equal((await client.patch('/api/auth/me', { phone: '555-0100', occupantsCount: 'abc' })).status, 400);
     assert.equal((await client.patch('/api/auth/me', { role: 'admin' })).status, 400, 'unknown fields rejected');
-    const ok = await client.patch('/api/auth/me', { phone: '555-0100', companyName: 'Acme' });
+    const ok = await client.patch('/api/auth/me', { phone: '555-0100', companyName: 'Acme', name: 'Renamed Person' });
     assert.equal(ok.status, 200);
     assert.equal(ok.body.user.companyName, 'Acme');
+    assert.equal((await client.get('/api/auth/me')).body.user.name, 'Renamed Person');
+    assert.equal((await client.patch('/api/auth/me', { name: '   ' })).status, 400);
   });
 });
 

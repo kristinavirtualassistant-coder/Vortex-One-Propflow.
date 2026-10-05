@@ -418,6 +418,7 @@ export function createApp() {
   });
 
   const profileFields: Record<string, string> = {
+    name: 'name',
     phone: 'phone',
     companyName: 'company_name',
     portfolioSize: 'portfolio_size',
@@ -646,6 +647,7 @@ export function createApp() {
   });
 
   const profileSchema = z.object({
+    name: z.string().trim().min(1).max(150),
     phone: z.string().trim().max(40).nullable(),
     companyName: z.string().trim().max(200).nullable(),
     portfolioSize: z.string().trim().max(60).nullable(),
@@ -691,6 +693,38 @@ export function createApp() {
     } catch (error: any) {
       console.error("Error updating user profile:", error);
       return res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  const passwordSchema = z.object({
+    currentPassword: z.string().min(1).max(200),
+    newPassword: z.string().min(10, "New password must be at least 10 characters").max(200),
+  });
+
+  // Change password: requires the current password; every OTHER session of the user is signed out.
+  app.post("/api/auth/password", loginIpLimiter, requireAuth, blockInDemo, async (req, res) => {
+    try {
+      await ensureDatabaseReady();
+      const parsed = passwordSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid request" });
+      }
+      const row = (await pool.query('SELECT password_hash, auth_provider FROM users WHERE id=$1', [req.user!.id])).rows[0];
+      if (!row?.password_hash || row.auth_provider) {
+        return res.status(400).json({ error: "This account signs in with a social provider and has no password to change." });
+      }
+      const check = await verifyPassword(parsed.data.currentPassword, row.password_hash);
+      if (!check.valid) return res.status(400).json({ error: "Current password is incorrect" });
+      await pool.query('UPDATE users SET password_hash=$1 WHERE id=$2', [await hashPassword(parsed.data.newPassword), req.user!.id]);
+      const token = getSessionToken(req);
+      await pool.query('DELETE FROM auth_sessions WHERE user_id=$1 AND token_hash<>$2', [
+        req.user!.id,
+        token ? crypto.createHash('sha256').update(token).digest('hex') : '',
+      ]);
+      return res.json({ ok: true });
+    } catch (error: any) {
+      console.error("Password change error:", error);
+      return res.status(500).json({ error: "Unable to change password" });
     }
   });
 

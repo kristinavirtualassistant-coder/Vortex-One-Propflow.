@@ -15,6 +15,7 @@ interface SidebarProps {
 }
 
 const ICONS: Record<string, React.ElementType> = {
+  contacts: Users, campaigns: Zap, dialer: Headphones, properties: Search, owners: Building2, tasks: FileText, workflows: Link2, agents: Bot, team: ShieldCheck, gis: Link2,
   dashboard: LayoutDashboard, analytics: BarChart3, zillow: Search, prospecting: Zap,
   crm: Users, leads: Users, leasing: FileText, maintenance: Wrench, messages: MessageSquare,
   utilities: Activity, vendors: Building2, financials: CircleDollarSign, documents: FileText,
@@ -24,6 +25,7 @@ const ICONS: Record<string, React.ElementType> = {
 };
 
 const SECTION_META: Record<string,string> = {
+  CRM:'People, pipeline & outreach', 'Property Intelligence':'Records & ownership',
   'Command Center':'See what needs attention', Portfolio:'Properties & money', Growth:'Find and convert',
   Operations:'Run the day', Automation:'Connect & automate', Administration:'Account & access',
 };
@@ -85,15 +87,6 @@ export default function Sidebar({isOpen,setIsOpen,activeTab,setActiveTab,links}:
           })}
         </nav>
 
-        <div className="relative px-4 pb-4">
-          <div className="rounded-2xl border border-white/10 bg-white/[.035] p-3.5">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-emerald-400/10 flex items-center justify-center"><LifeBuoy className="h-4 w-4 text-emerald-300"/></div>
-              <div className="min-w-0"><div className="text-xs font-semibold text-slate-200">System status</div><div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-breathe"/>All systems operational</div></div>
-            </div>
-            <div className="mt-3 h-1 rounded-full bg-white/5 overflow-hidden"><div className="h-full w-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-violet-400"/></div>
-          </div>
-        </div>
       </aside>
     </>
   );
