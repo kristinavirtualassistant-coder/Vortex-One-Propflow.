@@ -739,52 +739,6 @@ export function createApp() {
   });
 
 
-  app.get("/api/data/:collection", requireAuth, async (req, res) => {
-    try {
-      const collection = String(req.params.collection);
-
-      if (collection === "users") {
-        const result = await pool.query(
-          `SELECT id, email, name, role
-             FROM users
-            WHERE organization_id=$1`,
-          [req.user!.organizationId]
-        );
-        let records = result.rows.map((row: any) => ({ id: row.id, data: row }));
-        const whereParams = Array.isArray(req.query.where) ? req.query.where : (req.query.where ? [req.query.where] : []);
-        for (const raw of whereParams) {
-          try {
-            const w = JSON.parse(String(raw));
-            records = records.filter((r: any) => r.data?.[w.field] === w.value);
-          } catch {}
-        }
-        const max = Number(req.query.limit || 0);
-        if (max > 0) records = records.slice(0, max);
-        return res.json({ records });
-      }
-
-      return res.status(404).json({ error: "Collection not available in the canonical database model." });
-    } catch (error: any) {
-      console.error("Data read error:", error);
-      return res.status(500).json({ error: "Unable to read records" });
-    }
-  });
-
-  app.post("/api/data/:collection", requireAuth, async (req, res) => {
-    if (String(req.params.collection) === "users") {
-      return res.status(403).json({ error: "User records are managed by authentication." });
-    }
-    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
-  });
-
-  app.patch("/api/data/:collection/:id", requireAuth, async (_req, res) => {
-    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
-  });
-
-  app.delete("/api/data/:collection/:id", requireAuth, async (_req, res) => {
-    return res.status(404).json({ error: "Generic app-record collections are not part of the canonical Supabase schema." });
-  });
-
   // File storage is intentionally not implemented through the database.
   // The canonical platform uses Supabase Storage with its own RLS policies.
   app.post("/api/storage", requireAuth, async (_req, res) => {
@@ -883,10 +837,6 @@ export function createApp() {
       }
       return res.status(502).json({ error: "GIS Cloud synchronization failed" });
     }
-  });
-
-  app.get("/api/metrics", requireAuth, async (_req, res) => {
-    return res.json([]);
   });
 
   app.post("/api/gemini/chat", geminiIpLimiter, requireAuth, blockInDemo, geminiLimiter, async (req, res) => {

@@ -3,98 +3,39 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { LogOut, Menu, Moon, Sun, User as UserIcon, X, Activity, Search, Sparkles } from 'lucide-react';
-const GISWorkspace = lazy(() => import('./GISWorkspace'));
 const TenantPortal = lazy(() => import('./portals/TenantPortal'));
 const TechnicianPortal = lazy(() => import('./portals/TechnicianPortal'));
-const PropertyManagerPortal = lazy(() => import('./portals/PropertyManagerPortal'));
-const LandlordPortal = lazy(() => import('./portals/LandlordPortal'));
-const AdminPortal = lazy(() => import('./portals/AdminPortal'));
-const WorkspacePortal = lazy(() => import('./portals/WorkspacePortal'));
 const MyAccount = lazy(() => import('../features/crm/MyAccount'));
 import Sidebar from '../components/Sidebar';
 const CustomerSupport = lazy(() => import('../components/CustomerSupport'));
-const PropSearch = lazy(() => import('../components/PropSearch'));
-const GlobalDirectory = lazy(() => import('../components/GlobalDirectory'));
-const LeadGeneration = lazy(() => import('../components/LeadGeneration'));
-const FinancialsPlaceholder = lazy(() => import('../components/FinancialsPlaceholder'));
-const LeasingPlaceholder = lazy(() => import('../components/LeasingPlaceholder'));
-const MessagesPlaceholder = lazy(() => import('../components/MessagesPlaceholder'));
-const VendorBiddingPlaceholder = lazy(() => import('../components/VendorBiddingPlaceholder'));
-const WorkOrderInvoicingPlaceholder = lazy(() => import('../components/WorkOrderInvoicingPlaceholder'));
 const GeminiChatbot = lazy(() => import('../components/GeminiChatbot'));
-const BillingPlaceholder = lazy(() => import('../components/BillingPlaceholder'));
 const MaintenanceDashboard = lazy(() => import('./MaintenanceDashboard'));
-const CrmPlaceholder = lazy(() => import('../components/CrmPlaceholder'));
-const ProspectingPlaceholder = lazy(() => import('../components/ProspectingPlaceholder'));
 const UtilityTracking = lazy(() => import('../components/UtilityTracking'));
 import GlobalSearch from '../components/GlobalSearch';
 const VendorDirectory = lazy(() => import('../components/VendorDirectory'));
 const NotificationSystem = lazy(() => import('../components/NotificationSystem'));
-import RoleRoute from '../components/RoleRoute';
-const AnalyticsDashboard = lazy(() => import('../components/AnalyticsDashboard'));
 const QuickActions = lazy(() => import('../components/QuickActions'));
-const IntegrationCenter = lazy(() => import('./IntegrationCenter'));
-const PropFlowWorkspace = lazy(() => import('./PropFlowWorkspace'));
 import CrmApp, { CRM_NAV } from '../features/crm/CrmApp';
 import Notifications from '../features/crm/Notifications';
 import { CRM_ROLES } from '../features/crm/permissions';
 
+// Legacy (tenant / technician) portals: URL segment -> tab id. CRM roles use the CRM router instead.
 const ROUTE_TO_TAB: Record<string, string> = {
   dashboard: 'dashboard',
-  hub: 'hub',
-  analytics: 'analytics',
-  'property-search': 'zillow',
-  zillow: 'zillow',
-  prospecting: 'prospecting',
-  crm: 'crm',
-  leads: 'leads',
-  leasing: 'leasing',
   maintenance: 'maintenance',
-  messages: 'messages',
   utilities: 'utilities',
   vendors: 'vendors',
-  financials: 'financials',
   documents: 'documents',
   communications: 'communications',
-  directory: 'directory',
-  bidding: 'bidding',
-  invoicing: 'invoicing',
-  integrations: 'integrations',
-  gis: 'gis',
   ai: 'chatbot',
   chatbot: 'chatbot',
-  workspace: 'workspace',
-  billing: 'billing',
   security: 'security',
   support: 'support',
 };
 
 const TAB_TO_ROUTE: Record<string, string> = {
   dashboard: '',
-  hub: 'hub',
-  analytics: 'analytics',
-  zillow: 'property-search',
-  prospecting: 'prospecting',
-  crm: 'crm',
-  leads: 'leads',
-  leasing: 'leasing',
-  maintenance: 'maintenance',
-  messages: 'messages',
-  utilities: 'utilities',
-  vendors: 'vendors',
-  financials: 'financials',
-  documents: 'documents',
-  communications: 'communications',
-  directory: 'directory',
-  bidding: 'bidding',
-  invoicing: 'invoicing',
-  integrations: 'integrations',
-  gis: 'gis',
   chatbot: 'ai',
-  workspace: 'workspace',
-  billing: 'billing',
-  security: 'security',
-  support: 'support',
 };
 
 export default function Dashboard() {
@@ -137,127 +78,20 @@ export default function Dashboard() {
   const renderPortal = () => {
     if (isCrm) return <CrmApp />;
 
-    if (activeTab === 'hub') {
-      return <PropFlowWorkspace />;
-    }
-
-    if (activeTab === 'integrations') {
-      return <IntegrationCenter />;
-    }
-
-    if (activeTab === 'gis') {
-      return <GISWorkspace />;
-    }
-
-    if (activeTab === 'security') {
-      return <MyAccount />;
-    }
-
-    if (activeTab === 'billing') {
-      return <BillingPlaceholder />;
-    }
-
-    if (activeTab === 'support') {
-      return <CustomerSupport />;
-    }
-
-    if (activeTab === 'chatbot') {
-      return <GeminiChatbot />;
-    }
-
-    if (activeTab === 'zillow') {
-      return <PropSearch />;
-    }
-
-    if (activeTab === 'workspace') {
-      return <WorkspacePortal />;
-    }
-
-    if (activeTab === 'financials') {
-      return <FinancialsPlaceholder />;
-    }
-
-    if (activeTab === 'analytics') {
-      return (
-        <RoleRoute allowedRoles={['property_manager', 'landlord', 'admin']}>
-          <AnalyticsDashboard />
-        </RoleRoute>
-      );
-    }
-
-    if (activeTab === 'leasing') {
-      return <LeasingPlaceholder />;
-    }
-
-    if (activeTab === 'maintenance') {
-      return <MaintenanceDashboard />;
-    }
-
-    if (activeTab === 'crm') {
-      return <CrmPlaceholder />;
-    }
-
-    if (activeTab === 'prospecting') {
-      return <ProspectingPlaceholder />;
-    }
-
-    if (activeTab === 'messages') {
-      return <MessagesPlaceholder />;
-    }
-
-    if (activeTab === 'utilities') {
-      return <UtilityTracking />;
-    }
-
-    if (activeTab === 'vendors') {
-      return <VendorDirectory />;
-    }
-
-    if (activeTab === 'directory') {
-      return (
-        <RoleRoute allowedRoles={['property_manager', 'admin']}>
-          <GlobalDirectory />
-        </RoleRoute>
-      );
-    }
-
-    if (activeTab === 'leads') {
-      return (
-        <RoleRoute allowedRoles={['property_manager', 'admin']}>
-          <LeadGeneration />
-        </RoleRoute>
-      );
-    }
-
-    if (activeTab === 'bidding') {
-      return (
-        <RoleRoute allowedRoles={['property_manager', 'admin']}>
-          <VendorBiddingPlaceholder />
-        </RoleRoute>
-      );
-    }
-
-    if (activeTab === 'invoicing') {
-      return (
-        <RoleRoute allowedRoles={['technician']}>
-          <WorkOrderInvoicingPlaceholder />
-        </RoleRoute>
-      );
-    }
+    if (activeTab === 'security') return <MyAccount />;
+    if (activeTab === 'support') return <CustomerSupport />;
+    if (activeTab === 'chatbot') return <GeminiChatbot />;
+    if (activeTab === 'maintenance') return <MaintenanceDashboard />;
+    if (activeTab === 'utilities') return <UtilityTracking />;
+    if (activeTab === 'vendors') return <VendorDirectory />;
 
     switch (userData.role) {
       case 'tenant':
         return <TenantPortal activeTab={activeTab} />;
       case 'technician':
         return <TechnicianPortal activeTab={activeTab} />;
-      case 'property_manager':
-        return <PropertyManagerPortal activeTab={activeTab} />;
-      case 'landlord':
-        return <LandlordPortal activeTab={activeTab} />;
-      case 'admin':
-        return <AdminPortal activeTab={activeTab} />;
       default:
-        return <div className="p-8">Portal for {userData.role} under construction.</div>;
+        return <div className="p-8">No workspace is available for the {userData.role} role.</div>;
     }
   };
 
@@ -266,60 +100,21 @@ export default function Dashboard() {
       const perms: string[] = (userData as any).permissions ?? [];
       return CRM_NAV.filter((l) => !l.needs || perms.includes(l.needs)).map(({ id, label, section }) => ({ id, label, section }));
     }
-    // Tenants/technicians have no CRM permissions (the API returns 403), so those tabs are not offered.
-    const crmOnly = new Set(['hub', 'analytics', 'zillow', 'prospecting', 'crm', 'leads', 'integrations', 'gis', 'chatbot', 'workspace', 'directory']);
+    // Tenants and technicians have no CRM permissions (the API returns 403), so only their portals are offered.
     const links = [
       { id: 'dashboard', label: 'Overview', section: 'Command Center' },
-      { id: 'hub', label: 'Capability Hub', section: 'Command Center' },
-    ];
-
-    if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'landlord') {
-      links.push({ id: 'analytics', label: 'Analytics', section: 'Command Center' });
-    }
-
-    links.push(
-      { id: 'zillow', label: 'Property Search', section: 'Portfolio' },
-      { id: 'leasing', label: 'Leasing & Documents', section: 'Portfolio' },
-      { id: 'financials', label: 'Financials', section: 'Portfolio' },
-      { id: 'documents', label: 'Documents', section: 'Portfolio' },
-      { id: 'prospecting', label: 'Prospecting', section: 'Growth' },
-      { id: 'crm', label: 'CRM & Workflows', section: 'Growth' },
-      { id: 'leads', label: 'Leads', section: 'Growth' },
       { id: 'maintenance', label: 'Maintenance & Ops', section: 'Operations' },
-      { id: 'messages', label: 'Messages', section: 'Operations' },
       { id: 'utilities', label: 'Utilities', section: 'Operations' },
       { id: 'vendors', label: 'Vendors', section: 'Operations' },
-      { id: 'communications', label: 'Communications', section: 'Operations' }
+      { id: 'documents', label: 'Documents', section: 'Operations' },
+      { id: 'communications', label: 'Communications', section: 'Operations' },
+    ];
+    if (userData.role === 'technician') links.push({ id: 'chatbot', label: 'AI Assistant', section: 'Automation' });
+    links.push(
+      { id: 'security', label: 'My account', section: 'Administration' },
+      { id: 'support', label: 'Support', section: 'Administration' },
     );
-
-    if (userData.role === 'property_manager' || userData.role === 'admin') {
-      links.push({ id: 'directory', label: 'Directory', section: 'Operations' });
-      links.push({ id: 'bidding', label: 'Vendor Bidding', section: 'Operations' });
-    }
-
-    if (userData.role === 'technician') {
-      links.push({ id: 'invoicing', label: 'Work Order Invoicing', section: 'Operations' });
-    }
-
-    if (userData.role === 'property_manager' || userData.role === 'admin' || userData.role === 'landlord' || userData.role === 'technician') {
-      links.push({ id: 'integrations', label: 'Integrations', section: 'Automation' });
-      links.push({ id: 'gis', label: 'GIS & Mapping', section: 'Automation' });
-      links.push({ id: 'chatbot', label: 'AI Assistant', section: 'Automation' });
-      links.push({ id: 'workspace', label: 'Google Workspace', section: 'Automation' });
-    }
-
-    if (userData.role === 'property_manager' || userData.role === 'admin') {
-      links.push(
-        { id: 'billing', label: 'Subscription & Billing', section: 'Administration' },
-        { id: 'security', label: 'Settings', section: 'Administration' }
-      );
-    } else {
-      links.push({ id: 'security', label: 'Settings', section: 'Administration' });
-    }
-
-    links.push({ id: 'support', label: 'Support', section: 'Administration' });
-
-    return Array.from(new Map(links.filter(item => !crmOnly.has(item.id)).map(item => [item.id, item])).values());
+    return links;
   };
 
   const sidebarLinks = getSidebarLinks();
@@ -350,7 +145,7 @@ export default function Dashboard() {
             <GlobalSearch />
             <div className="hidden xl:flex items-center gap-2 ml-2 px-3 py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400">
               <Activity className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Command Center</span>
+              <span>{activeLabel}</span>
             </div>
           </div>
 

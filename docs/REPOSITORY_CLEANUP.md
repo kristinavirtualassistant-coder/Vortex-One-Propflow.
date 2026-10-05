@@ -69,3 +69,26 @@ Applied evidence-based fixes without changing the database or authentication arc
 - Firebase Hosting and Firebase Functions are the repository deployment path.
 - Supabase PostgreSQL remains the production application database.
 - Deployment credentials must remain in GitHub/Firebase secret storage and must not be committed to the repository.
+
+
+## Audit and build-out — 2026-10-05
+
+Starting point: Express + PostgreSQL backend with only 6 tables (organizations, users, auth_sessions, properties, property_owners, leads), property search/import, auth, a Gemini chat proxy and integration receivers. The CRM, dialer, campaigns, workflows, agents and demo screens were either missing or placeholders with hard-coded data, and most portals read a different database (Firestore) directly from the browser.
+
+Findings and what was done:
+
+| Severity | Finding | Action |
+|---|---|---|
+| P0 | No server-side RBAC (any authenticated user could use every API) | Permission matrix enforced per route (`src/server/core.ts`) |
+| P0 | Partial-update bug class: PATCH bodies parsed with schema defaults would silently reset unsent fields (e.g. `doNotCall`, `stage`) | `presentOnly()` on every PATCH + regression test |
+| P1 | Browser talked to Firestore with no Firebase auth (portals, search, notifications, settings): data competing with PostgreSQL and failing at runtime | CRM roles no longer load it; search, notifications and account page moved to the API; legacy portals lazy-loaded; boot-time Firestore connection probe removed |
+| P1 | Placeholder/fake screens (CRM, Prospecting, Messages, Financials, Leasing, Billing, Vendor Bidding, Invoicing, landing-page pricing tiers) | Removed (nothing real behind them) |
+| P1 | Property search UI used columns that do not exist (bedrooms, vacancy, pre-foreclosure) and ignored filters | Replaced by the Properties module over real columns |
+| P2 | `/api/auth/me` returned snake_case fields the client did not read; profile PATCH accepted unvalidated values | Normalized, zod-validated |
+| P2 | Static "Live / Service UI ready / All systems operational" claims | Replaced by a real `/api/ready` check |
+| P2 | GIS status always `configured: true`; `/api/metrics` returned `[]`; unused `/api/data/*` | Honest flag; dead routes removed |
+| P3 | 36 unreachable source files (legacy portals/widgets with no route, duplicate settings page) and unused deps (`clsx`, `tailwind-merge`) | Removed after an import-graph reachability check from `src/main.tsx` |
+
+Removed files were verified unreachable from the application entry points; git history retains them.
+
+Still open (not addressed here): see "Known limitations" in `docs/ARCHITECTURE.md`; the legacy tenant/technician portals still depend on Firestore and were not re-verified; `db/migrations/*` remains an unreconciled older schema generation.

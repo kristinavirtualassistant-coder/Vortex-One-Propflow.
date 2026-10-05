@@ -170,6 +170,17 @@ const verifyCanonicalSchema = async () => {
     'properties',
     'property_owners',
     'leads',
+    // CRM / dialer / automation tables (supabase/migrations/20261006000000_crm_dialer_workflows.sql)
+    'contacts',
+    'tasks',
+    'notes',
+    'activities',
+    'campaigns',
+    'campaign_contacts',
+    'calls',
+    'workflows',
+    'workflow_runs',
+    'agent_runs',
   ];
 
   const result = await pool.query(

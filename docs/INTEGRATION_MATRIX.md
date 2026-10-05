@@ -4,15 +4,22 @@
 
 | Capability | UI surface | Backend contract | Data source | Current state |
 |---|---|---|---|---|
-| Auth | Sign in / sign up / OAuth | `/api/auth/*` | PostgreSQL | Live in code; deployment config must be correct |
-| Property intelligence | Property Search / Leads | `/api/properties/search`, `/api/properties/:id`, `/api/property-leads`, `/api/properties/import` | PostgreSQL | Live |
-| AI assistant | AI Assistant | `/api/gemini/chat` | Gemini server SDK | Live when `GEMINI_API_KEY` is configured |
-| Maintenance AI | Maintenance | `/api/maintenance/analyze` | Gemini server SDK | Live when `GEMINI_API_KEY` is configured |
-| 3Min events | Integration Center / webhook | `POST /api/integrations/3min/webhook` | PostgreSQL integration_events | Receiver implemented; external delivery currently blocked by Vercel protection |
-| Readiness | Integration Center / status bar | `/api/health`, `/api/ready` | Service + PostgreSQL | Live |
-| Financial metrics | Financials | `/api/metrics` | PostgreSQL | Requires real aggregate implementation; no fabricated values |
-| Files | Document Center | Supabase Storage contract / current server returns 501 | Supabase Storage | Explicitly not connected until canonical storage route is configured |
-| Generic legacy collections | Compatibility layer | `/api/data/:collection` | Canonical PostgreSQL only | Intentionally limited; no fake writes |
+| Auth | Landing page, sign in / sign up / OAuth | `/api/auth/*` | PostgreSQL | Live. Microsoft OAuth cannot complete (its profile endpoint does not assert `email_verified`, and unverified emails are rejected) |
+| CRM (contacts, leads, tasks, notes, activity, search) | Contacts, Leads, Tasks, global search | `/api/contacts`, `/api/leads`, `/api/tasks`, `/api/notes`, `/api/activity`, `/api/search` | PostgreSQL | Live (tested) |
+| Property & owner intelligence | Properties, Owners | `/api/properties*`, `/api/owners*` | PostgreSQL | Live (tested). No external public-record provider is connected; data is user-entered, imported, or fictional demo data |
+| Campaigns | Campaigns | `/api/campaigns*` | PostgreSQL | Live (tested) |
+| Dialer | Dialer | `/api/calls*`, `/api/dialer/status` | PostgreSQL | **Simulated.** No telephony provider is integrated |
+| Workflows | Workflows | `/api/workflows*`, `/api/workflow-runs` | PostgreSQL | Live (tested). Notifications are in-app only; no email/SMS action exists |
+| AI agents | AI Agents | `/api/agents*`, `/api/agent-runs` | PostgreSQL | Live, rule-based (no model calls) |
+| Demo / sandbox | "Try the live demo", Team → Reset | `/api/demo/*` | PostgreSQL (isolated org) | Live (tested) |
+| AI assistant | AI Assistant | `/api/gemini/chat` | Gemini server SDK | Live when `GEMINI_API_KEY` is configured; blocked in demo |
+| Maintenance AI | Legacy technician/tenant portals | `/api/maintenance/analyze` | Gemini server SDK | Live when `GEMINI_API_KEY` is configured; blocked in demo |
+| 3Min events | Integration Center / webhook | `POST /api/integrations/3min/webhook` | PostgreSQL integration_events | Receiver implemented and signature-verified; end-to-end external delivery not verified in this audit |
+| GIS Cloud | GIS & Mapping | `/api/integrations/gis-cloud/*` | Supabase Edge Function | Requires `SUPABASE_URL` + deployed function + secrets; not verified in this audit |
+| Readiness | Footer status | `/api/health`, `/api/ready` | Service + PostgreSQL | Live |
+| Files | (none in CRM UI) | `/api/storage*` returns 501 | Supabase Storage | Not connected |
+| Email, SMS, voice | (none) | (none) | (none) | Not implemented |
+| Tenant / technician portals | Legacy portals | Browser → Firestore (`src/lib/dataClient.ts`) | Firestore | Legacy and unverified; a separate data store from PostgreSQL |
 
 ## Integration truth rules
 

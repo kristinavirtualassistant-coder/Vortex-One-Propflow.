@@ -4,6 +4,7 @@ import { CheckCircle2, Phone, PhoneCall, PhoneOff, SkipForward } from 'lucide-re
 import { api, errorMessage, qs } from './api';
 import { duration, fmtDateTime, fullName, titleCase } from './format';
 import { RecordLink } from './shared';
+import { useAuth } from '../../contexts/AuthContext';
 import { Badge, Button, Card, EmptyState, ErrorBanner, Field, Input, PageHeader, RecordPicker, Select, Spinner, StatusBadge, Textarea, useFetch, useToast } from './ui';
 
 const OUTCOMES = [
@@ -15,7 +16,13 @@ type Target = { contact: { id: string; firstName: string; lastName: string; phon
 
 const STEP_MS = { dialing: 1400, ringing: 2400 };
 
+/** Fills {{agent}}, {{firstName}}, {{lastName}}, {{address}} in a campaign script from real record fields. */
+const fillScript = (script: string | null | undefined, agent: string, t: Target) =>
+  script ? script.replace(/\{\{\s*(agent|firstName|lastName|address)\s*\}\}/g, (_m, k) =>
+    k === 'agent' ? agent : k === 'firstName' ? t.contact.firstName : k === 'lastName' ? t.contact.lastName : (t.lead?.propertyAddress ?? 'your property')) : script;
+
 export default function Dialer() {
+  const { userData } = useAuth();
   const nav = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
@@ -59,7 +66,7 @@ export default function Dialer() {
     try {
       const r = await api.post(`/campaigns/${campaignId}/next`);
       if (!r.next) { setTarget(null); setMessage(r.message ?? 'No callable contacts remain.'); }
-      else setTarget({ contact: r.next.contact, lead: r.next.lead, script: r.next.script, campaignId });
+      else { const t: Target = { contact: r.next.contact, lead: r.next.lead, script: null, campaignId }; t.script = fillScript(r.next.script, userData?.name ?? 'your agent', t); setTarget(t); }
     } catch (e) { setError(errorMessage(e)); setTarget(null); } finally { setBusy(null); }
   };
 
