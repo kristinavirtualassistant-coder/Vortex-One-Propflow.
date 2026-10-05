@@ -8,7 +8,10 @@
     "build": "vite build --outDir public",
     "start": "tsx server.ts",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/unit.test.ts tests/api.test.ts",
+    "test:unit": "tsx --test tests/unit.test.ts",
+    "db:migrate:local": "bash scripts/apply-migrations.sh"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

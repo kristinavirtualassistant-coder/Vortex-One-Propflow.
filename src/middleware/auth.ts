@@ -12,6 +12,7 @@ declare global {
         name: string;
         role: string;
         organizationId: string;
+        isDemo?: boolean;
         phone?: string | null;
         companyName?: string | null;
         portfolioSize?: string | null;
@@ -116,15 +117,18 @@ export const requireAuth = async (
         u.phone, u.company_name, u.portfolio_size, u.primary_market,
         u.current_address, u.monthly_income, u.employment_status, u.move_in_date,
         u.occupants_count, u.has_pets, u.trade_specialty, u.hourly_rate,
-        u.property_types, u.management_fee, u.service_radius, u.emergency_dispatch
+        u.property_types, u.management_fee, u.service_radius, u.emergency_dispatch,
+        COALESCE(o.is_demo, false) AS is_demo
        FROM auth_sessions s
        JOIN users u ON u.id=s.user_id
+       LEFT JOIN organizations o ON o.id=u.organization_id
        WHERE s.token_hash=$1 AND s.expires_at>now() AND u.disabled_at IS NULL
+         AND (o.id IS NULL OR o.is_demo = false OR o.demo_expires_at > now())
        LIMIT 1`,
       [hashSessionToken(token)]
     );
     if (!result.rows.length) return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
-    req.user = { ...result.rows[0], organizationId: result.rows[0].organization_id };
+    req.user = { ...result.rows[0], organizationId: result.rows[0].organization_id, isDemo: Boolean(result.rows[0].is_demo) };
     // Rolling expiry: every authenticated request pushes the session 30 days out
     // (this also clamps legacy long-lived sessions) and refreshes the cookie.
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
