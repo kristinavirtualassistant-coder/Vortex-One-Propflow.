@@ -131,6 +131,58 @@ const propertyFilters = (ctx: Ctx, q: Record<string, string>) => {
 
 export const propertiesRouter = Router();
 
+const PUBLIC_RECORD_COUNTIES: Record<string, string> = {
+  '06037': 'Los Angeles',
+  '06075': 'San Francisco',
+};
+
+propertiesRouter.get('/public-records', route('crm:read', async (req, _res, _ctx) => {
+  const q = req.query as Record<string, string>;
+  const values: unknown[] = [];
+  const where: string[] = [];
+
+  if (q.countyFips) {
+    values.push(q.countyFips);
+    where.push('p.county_fips = $' + values.length);
+  }
+  if (q.q?.trim()) {
+    const like = '%' + q.q.trim().replace(/[\\%_]/g, '\\$&') + '%';
+    const start = values.length + 1;
+    values.push(like, like, like, like, like);
+    where.push('(p.apn ILIKE $' + start + ' OR p.situs_address ILIKE $' + (start + 1) +
+      ' OR p.situs_city ILIKE $' + (start + 2) + ' OR p.situs_zip ILIKE $' + (start + 3) +
+      ' OR p.owner_name ILIKE $' + (start + 4) + ')');
+  }
+
+  const limit = Math.min(Math.max(Number(q.limit) || 25, 1), 100);
+  const offset = Math.max(Number(q.offset) || 0, 0);
+  const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+  const db = getDb();
+
+  const total = await db.query('SELECT count(*)::int AS n FROM core.parcels p' + whereSql, values);
+  const rows = await db.query(
+    'SELECT p.*, ' +
+    'CASE WHEN p.geom IS NULL THEN NULL ELSE ST_Y(ST_PointOnSurface(p.geom)) END AS latitude, ' +
+    'CASE WHEN p.geom IS NULL THEN NULL ELSE ST_X(ST_PointOnSurface(p.geom)) END AS longitude, ' +
+    "COALESCE((SELECT jsonb_agg(jsonb_build_object('signalType', s.signal_type, 'observedOn', s.observed_on, 'value', s.value) ORDER BY s.observed_on DESC) " +
+    "FROM core.signals s WHERE s.county_fips=p.county_fips AND s.apn=p.apn), '[]'::jsonb) AS signals " +
+    'FROM core.parcels p' + whereSql +
+    ' ORDER BY p.situs_city NULLS LAST, p.situs_address NULLS LAST, p.apn LIMIT ' + limit + ' OFFSET ' + offset,
+    values,
+  );
+
+  return {
+    items: rows.rows.map((r: any) => ({
+      ...camel(r),
+      countyName: PUBLIC_RECORD_COUNTIES[r.county_fips] ?? r.county_fips,
+      source: 'california_public_records',
+    })),
+    total: total.rows[0].n,
+    limit,
+    offset,
+  };
+}));
+
 propertiesRouter.get('/properties', route('crm:read', async (req, _res, ctx) => {
   const q = req.query as Record<string, string>;
   const w = propertyFilters(ctx, q);
