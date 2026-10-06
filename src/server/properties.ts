@@ -1570,15 +1570,19 @@ propertiesRouter.post('/owners/:id/archive', route('crm:write', async (req, _res
   const offset = Math.max(Number(q.offset) || 0, 0);
   const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
   const db = getDb();
-  const total = await db.query('SELECT count(*)::int AS n FROM core.parcels p' + whereSql, values);
+
+  const total = await db.query(
+    'SELECT count(*)::int AS n FROM core.parcels p' + whereSql,
+    values,
+  );
   const rows = await db.query(
-    `SELECT p.*,
-      COALESCE((SELECT jsonb_agg(jsonb_build_object(
-        'signalType', s.signal_type, 'observedOn', s.observed_on, 'value', s.value
-      ) ORDER BY s.observed_on DESC) FROM core.signals s
-       WHERE s.county_fips=p.county_fips AND s.apn=p.apn), '[]'::jsonb) AS signals
-     FROM core.parcels p` + whereSql +
-     ' ORDER BY p.situs_city NULLS LAST, p.situs_address NULLS LAST, p.apn LIMIT ' + limit + ' OFFSET ' + offset,
+    'SELECT p.*, ' +
+    'CASE WHEN p.geom IS NULL THEN NULL ELSE ST_Y(ST_PointOnSurface(p.geom)) END AS latitude, ' +
+    'CASE WHEN p.geom IS NULL THEN NULL ELSE ST_X(ST_PointOnSurface(p.geom)) END AS longitude, ' +
+    "COALESCE((SELECT jsonb_agg(jsonb_build_object('signalType', s.signal_type, 'observedOn', s.observed_on, 'value', s.value) ORDER BY s.observed_on DESC) " +
+    "FROM core.signals s WHERE s.county_fips=p.county_fips AND s.apn=p.apn), '[]'::jsonb) AS signals " +
+    'FROM core.parcels p' + whereSql +
+    ' ORDER BY p.situs_city NULLS LAST, p.situs_address NULLS LAST, p.apn LIMIT ' + limit + ' OFFSET ' + offset,
     values,
   );
 
