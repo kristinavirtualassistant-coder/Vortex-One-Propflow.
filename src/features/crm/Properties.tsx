@@ -210,6 +210,7 @@ export default function Properties() {
     <div>
       <PageHeader title="Properties" subtitle="Property intelligence: records, ownership and motivation signals. Demo data is fictional."
         actions={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> New property</Button>} />
+      <PublicRecordsPanel />
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="flex-1 min-w-[220px]"><Input aria-label="Search properties" value={list.q} onChange={(e) => list.setQ(e.target.value)} placeholder="Address, city, ZIP, APN or owner" /></div>
         <Input aria-label="State" className="w-24" maxLength={2} placeholder="State" value={list.filters.state ?? ''} onChange={(e) => list.setFilter('state', e.target.value)} />
