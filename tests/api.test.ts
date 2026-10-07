@@ -1,5 +1,6 @@
 import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { Pool } from 'pg';
 import { Client, signup, startApi, TEST_DATABASE_URL, type Api } from './helpers.ts';
 
 const skip = !TEST_DATABASE_URL && 'TEST_DATABASE_URL is not set (needs PostgreSQL with supabase/migrations applied)';
@@ -155,6 +156,58 @@ describe('CRM, properties, owners', { skip }, () => {
     assert.ok(bad.body.issues.length >= 2);
     assert.equal((await client.post('/api/properties', { address: 'x' })).status, 400);
     assert.equal((await client.get('/api/contacts/not-a-real-id')).status, 404);
+  });
+
+  test('California public-record search imports a real parcel shape and reuses the owner', async () => {
+    const { client } = await signup(api, 'property_manager', 'caimport');
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    const apn = 'TEST-CA-' + Date.now();
+    try {
+      await pool.query(
+        `INSERT INTO core.parcels
+          (county_fips, apn, situs_address, situs_city, situs_zip, owner_name, year_built,
+           building_sqft, lot_sqft, land_value, improvement_value, last_sale_date, geom)
+         VALUES ('06037', $1, '123 TEST COAST HWY MALIBU CA 90265', 'MALIBU', '90265',
+                 'California Test Owner', 2001, 2500, 8000, 500000, 250000, '2025-01-02',
+                 ST_SetSRID(ST_Point(-118.8404, 34.1049), 4326))`,
+        [apn],
+      );
+
+      const search = await client.get('/api/public-records?countyFips=06037&q=' + encodeURIComponent(apn));
+      assert.equal(search.status, 200);
+      assert.equal(search.body.total, 1);
+      assert.equal(search.body.items[0].apn, apn);
+      assert.equal(search.body.items[0].countyName, 'Los Angeles');
+      assert.equal(search.body.items[0].source, 'california_public_records');
+      assert.equal(typeof search.body.items[0].latitude, 'number');
+      assert.equal(typeof search.body.items[0].longitude, 'number');
+
+      const record = search.body.items[0];
+      const payload = {
+        address: record.situsAddress, city: record.situsCity, state: 'CA', zip: record.situsZip,
+        county: record.countyName, apn: record.apn, propertyType: 'Other',
+        unitsCount: 1, squareFeet: record.buildingSqft, yearBuilt: record.yearBuilt,
+        lotSizeSqft: record.lotSqft, latitude: record.latitude, longitude: record.longitude,
+        assessedTaxValue: record.landValue + record.improvementValue, estimatedValue: 0,
+        estimatedEquity: 0, mortgageBalance: 0, lastSaleDate: '2025-01-02', lastSalePrice: null,
+        taxDelinquent: false, isAbsenteeOwner: false, isCorporateOwned: false,
+        owner: { name: record.ownerName, entityType: 'individual' },
+        provenance: { source: 'california_public_records', countyFips: record.countyFips, apn: record.apn },
+        tags: ['public-record', 'california', record.countyFips],
+      };
+
+      assert.equal((await client.post('/api/properties/import', { records: [payload] })).status, 201);
+      const first = (await client.get('/api/properties?q=' + encodeURIComponent(apn))).body.items[0];
+      assert.equal(first.apn, apn);
+      assert.ok(first.ownerId);
+
+      assert.equal((await client.post('/api/properties/import', { records: [payload] })).status, 200);
+      const owners = (await client.get('/api/owners?q=' + encodeURIComponent('California Test Owner'))).body.items;
+      assert.equal(owners.length, 1, 're-import reuses the organization owner');
+      assert.equal((await client.get('/api/owners/' + first.ownerId)).body.properties.length, 1);
+    } finally {
+      await pool.end();
+    }
   });
 
   test('property → owner → contact → lead relationships stay consistent', async () => {
