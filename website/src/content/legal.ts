@@ -19,6 +19,7 @@ const E = LEGAL_ENTITY;
 const MAIL = CONTACT_EMAIL;
 const PRIVACY = PRIVACY_CONTACT_EMAIL;
 const ADDRESS = BUSINESS_ADDRESS;
+const ADDRESS = BUSINESS_ADDRESS;
 
 /*
  * Drafts reflecting how the product works today (simulated dialer, rule-based agents,
@@ -69,7 +70,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
       { h: 'Children', p: ['Vortex One is a business service and is not directed to children under 18. We do not knowingly collect information from children.'] },
       { h: 'International use', p: ['We may process and store information in countries other than your own. Where required, we use appropriate safeguards for those transfers.'] },
       { h: 'Changes to this policy', p: ['We may update this policy. We will change the date above and, for material changes, notify account holders. If we add live calling, recording or email and SMS sending, we will update this policy before those features launch.'] },
-      { h: 'Contact us', p: [`${E} · ${MAIL}`] },
+      { h: 'Contact us', p: [`${E} · ${ADDRESS} · ${MAIL}`] },
     ],
   },
   {
@@ -91,7 +92,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
       { h: 'Limitation of liability', p: ['To the fullest extent the law allows, we are not liable for indirect, incidental, special, consequential or punitive damages, or for lost profits, revenue, data or goodwill. Our total liability for all claims relating to the service is limited to the greater of the amount you paid us in the 12 months before the claim arose and one hundred US dollars. Some jurisdictions do not allow certain limits, so parts of this section may not apply to you.'] },
       { h: 'Indemnity', p: ['You will defend and indemnify us against claims arising from your data, your outreach and communications, or your breach of these terms or the law.'] },
       { h: 'Changes, law and disputes', p: [`We may update these terms and will change the date above and give notice of material changes. Continued use after a change means you accept it. These terms are governed by the laws of the jurisdiction in which ${E} is organized, without regard to conflict-of-law rules, and disputes will be handled in the courts of that jurisdiction unless the law requires otherwise.`] },
-      { h: 'Contact', p: [`${E} · ${MAIL}`] },
+      { h: 'Contact', p: [`${E} · ${ADDRESS} · ${MAIL}`] },
     ],
   },
   {
@@ -208,7 +209,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
         'Data must not be used to discriminate, to harass, or to target people in distress with deceptive offers.',
       ] },
       { h: 'Not a credit or eligibility report', p: ["Vortex One is not a consumer reporting agency. Its data and scores must not be used to decide a person's eligibility for credit, insurance, employment, housing or any other purpose covered by consumer reporting laws."] },
-      { h: 'Contact', p: [`${E} · ${MAIL}`] },
+      { h: 'Contact', p: [`${E} · ${ADDRESS} · ${MAIL}`] },
     ],
   },
   {
@@ -248,7 +249,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
       { h: 'Data minimization', p: ['Customers should avoid uploading sensitive information that is not needed for a legitimate business purpose.'] },
       { h: 'Incident response', p: ['Security incidents are investigated and contained using operational procedures. Where notification is legally required, affected parties will be informed as required by law.'] },
       { h: 'Vulnerability reporting', p: [`Report suspected vulnerabilities or security issues to ${PRIVACY}. Do not include passwords, authentication tokens or unnecessary personal data.`] },
-      { h: 'Contact', p: [`${E} · ${PRIVACY}`] },
+      { h: 'Contact', p: [`${E} · ${ADDRESS} · ${PRIVACY}`] },
     ],
   },
   {
@@ -261,7 +262,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
       { h: 'Closing your free account', p: [`You can stop using Vortex One at any time. To close your account and request deletion of your data, email ${MAIL} from the address on the account.`] },
       { h: 'Paid plans', p: ['Paid plans are not available yet. Before any paid plan applies to you we will publish its price, usage limits and this policy in final form, and nothing will be charged without your agreement. We expect to offer cancellation at any time, effective at the end of the paid period, and a refund window for first-time paid subscribers.'] },
       { h: 'Your legal rights', p: ['This policy does not limit rights you may have under consumer protection law where you live.'] },
-      { h: 'Contact', p: [`${E} · ${MAIL}`] },
+      { h: 'Contact', p: [`${E} · ${ADDRESS} · ${MAIL}`] },
     ],
   },
 ];
