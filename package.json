@@ -22,8 +22,6 @@
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
-    "firebase": "^12.19.0",
-    "firebase-admin": "^14.5.0",
     "lucide-react": "^1.48.0",
     "pg": "^8.22.0",
     "react": "^19.3.0",
@@ -42,6 +40,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "drizzle-kit": "^0.31.10",
+    "firebase-admin": "^14.5.0",
     "tsx": "^4.23.15",
     "typescript": "~7.0.2"
   },

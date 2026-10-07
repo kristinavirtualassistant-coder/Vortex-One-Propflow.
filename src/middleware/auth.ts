@@ -42,7 +42,7 @@ const hashSessionToken = (token: string) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
 export const sessionCookieName = () =>
-  process.env.NODE_ENV === 'production' || process.env.FIREBASE_CONFIG
+  process.env.NODE_ENV === 'production'
     ? '__Host-vortex_session'
     : 'vortex_session';
 
@@ -62,7 +62,7 @@ export const getSessionToken = (req: Request) =>
   parseCookies(req.headers.cookie)[sessionCookieName()] || null;
 
 export const setSessionCookie = (res: Response, token: string, expiresAt: Date) => {
-  const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.FIREBASE_CONFIG);
+  const secure = process.env.NODE_ENV === 'production';
   const attributes = [
     'Path=/',
     `Max-Age=${Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))}`,
@@ -74,7 +74,7 @@ export const setSessionCookie = (res: Response, token: string, expiresAt: Date) 
 };
 
 export const clearSessionCookie = (res: Response) => {
-  const secure = process.env.NODE_ENV === 'production' || Boolean(process.env.FIREBASE_CONFIG);
+  const secure = process.env.NODE_ENV === 'production';
   const attributes = ['Path=/', 'Max-Age=0', 'HttpOnly', 'SameSite=Lax', ...(secure ? ['Secure'] : [])];
   res.setHeader('Set-Cookie', [`${sessionCookieName()}=; ${attributes.join('; ')}`]);
 };

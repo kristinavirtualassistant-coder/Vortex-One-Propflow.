@@ -55,16 +55,8 @@ export const createPool = () => {
     if (connectionString) {
       try {
         const parsed = new URL(connectionString);
-        if (
-          process.env.FIREBASE_CONFIG &&
-          ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)
-        ) {
-          throw new Error(
-            'DATABASE_URL points to a local database from Firebase. Configure the Firebase production runtime DATABASE_URL with the Supabase PostgreSQL connection string.'
-          );
-        }
         // Local development/CI databases on loopback do not speak TLS; hosted databases always do.
-        loopbackHost = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(parsed.hostname) && !process.env.FIREBASE_CONFIG;
+        loopbackHost = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(parsed.hostname);
         parsed.searchParams.delete('sslmode');
         parsed.searchParams.delete('sslrootcert');
         parsed.searchParams.delete('sslcert');

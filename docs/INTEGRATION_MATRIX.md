@@ -19,21 +19,21 @@
 | Readiness | Footer status | `/api/health`, `/api/ready` | Service + PostgreSQL | Live |
 | Files | (none in CRM UI) | `/api/storage*` returns 501 | Supabase Storage | Not connected |
 | Email, SMS, voice | (none) | (none) | (none) | Not implemented |
-| Tenant / technician portals | Legacy portals | Browser → Firestore (`src/lib/dataClient.ts`) | Firestore | Legacy and unverified; a separate data store from PostgreSQL |
+| Tenant / technician portals | Legacy portals | Browser → `/api/portal/*` (`src/lib/dataClient.ts`) | PostgreSQL `portal_records` | Legacy UI now served from PostgreSQL; unverified |
 
 ## Integration truth rules
 
 - A UI badge may say **Connected** only after a server-side health check, authenticated handshake, or verified webhook path.
 - Local boolean toggles are not integrations.
 - A service requiring credentials must show **Setup required** until required server-side environment variables are present.
-- Production webhook delivery must target the public Firebase Functions endpoint through Firebase Hosting.
+- Production webhook delivery must target the public API endpoint of the production deployment (see `docs/VERCEL_DEPLOYMENT.md`).
 - External service credentials never belong in frontend code.
 
 ## 3Min API
 
 The 3Min sandbox endpoint was verified on 2026-09-30 by a successful POST to the configured `vortex-propflow-events` endpoint. The returned record reached 3Min successfully.
 
-The configured owner webhook previously attempted delivery to the PropFlow Vercel hostname and received HTTP 401 `Protected deployment`. Firebase Hosting + Firebase Functions is now the intended public deployment path, removing Vercel deployment protection from the webhook path.
+The configured owner webhook previously attempted delivery to the PropFlow Vercel hostname and received HTTP 401 `Protected deployment`. Disable Vercel deployment protection for the webhook path (or use a public production domain) so deliveries are not rejected.
 
 Expected production receiver:
 
@@ -69,24 +69,6 @@ PropFlow now treats GIS Cloud as a first-class spatial integration.
 ### Verified GIS Cloud account context
 The connected GIS Cloud account currently exposes 22 maps, including the existing **Vortex One Property Intelligence** map (ID 3302957) plus MDC/sample maps.
 
+## Deployment
 
-## Firebase deployment
-
-Firebase is the production hosting/runtime target for PropFlow.
-
-- Hosting project: `vortex-one-propflow`
-- Frontend: Firebase Hosting, built from Vite into `public/`
-- API: Firebase Functions for Firebase v2 HTTPS function `api`
-- Public API base: `/api/*` through Firebase Hosting rewrites
-- Production app URL: `https://vortex-one-propflow.web.app`
-- The former Vercel `api/index.ts` entrypoint has been removed from this branch.
-- Runtime secrets are declared with Firebase Secret Manager bindings; do not commit secret values.
-
-Deployment sequence:
-
-1. Install Firebase CLI and authenticate.
-2. Select project `vortex-one-propflow`.
-3. Create the required Firebase secrets from the values in `.env.example`.
-4. Install the Functions dependencies with `npm --prefix functions install`.
-5. Deploy Hosting and Functions with `firebase deploy --only hosting,functions`.
-6. Verify `/api/health`, `/api/ready`, authentication, GIS Cloud, and the 3Min webhook before treating production as healthy.
+See `docs/VERCEL_DEPLOYMENT.md`. The Express API runs as a Vercel serverless function (`api/index.ts`) in front of Supabase PostgreSQL. Runtime secrets live in the hosting provider's secret manager; do not commit secret values.

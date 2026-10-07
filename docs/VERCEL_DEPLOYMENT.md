@@ -1,6 +1,6 @@
 # Vortex One PropFlow: Vercel deployment
 
-Why this exists: the Firebase project is on the free Spark plan, and Cloud Functions cannot be deployed on Spark. The Express API therefore runs on Vercel as a serverless function, and Vercel also serves the built frontend. See `docs/FIRESTORE_SECURITY_PLAN.md` section 1a for the background.
+The Express API runs on Vercel as a serverless function, and Vercel also serves the built frontend.
 
 ## How it works
 
