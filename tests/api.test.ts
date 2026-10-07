@@ -201,7 +201,7 @@ describe('CRM, properties, owners', { skip }, () => {
       assert.equal(first.apn, apn);
       assert.ok(first.ownerId);
 
-      assert.equal((await client.post('/api/properties/import', { records: [payload] })).status, 200);
+      assert.equal((await client.post('/api/properties/import', { records: [payload] })).status, 201);
       const owners = (await client.get('/api/owners?q=' + encodeURIComponent('California Test Owner'))).body.items;
       assert.equal(owners.length, 1, 're-import reuses the organization owner');
       assert.equal((await client.get('/api/owners/' + first.ownerId)).body.properties.length, 1);
