@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, LEGAL_ENTITY, LEGAL_UPDATED, PRIVACY_CONTACT_EMAIL } from '../config';
+import { BUSINESS_ADDRESS, CONTACT_EMAIL, LEGAL_ENTITY, LEGAL_UPDATED, PRIVACY_CONTACT_EMAIL } from '../config';
 
 export interface LegalSection {
   h: string;
@@ -18,6 +18,7 @@ export interface LegalDoc {
 const E = LEGAL_ENTITY;
 const MAIL = CONTACT_EMAIL;
 const PRIVACY = PRIVACY_CONTACT_EMAIL;
+const ADDRESS = BUSINESS_ADDRESS;
 
 /*
  * Drafts reflecting how the product works today (simulated dialer, rule-based agents,
@@ -222,7 +223,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
       { h: 'Subprocessors', p: ['We may use subprocessors necessary to provide the service, subject to contractual protections. We will maintain a list of material subprocessors and provide notice of material additions or replacements where required by applicable law or agreement.'] },
       { h: 'Security and incidents', p: ['We maintain reasonable technical and organizational safeguards appropriate to the service. We will notify customers of confirmed personal-data security incidents affecting customer-controlled data as required by applicable law or agreement.'] },
       { h: 'Requests, deletion and transfers', p: ['Where we receive a request relating to customer-controlled data, we will reasonably assist the customer, subject to verification and legal restrictions. On termination or request, we will delete or return data subject to legal holds and backup cycles. Where cross-border transfer restrictions apply, the parties will use legally recognized safeguards.'] },
-      { h: 'Contact', p: [`${E} · ${PRIVACY}`] },
+      { h: 'Contact', p: [`${E} · ${ADDRESS} · ${PRIVACY}`] },
     ],
   },
   {
@@ -234,7 +235,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
     sections: [
       { h: 'Early-access disclosure', p: ['Vortex One may use hosting, authentication, database, AI-model and integration providers to operate the service. Before commercial launch or material expansion of processing, this page will identify each material provider, its purpose, categories of data processed and relevant processing location.'] },
       { h: 'Customer notice', p: ['Where a contract or law requires notice of a material subprocessor change, we will provide that notice through the service, this page or another agreed channel.'] },
-      { h: 'Contact', p: [`Questions about subprocessors: ${PRIVACY}.`] },
+      { h: 'Contact', p: [`Questions about subprocessors: ${E} · ${ADDRESS} · ${PRIVACY}.`] },
     ],
   },
   {
