@@ -4,27 +4,10 @@ import { Eyebrow, btnPrimary } from './ui';
 
 function VortexMark() {
   return (
-    <svg width="100%" viewBox="0 0 400 400" className="max-w-[360px]" aria-hidden="true">
-      <defs>
-        <linearGradient id="hvo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#38bdf8" />
-          <stop offset="0.5" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#a855f7" />
-        </linearGradient>
-        <linearGradient id="hvi" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#00f2fe" />
-          <stop offset="1" stopColor="#4facfe" />
-        </linearGradient>
-        <radialGradient id="hvg" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#6366f1" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#6366f1" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <circle cx="200" cy="200" r="196" fill="url(#hvg)" />
-      <circle cx="200" cy="200" r="160" fill="none" stroke="url(#hvo)" strokeWidth="26" strokeLinecap="round" strokeDasharray="780 226" transform="rotate(-40 200 200)" />
-      <circle cx="200" cy="200" r="104" fill="none" stroke="url(#hvi)" strokeWidth="22" strokeLinecap="round" strokeDasharray="480 174" transform="rotate(120 200 200)" />
-      <text x="200" y="244" textAnchor="middle" fontSize="150" fontWeight="800" fill="#ffffff" fontFamily="-apple-system,Segoe UI,Roboto,Arial,sans-serif">1</text>
-    </svg>
+    <div className="relative flex w-full max-w-[380px] items-center justify-center" aria-hidden="true">
+      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.28),transparent_68%)]" />
+      <img src="/logo-mark.webp" alt="" width={640} height={609} className="relative h-auto w-full" />
+    </div>
   );
 }
 

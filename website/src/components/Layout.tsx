@@ -5,29 +5,21 @@ import { LEGAL_DOCS } from '../content/legal';
 
 export function Logo({ size = 36 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" aria-hidden="true">
-      <defs>
-        <linearGradient id="vxo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#38bdf8" />
-          <stop offset="0.5" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#a855f7" />
-        </linearGradient>
-        <linearGradient id="vxi" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#00f2fe" />
-          <stop offset="1" stopColor="#4facfe" />
-        </linearGradient>
-      </defs>
-      <circle cx="100" cy="100" r="84" fill="none" stroke="url(#vxo)" strokeWidth="14" strokeLinecap="round" strokeDasharray="400 128" transform="rotate(-40 100 100)" />
-      <circle cx="100" cy="100" r="54" fill="none" stroke="url(#vxi)" strokeWidth="12" strokeLinecap="round" strokeDasharray="250 90" transform="rotate(120 100 100)" />
-      <text x="100" y="124" textAnchor="middle" fontSize="76" fontWeight="800" fill="#ffffff" fontFamily="-apple-system,Segoe UI,Roboto,Arial,sans-serif">1</text>
-    </svg>
+    <img
+      src="/logo-mark-sm.webp"
+      srcSet="/logo-mark-sm.webp 1x, /logo-mark.webp 2x"
+      width={size}
+      height={Math.round(size * 0.95)}
+      alt=""
+      aria-hidden="true"
+    />
   );
 }
 
 export function Wordmark() {
   return (
-    <span className="text-lg font-extrabold uppercase tracking-[0.3em] text-white">
-      Vortex <span className="text-sky">One</span>
+    <span className="text-xl uppercase leading-none tracking-wide text-white">
+      <span className="font-extrabold">Vortex</span> <span className="font-light text-sky">One</span>
     </span>
   );
 }

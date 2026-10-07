@@ -43,6 +43,6 @@ The legal text is a draft and should be reviewed by counsel before launch.
 ## Before launch
 
 - Confirm `APP_URL` is the production app URL.
-- Replace the stand-in vortex mark (`Logo` in `src/components/Layout.tsx`, `static/favicon.svg`) with the official logo file.
+- Logo assets are in `static/` (`logo-mark.webp` and `logo-mark-sm.webp` are the emblem cut out on a transparent background from the supplied artwork, `logo-lockup.webp` is the full lockup on white, plus `favicon.png` and `apple-touch-icon.png`). If you have a vector or transparent master, swap it in for a crisper result.
 - Add a social share image and Open Graph tags once the domain is known.
 - Optional: deep links such as `?signup` or `?demo` need support in the app's landing page.
