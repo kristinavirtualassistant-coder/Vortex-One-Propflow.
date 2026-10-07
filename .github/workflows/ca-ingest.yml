@@ -1,0 +1,54 @@
+name: ca-ingest
+# Manual only. Re-add a schedule after the staged rollout is approved.
+on:
+  workflow_dispatch:
+    inputs:
+      la_where:
+        description: "LA stage filter (ArcGIS where). Empty = skip LA."
+        default: "SitusCity LIKE 'MALIBU%'"
+      sf:
+        description: "Load SF roll (2022+)?"
+        type: boolean
+        default: false
+      publish:
+        description: "Write to Supabase (otherwise dry-run only)"
+        type: boolean
+        default: false
+      budget_mb:
+        description: "Abort publish if projected Supabase size exceeds this"
+        default: "400"
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    services:
+      staging:                       # throwaway PostGIS: raw JSONB, polygons, FHSZ live here
+        image: postgis/postgis:16-3.4
+        env: { POSTGRES_USER: ci, POSTGRES_PASSWORD: ci, POSTGRES_DB: staging }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/staging
+      SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+      SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - run: sudo apt-get install -y -qq postgresql-client
+      - run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/001_schema.sql -f sql/004_hazards.sql
+      - if: ${{ inputs.la_where != '' }}
+        run: python -m ingest.run load la_parcels --where "${{ inputs.la_where }}"
+      - if: ${{ inputs.sf }}
+        run: python -m ingest.run load sf_roll
+      - run: python -m ingest.run normalize
+      - run: python -m ingest.run load-hazard fhsz_sra
+      - run: python -m ingest.run load-hazard fhsz_lra
+      - run: python -m ingest.run assign-hazards
+      - name: Publish plan (dry run)
+        run: python -m ingest.run publish --budget-mb ${{ inputs.budget_mb }}
+      - if: ${{ inputs.publish }}
+        name: Publish to Supabase
+        run: python -m ingest.run publish --confirm --budget-mb ${{ inputs.budget_mb }}

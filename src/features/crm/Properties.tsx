@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, ArrowLeft, Bot, Plus, RotateCcw, Target } from 'lucide-react';
+import { Archive, ArrowLeft, Bot, Database, Plus, RotateCcw, Search, Target } from 'lucide-react';
 import { api, errorMessage } from './api';
 import { fullName, money, num, titleCase } from './format';
 import { ActivityTimeline, CallsTable, Facts, NotesPanel, RecordLink, Section, TasksPanel } from './shared';
@@ -73,6 +73,123 @@ const Signals = ({ p }: { p: any }) => (
   </span>
 );
 
+function PublicRecordsPanel() {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [countyFips, setCountyFips] = useState('06037');
+  const [search, setSearch] = useState('');
+  const [importing, setImporting] = useState<string | null>(null);
+  const records = useFetch<any>(
+    () => search.trim()
+      ? api.get('/public-records?q=' + encodeURIComponent(search.trim()) + '&countyFips=' + encodeURIComponent(countyFips) + '&limit=25')
+      : Promise.resolve({ items: [], total: 0, limit: 25, offset: 0 }),
+    [search, countyFips],
+  );
+
+  const importRecord = async (r: any) => {
+    if (!r.situsAddress || !r.situsZip) {
+      toast.error('This public record is missing a usable situs address or ZIP code.');
+      return;
+    }
+    setImporting(r.apn);
+    try {
+      const assessed = Number(r.landValue ?? 0) + Number(r.improvementValue ?? 0);
+      await api.post('/properties/import', {
+        records: [{
+          address: r.situsAddress,
+          city: r.situsCity || r.countyName,
+          state: 'CA',
+          zip: r.situsZip,
+          county: r.countyName,
+          apn: r.apn,
+          propertyType: 'Other',
+          unitsCount: Number(r.units ?? 1) || 1,
+          squareFeet: Number(r.buildingSqft ?? 0) || 0,
+          yearBuilt: r.yearBuilt ?? null,
+          lotSizeSqft: r.lotSqft == null ? null : Number(r.lotSqft),
+          latitude: r.latitude ?? null,
+          longitude: r.longitude ?? null,
+          assessedTaxValue: assessed >= 0 ? assessed : 0,
+          estimatedValue: 0,
+          estimatedEquity: 0,
+          mortgageBalance: 0,
+          lastSaleDate: r.lastSaleDate ? String(r.lastSaleDate).slice(0, 10) : null,
+          lastSalePrice: null,
+          taxDelinquent: false,
+          isAbsenteeOwner: false,
+          isCorporateOwned: false,
+          owner: r.ownerName ? {
+            name: r.ownerName,
+            entityType: 'individual',
+            mailingAddress: r.mailAddress || null,
+          } : null,
+          provenance: {
+            source: 'california_public_records',
+            sourceId: r.countyFips === '06037' ? 'la_parcels' : 'sf_roll',
+            countyFips: r.countyFips,
+            apn: r.apn,
+            importedAt: new Date().toISOString(),
+            fhszClass: r.fhszClass ?? null,
+            signals: r.signals ?? [],
+          },
+          tags: ['public-record', 'california', r.countyFips],
+        }],
+      });
+      toast.success('Public record imported into your property records');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setImporting(null);
+    }
+  };
+
+  return (
+    <div className="mb-5 rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/20 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 font-semibold"><Database className="h-4 w-4" /> California public records</div>
+          <div className="text-xs text-slate-500 mt-1">Search ingested California parcel records without copying the statewide dataset into every organization.</div>
+        </div>
+        <Button onClick={() => setOpen((v) => !v)}>{open ? 'Hide search' : 'Search CA records'}</Button>
+      </div>
+      {open && (
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Input className="flex-1 min-w-[240px]" aria-label="Public-record search" placeholder="Address, city, ZIP, APN or owner" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <Select aria-label="California county" className="w-52" value={countyFips} onChange={(e) => setCountyFips(e.target.value)}>
+              <option value="06037">Los Angeles County</option>
+              <option value="06075">San Francisco County</option>
+            </Select>
+            <Button variant="primary" disabled={!query.trim()} onClick={() => setSearch(query.trim())}><Search className="h-4 w-4" /> Search</Button>
+          </div>
+          {records.loading && search && <Spinner />}
+          {records.error && <ErrorBanner message={records.error} onRetry={records.reload} />}
+          {records.data?.items?.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs text-slate-500">
+                  <th className="px-3 py-2">Parcel</th><th className="px-3 py-2">Owner</th><th className="px-3 py-2">APN</th><th className="px-3 py-2">Year</th><th className="px-3 py-2"></th>
+                </tr></thead>
+                <tbody>{records.data.items.map((r: any) => (
+                  <tr key={r.countyFips + ':' + r.apn} className="border-b last:border-0 border-slate-100 dark:border-slate-900">
+                    <td className="px-3 py-3"><div className="font-medium">{r.situsAddress || 'No situs address'}</div><div className="text-xs text-slate-500">{r.situsCity || r.countyName}, CA {r.situsZip || ''}</div></td>
+                    <td className="px-3 py-3">{r.ownerName || '—'}</td>
+                    <td className="px-3 py-3 font-mono text-xs">{r.apn}</td>
+                    <td className="px-3 py-3">{r.yearBuilt || '—'}</td>
+                    <td className="px-3 py-3 text-right"><Button variant="primary" loading={importing === r.apn} disabled={!r.situsAddress || !r.situsZip} onClick={() => importRecord(r)}>Import</Button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+          {search && !records.loading && records.data?.total === 0 && <div className="text-sm text-slate-500">No ingested public records matched this search.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Properties() {
   const nav = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -93,6 +210,7 @@ export default function Properties() {
     <div>
       <PageHeader title="Properties" subtitle="Property intelligence: records, ownership and motivation signals. Demo data is fictional."
         actions={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> New property</Button>} />
+      <PublicRecordsPanel />
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="flex-1 min-w-[220px]"><Input aria-label="Search properties" value={list.q} onChange={(e) => list.setQ(e.target.value)} placeholder="Address, city, ZIP, APN or owner" /></div>
         <Input aria-label="State" className="w-24" maxLength={2} placeholder="State" value={list.filters.state ?? ''} onChange={(e) => list.setFilter('state', e.target.value)} />
