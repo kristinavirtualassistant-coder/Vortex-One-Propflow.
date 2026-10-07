@@ -46,11 +46,11 @@ const poolMax = () => {
   return Number.isInteger(configured) && configured > 0 ? configured : 10;
 };
 
-// On Vercel (serverless) the Supabase transaction pooler is the right endpoint, so prefer it when
-// configured. Everywhere else (local dev, CI, tests) only DATABASE_URL is used, so a stray pooler
-// variable in a developer shell can never redirect tests at a hosted database.
+// DATABASE_URL wins when set (local dev, CI and tests all set it). When it is absent, fall back to the
+// Supabase transaction pooler URL, which is what serverless hosting such as Vercel should use. This does
+// not depend on platform variables like VERCEL, which are only present when the host exposes them.
 const databaseUrlSource = () =>
-  process.env.VERCEL && process.env.SUPABASE_TRANSACTION_POOLER_DATABASE_URL
+  !process.env.DATABASE_URL && process.env.SUPABASE_TRANSACTION_POOLER_DATABASE_URL
     ? 'SUPABASE_TRANSACTION_POOLER_DATABASE_URL'
     : 'DATABASE_URL';
 
