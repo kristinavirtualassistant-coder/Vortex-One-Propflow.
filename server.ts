@@ -740,7 +740,7 @@ export function createApp() {
   });
 
 
-  // Tenant-scoped records for the legacy portals (formerly Firestore collections).
+  // Tenant-scoped records for the legacy portals (legacy portal collections).
   app.use("/api/portal", portalRouter(pool));
 
   // File storage is intentionally not implemented through the database.
