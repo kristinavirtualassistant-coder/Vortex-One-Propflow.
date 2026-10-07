@@ -46,9 +46,17 @@ const poolMax = () => {
   return Number.isInteger(configured) && configured > 0 ? configured : 10;
 };
 
+// On Vercel (serverless) the Supabase transaction pooler is the right endpoint, so prefer it when
+// configured. Everywhere else (local dev, CI, tests) only DATABASE_URL is used, so a stray pooler
+// variable in a developer shell can never redirect tests at a hosted database.
+const databaseUrlSource = () =>
+  process.env.VERCEL && process.env.SUPABASE_TRANSACTION_POOLER_DATABASE_URL
+    ? 'SUPABASE_TRANSACTION_POOLER_DATABASE_URL'
+    : 'DATABASE_URL';
+
 export const createPool = () => {
   if (!global._postgresPool) {
-    const rawConnectionString = process.env.DATABASE_URL;
+    const rawConnectionString = process.env[databaseUrlSource()];
     let connectionString = rawConnectionString ? rawConnectionString.replace(/:\s+/, ':').replace(/\s+@/, '@') : rawConnectionString;
     let loopbackHost = false;
 
@@ -142,10 +150,11 @@ export const pool = new Proxy({} as pg.Pool, {
 });
 
 try {
-  const raw = process.env.DATABASE_URL;
+  const source = databaseUrlSource();
+  const raw = process.env[source];
   const target = raw ? new URL(raw) : null;
   console.log('PostgreSQL runtime target:', {
-    source: raw ? 'DATABASE_URL' : 'SQL_*',
+    source: raw ? source : 'SQL_*',
     host: target?.hostname || process.env.SQL_HOST || null,
     database: target?.pathname?.replace(/^\//, '') || process.env.SQL_DB_NAME || null,
   });
