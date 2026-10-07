@@ -22,7 +22,7 @@ npm run preview      # serve the build on http://localhost:4173
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VITE_APP_URL` | `https://vortex-one-propflow.web.app` | Where sign in, sign up and the live demo live |
+| `VITE_APP_URL` | `https://vortexone-propflow.vercel.app` | Where sign in, sign up and the live demo live |
 
 Legal entity, contact email, year and "last updated" date are in `src/config.ts`.
 

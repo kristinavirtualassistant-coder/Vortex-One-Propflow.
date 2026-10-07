@@ -1,6 +1,6 @@
 /** Public URL of the Vortex One application (sign in, create account, live demo). */
 export const APP_URL: string = (
-  import.meta.env.VITE_APP_URL ?? 'https://vortex-one-propflow.web.app'
+  import.meta.env.VITE_APP_URL ?? 'https://vortexone-propflow.vercel.app'
 ).replace(/\/+$/, '');
 
 export const LEGAL_ENTITY = 'The Remote Account Managers';
