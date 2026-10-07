@@ -261,7 +261,7 @@ export default function VendorDirectory() {
                 onClick={() => setSelectedCategoryFilter(cat)}
                 className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
                   selectedCategoryFilter === cat
-                    ? 'bg-violet-600 text-white font-semibold'
+                    ? 'bg-indigo-600 text-white font-semibold'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
@@ -297,7 +297,7 @@ export default function VendorDirectory() {
                           {vendorServices.map((srv, idx) => (
                             <span
                               key={idx}
-                              className="inline-block bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 text-[11px] font-semibold px-2 py-0.5 rounded"
+                              className="inline-block bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 text-[11px] font-semibold px-2 py-0.5 rounded"
                             >
                               {srv}
                             </span>

@@ -127,7 +127,7 @@ export function LeadDetail() {
           <Button onClick={() => setArchiveOpen(true)}>{archived ? <><RotateCcw className="h-4 w-4" /> Restore</> : <><Archive className="h-4 w-4" /> Archive</>}</Button>
         </>} />
       {error && <ErrorBanner message={error} onRetry={reload} />}
-      {agentResult?.status === 'completed' && <div role="status" className="rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-900 p-3 text-sm text-cyan-900 dark:text-cyan-100">
+      {agentResult?.status === 'completed' && <div role="status" className="rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900 p-3 text-sm text-sky-900 dark:text-sky-100">
         Qualification agent: score {agentResult.output.previousScore} → <b>{agentResult.output.score}</b> ({agentResult.output.classification}). {agentResult.output.reason ?? agentResult.output.factors?.map((f: any) => `${f.label} +${f.points}`).join(', ')}</div>}
       <div className="grid lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">

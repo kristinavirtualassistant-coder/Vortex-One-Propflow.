@@ -25,7 +25,7 @@ export function ActivityTimeline({ items, empty = 'No activity yet' }: { items: 
     <ol className="space-y-3">
       {items.map((a) => (
         <li key={a.id} className="flex gap-3 text-sm">
-          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${a.actorKind === 'workflow' ? 'bg-violet-500' : a.actorKind === 'agent' ? 'bg-cyan-500' : a.actorKind === 'system' ? 'bg-slate-400' : 'bg-indigo-500'}`} aria-hidden="true" />
+          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${a.actorKind === 'workflow' ? 'bg-indigo-500' : a.actorKind === 'agent' ? 'bg-sky-500' : a.actorKind === 'system' ? 'bg-slate-400' : 'bg-indigo-500'}`} aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="text-slate-800 dark:text-slate-200">{a.summary}</p>
             <p className="text-xs text-slate-500" title={fmtDateTime(a.createdAt)}>

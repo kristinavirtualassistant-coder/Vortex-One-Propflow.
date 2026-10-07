@@ -2,32 +2,7 @@ import React from 'react';
 import { Megaphone, Calendar, Users, Info } from 'lucide-react';
 
 export default function CommunityBoard() {
-  const announcements = [
-    {
-      id: 1,
-      title: 'Annual Fire Alarm Testing',
-      date: 'Aug 15, 2026',
-      type: 'alert',
-      message: 'Management will be testing the fire alarm systems on Tuesday, August 15th between 9:00 AM and 11:00 AM. Expect loud noises intermittently. No action is required from tenants.',
-      author: 'Building Management'
-    },
-    {
-      id: 2,
-      title: 'Summer BBQ Party in the Courtyard',
-      date: 'Aug 22, 2026',
-      type: 'event',
-      message: 'Join us for our annual tenant appreciation BBQ! We will provide burgers, hot dogs, and drinks. Feel free to bring a side dish. RSVP by August 18th.',
-      author: 'Community Team'
-    },
-    {
-      id: 3,
-      title: 'New Package Room Procedures',
-      date: 'Sep 1, 2026',
-      type: 'info',
-      message: 'Starting next month, all packages will require a unique PIN code sent to your email to access the new secure lockers in the lobby.',
-      author: 'Building Management'
-    }
-  ];
+  const announcements: { id: number; title: string; date: string; type: string; message: string; author: string }[] = [];
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -70,6 +45,9 @@ export default function CommunityBoard() {
               </div>
             </div>
           ))}
+          {announcements.length === 0 && (
+            <p className="p-6 text-center text-sm text-slate-500">No announcements yet.</p>
+          )}
         </div>
       </div>
     </div>

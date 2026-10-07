@@ -50,14 +50,14 @@ export default function MaintenanceDashboard() {
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(
     userData?.tradeSpecialty ? userData.tradeSpecialty.split(', ').filter(Boolean) : ['General Repairs']
   );
-  const [hourlyRate, setHourlyRate] = useState(userData?.hourlyRate || '$85');
-  const [serviceRadius, setServiceRadius] = useState(userData?.serviceRadius || '25 miles');
+  const [hourlyRate, setHourlyRate] = useState(userData?.hourlyRate || '');
+  const [serviceRadius, setServiceRadius] = useState(userData?.serviceRadius || '');
   const [emergencyDispatch, setEmergencyDispatch] = useState(userData?.emergencyDispatch || 'no');
 
   // Landlord/Manager onboarding fields
   const [companyName, setCompanyName] = useState(userData?.companyName || '');
   const [portfolioSize, setPortfolioSize] = useState(userData?.portfolioSize || '1-5 units');
-  const [managementFee, setManagementFee] = useState(userData?.managementFee || '8%');
+  const [managementFee, setManagementFee] = useState(userData?.managementFee || '');
   const [propertyTypes, setPropertyTypes] = useState(userData?.propertyTypes || 'Residential');
 
   // Tenant onboarding fields
@@ -438,7 +438,7 @@ export default function MaintenanceDashboard() {
           {(userData?.role === 'property_manager' || userData?.role === 'landlord' || userData?.role === 'admin') && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
                   <ClipboardCheck className="h-5 w-5" />
                 </div>
                 <div>
@@ -453,7 +453,7 @@ export default function MaintenanceDashboard() {
                     href={formUrl} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-1 px-2 py-1.5 transition-colors whitespace-nowrap"
+                    className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1 px-2 py-1.5 transition-colors whitespace-nowrap"
                   >
                     <ExternalLink className="w-3.5 h-3.5" /> Live Form
                   </a>
@@ -1085,7 +1085,7 @@ export default function MaintenanceDashboard() {
                           <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 font-medium mt-1">
                             <span>Specialty: {tech.trade_specialty || 'General repairs'}</span>
                             <span className="text-slate-300" aria-hidden="true">·</span>
-                            <span>Rate: {tech.hourly_rate || '$80/hr'}</span>
+                            <span>Rate: {tech.hourly_rate || 'not set'}</span>
                             {tech.service_radius && (
                               <>
                                 <span className="text-slate-300" aria-hidden="true">·</span>

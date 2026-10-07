@@ -8,6 +8,9 @@ export default function PaymentHistoryChart() {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-6">
       <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Payment History (Last 12 Months)</h3>
+      {data.length === 0 ? (
+        <p className="py-16 text-center text-sm text-slate-500">No payments recorded yet.</p>
+      ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -23,6 +26,7 @@ export default function PaymentHistoryChart() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      )}
     </div>
   );
 }

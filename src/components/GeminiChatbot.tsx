@@ -126,7 +126,7 @@ export default function GeminiChatbot() {
           </button>
           <button 
             onClick={() => setChatType('think')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${chatType === 'think' ? 'bg-purple-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors flex items-center gap-1 ${chatType === 'think' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
           >
             <Lightbulb className="h-3 w-3" /> Think
           </button>

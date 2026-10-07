@@ -69,7 +69,7 @@ export default function Agents() {
           {agents.data.agents.map((a: any) => (
             <Card key={a.key}>
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 flex items-center justify-center shrink-0"><Bot className="h-5 w-5" /></div>
+                <div className="h-10 w-10 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 flex items-center justify-center shrink-0"><Bot className="h-5 w-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-slate-900 dark:text-white">{a.name}</div>
                   <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{a.description}</p>

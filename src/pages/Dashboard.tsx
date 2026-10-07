@@ -121,7 +121,7 @@ export default function Dashboard() {
   const activeLabel = sidebarLinks.find(link => link.id === activeTab)?.label ?? (isCrm ? 'Workspace' : 'Overview');
 
   return (
-    <div className="flex h-screen w-full bg-[#f5f7fb] font-sans text-slate-900 overflow-hidden dark:bg-[#070b14] dark:text-slate-100 premium-grid selection:bg-violet-100 selection:text-violet-950 dark:selection:bg-violet-900/50 dark:selection:text-white">
+    <div className="flex h-screen w-full bg-[#f5f7fb] font-sans text-slate-900 overflow-hidden dark:bg-[#070b14] dark:text-slate-100 premium-grid selection:bg-indigo-100 selection:text-indigo-950 dark:selection:bg-indigo-900/50 dark:selection:text-white">
       <Sidebar 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
@@ -159,7 +159,7 @@ export default function Dashboard() {
                 <div className="text-sm font-bold text-slate-800 dark:text-slate-200">{userData.name}</div>
                 <div className="text-xs text-slate-500">{userData.email}</div>
               </div>
-              <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-violet-600 dark:text-violet-300 font-bold">
+              <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold">
                 <UserIcon className="h-4 w-4" />
               </div>
             </button>
@@ -167,7 +167,7 @@ export default function Dashboard() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(124,92,255,.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(33,212,253,.06),transparent_24%)] p-4 sm:p-6 lg:p-7">
+        <div className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,rgba(79,70,229,.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(33,212,253,.06),transparent_24%)] p-4 sm:p-6 lg:p-7">
           <div className="max-w-[1680px] mx-auto animate-slide-in">
             {!isCrm && (
             <div className="flex items-center justify-between gap-4 mb-5">
@@ -179,7 +179,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3 mt-1">
                     <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white truncate">{activeLabel}</h1>
                     {userData.isDemo && (
-                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-300 border border-violet-200/70 dark:border-violet-400/10">
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-400/10">
                         Demo workspace
                       </span>
                     )}
@@ -207,7 +207,7 @@ export default function Dashboard() {
           </div>
           <div className="flex gap-4">
             <span className="hidden sm:inline">Authenticated session</span>
-            <span className="font-bold text-slate-500">PropFlow</span>
+            <span className="font-bold text-slate-500">Operations</span>
           </div>
         </footer>
       </main>
