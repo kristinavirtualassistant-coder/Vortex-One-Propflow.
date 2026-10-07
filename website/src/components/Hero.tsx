@@ -1,5 +1,4 @@
 import { APP_URL } from '../config';
-import { Nav } from './Layout';
 import { Eyebrow, btnPrimary } from './ui';
 
 function VortexMark() {
@@ -13,9 +12,8 @@ function VortexMark() {
 
 export default function Hero() {
   return (
-    <header className="bg-navy px-6 pb-24 text-white">
+    <header className="bg-navy px-6 pb-24 pt-16 text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-16">
-        <Nav />
         <div id="main" className="flex flex-wrap items-center gap-12">
           <div className="flex min-w-0 flex-[1_1_480px] flex-col gap-6">
             <Eyebrow tone="sky">Property intelligence · CRM · dialer</Eyebrow>

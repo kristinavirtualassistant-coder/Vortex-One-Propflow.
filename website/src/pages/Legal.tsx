@@ -20,11 +20,7 @@ export default function Legal() {
 
   return (
     <>
-      <header className="bg-navy px-6">
-        <div className="mx-auto max-w-6xl">
-          <Nav />
-        </div>
-      </header>
+      <Nav />
       <main id="main" className="px-6 pb-24 pt-16">
         <article className="mx-auto flex max-w-3xl flex-col gap-6">
           <div className="flex flex-col gap-2">

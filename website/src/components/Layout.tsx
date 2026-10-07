@@ -3,19 +3,6 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { APP_URL, CONTACT_EMAIL, LEGAL_ENTITY, YEAR } from '../config';
 import { LEGAL_DOCS } from '../content/legal';
 
-export function Logo({ size = 36 }: { size?: number }) {
-  return (
-    <img
-      src="/logo-mark-sm.webp"
-      srcSet="/logo-mark-sm.webp 1x, /logo-mark.webp 2x"
-      width={size}
-      height={Math.round(size * 0.95)}
-      alt=""
-      aria-hidden="true"
-    />
-  );
-}
-
 export function Wordmark() {
   return (
     <span className="text-xl uppercase leading-none tracking-wide text-white">
@@ -24,32 +11,34 @@ export function Wordmark() {
   );
 }
 
-const navLink = 'rounded px-2 py-3 text-sm font-medium text-slate-300 hover:text-white';
+const navLink = 'rounded px-2 py-3 text-sm font-medium text-ink-2 hover:text-ink';
 
+/** Full-width white top bar carrying the horizontal logo in its true colours. */
 export function Nav() {
   const { pathname } = useLocation();
   const home = pathname === '/';
   const anchor = (id: string) => (home ? `#${id}` : `/#${id}`);
   return (
-    <nav aria-label="Main" className="flex flex-wrap items-center justify-between gap-4 py-6">
-      <Link to="/" aria-label="Vortex One home" className="flex min-h-11 items-center gap-3">
-        <Logo />
-        <Wordmark />
-      </Link>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <a className={navLink} href={anchor('platform')}>Platform</a>
-        <a className={navLink} href={anchor('demo')}>Demo</a>
-        <a className={navLink} href={anchor('pricing')}>Pricing</a>
-        <a className={navLink} href={anchor('trust')}>Trust</a>
-        <a className={navLink} href={APP_URL}>Sign in</a>
-        <a
-          href={APP_URL}
-          className="inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-hover"
-        >
-          Start free
-        </a>
-      </div>
-    </nav>
+    <div className="border-b border-line bg-white px-6">
+      <nav aria-label="Main" className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
+        <Link to="/" aria-label="Vortex One home" className="flex min-h-11 items-center">
+          <img src="/logo-horizontal-sm.webp" alt="" width={176} height={40} className="h-10 w-auto" />
+        </Link>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <a className={navLink} href={anchor('platform')}>Platform</a>
+          <a className={navLink} href={anchor('demo')}>Demo</a>
+          <a className={navLink} href={anchor('pricing')}>Pricing</a>
+          <a className={navLink} href={anchor('trust')}>Trust</a>
+          <a className={navLink} href={APP_URL}>Sign in</a>
+          <a
+            href={APP_URL}
+            className="inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-hover"
+          >
+            Start free
+          </a>
+        </div>
+      </nav>
+    </div>
   );
 }
 
