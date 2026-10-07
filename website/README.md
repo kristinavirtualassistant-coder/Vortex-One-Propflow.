@@ -23,6 +23,7 @@ npm run preview      # serve the build on http://localhost:4173
 | Variable | Default | Purpose |
 |---|---|---|
 | `VITE_APP_URL` | `https://vortexone-propflow.vercel.app` | Where sign in, sign up and the live demo live |
+| `VITE_SITE_URL` | `https://vortex-one-website.vercel.app` | This site's public origin, used for the absolute Open Graph image URL (`og-image.jpg`). Set it when the domain changes |
 
 Legal entity, contact email, year and "last updated" date are in `src/config.ts`.
 
@@ -44,5 +45,5 @@ The legal text is a draft and should be reviewed by counsel before launch.
 
 - Confirm `APP_URL` is the production app URL.
 - Logo assets are in `static/` (`logo-mark.webp` and `logo-mark-sm.webp` are the emblem cut out on a transparent background from the supplied artwork, `logo-lockup.webp` is the full lockup on white, plus `favicon.png` and `apple-touch-icon.png`). If you have a vector or transparent master, swap it in for a crisper result.
-- Add a social share image and Open Graph tags once the domain is known.
+- Social sharing: Open Graph and Twitter tags are in `index.html`, and the 1200×630 share image is `static/og-image.jpg`. Because this is a single-page app, every route shares the same tags and image, and `og:url` and canonical are omitted on purpose. Per-page titles would need prerendering. After deploying, refresh cached previews with the platform debuggers (Facebook Sharing Debugger, LinkedIn Post Inspector).
 - Optional: deep links such as `?signup` or `?demo` need support in the app's landing page.
