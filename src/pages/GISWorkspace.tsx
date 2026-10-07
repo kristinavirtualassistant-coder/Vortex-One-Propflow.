@@ -32,7 +32,7 @@ export default function GISWorkspace(){
     {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 p-4">{error}</div>}
     <div className="grid gap-4 md:grid-cols-3">
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"><Layers3 className="h-5 w-5 text-indigo-500"/><div className="mt-3 font-bold">Maps</div><div className="text-2xl font-black mt-1">{maps.length}</div><div className="text-xs text-slate-500 mt-1">Visible from GIS Cloud</div></div>
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"><Database className="h-5 w-5 text-cyan-500"/><div className="mt-3 font-bold">Property intelligence</div><div className="text-sm text-slate-500 mt-1">Designed for parcel, owner and field layers.</div></div>
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"><Database className="h-5 w-5 text-sky-500"/><div className="mt-3 font-bold">Property intelligence</div><div className="text-sm text-slate-500 mt-1">Designed for parcel, owner and field layers.</div></div>
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"><Smartphone className="h-5 w-5 text-emerald-500"/><div className="mt-3 font-bold">Mobile collection</div><div className="text-sm text-slate-500 mt-1">GIS Cloud MDC projects can be surfaced and linked.</div></div>
     </div>
     <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">

@@ -132,7 +132,7 @@ export default function QuickActions() {
         category,
         status: 'pending',
         userId: user?.uid || 'anonymous',
-        userEmail: user?.email || 'tenant@propertyflow.app',
+        userEmail: user?.email || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         source: 'Quick Action FAB'
@@ -208,7 +208,7 @@ export default function QuickActions() {
               category: fileCategory,
               storagePath: uploadTask.snapshot.ref.fullPath,
               uploadedBy: user.uid,
-              userEmail: user.email || 'tenant@propertyflow.app',
+              userEmail: user.email || '',
               createdAt: serverTimestamp(),
             });
 

@@ -3,12 +3,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-primary-50: #f3f0ff;
-  --color-primary-100: #e9e4ff;
-  --color-primary-500: #7357ff;
-  --color-primary-600: #6548f5;
-  --color-primary-700: #5335da;
-  --color-primary-900: #34208f;
+  --color-primary-50: #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+  --color-primary-900: #312e81;
+  --color-navy: #0b1120;
+  --color-sky: #38bdf8;
 }
 
 :root {
@@ -18,8 +20,8 @@
   --app-border: rgba(20, 25, 35, 0.10);
   --app-ink: #111827;
   --app-muted: #667085;
-  --app-accent: #7357ff;
-  --app-accent-2: #0ea5a8;
+  --app-accent: #4f46e5;
+  --app-accent-2: #38bdf8;
   --app-success: #12805c;
   --app-warning: #b7791f;
   --app-danger: #c2413d;
@@ -53,10 +55,10 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 button:active:not(:disabled) { transform: translateY(0); }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  @apply outline-none ring-2 ring-violet-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  @apply outline-none ring-2 ring-indigo-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
 }
 
-::selection { background: rgba(115,87,255,.18); color: inherit; }
+::selection { background: rgba(79,70,229,.18); color: inherit; }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translate3d(0, 10px, 0); }
@@ -85,7 +87,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     background: rgba(100,116,139,.30);
     border-radius: 999px;
   }
-  .app-scroll::-webkit-scrollbar-thumb:hover { background: rgba(115,87,255,.58); }
+  .app-scroll::-webkit-scrollbar-thumb:hover { background: rgba(79,70,229,.58); }
 
   .premium-card {
     @apply rounded-2xl border bg-white dark:bg-slate-900/80;
