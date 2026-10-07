@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, LEGAL_ENTITY, LEGAL_UPDATED } from '../config';
+import { CONTACT_EMAIL, LEGAL_ENTITY, LEGAL_UPDATED, PRIVACY_CONTACT_EMAIL } from '../config';
 
 export interface LegalSection {
   h: string;
@@ -17,6 +17,7 @@ export interface LegalDoc {
 
 const E = LEGAL_ENTITY;
 const MAIL = CONTACT_EMAIL;
+const PRIVACY = PRIVACY_CONTACT_EMAIL;
 
 /*
  * Drafts reflecting how the product works today (simulated dialer, rule-based agents,
@@ -59,11 +60,12 @@ export const LEGAL_DOCS: LegalDoc[] = [
         'Business transfers: if we are involved in a merger, acquisition or asset sale, with notice where required.',
         'With your direction, for example when you connect another tool.',
       ] },
-      { h: 'Retention', p: ['We keep account and workspace data while your account is active and for a reasonable period afterward for legal, accounting and security purposes. You can ask us to delete your workspace data, subject to legal retention requirements.'] },
-      { h: 'Security', p: ['We use access controls, hashed passwords, HTTP-only session cookies, rate limiting, tenant isolation and other safeguards appropriate to the data. No system is perfectly secure, so use a strong, unique password and tell us promptly about suspected unauthorized access.'] },
+      { h: 'Retention', p: ['Active account/workspace data is retained while active. After closure, we intend to delete or irreversibly de-identify it within 90 days, except where a longer period is reasonably necessary for legal, accounting, fraud-prevention, dispute-resolution or security purposes. Do-not-contact suppression records are retained as long as reasonably necessary to honor the request and prevent re-contact. Security logs are generally retained for up to 12 months and backups generally rotate out within 90 days after primary deletion, subject to technical and legal constraints.'] },
+      { h: 'Security and incident response', p: ['We use access controls, hashed passwords, HTTP-only session cookies, rate limiting, tenant isolation and other safeguards appropriate to the service. If a security incident creates a legal obligation to notify affected people, customers, regulators or other parties, we will provide notice as required by applicable law and, where appropriate, without undue delay.'] },
       { h: 'Your choices and rights', p: [`Depending on where you live, you may have the right to access, correct, delete or export your personal information, to object to or restrict certain processing, and to opt out of marketing. Email ${MAIL} to exercise a right. We may need to verify your identity first.`] },
       { h: 'Cookies', p: ['See our Cookie policy.'] },
-      { h: 'Children', p: ['Vortex One is a business tool and is not directed to anyone under 18. We do not knowingly collect information from children.'] },
+      { h: 'California privacy notice', p: ['We do not intend to sell or share personal information for cross-context behavioral advertising from this early-access marketing site. Where Vortex One handles customer workspace data on behalf of a customer, the customer may determine the purposes of that processing and California service-provider/contractor rules may apply. California-specific disclosures will be expanded before any paid or large-scale California data operation where required.'] },
+      { h: 'Children', p: ['Vortex One is a business service and is not directed to children under 18. We do not knowingly collect information from children.'] },
       { h: 'International use', p: ['We may process and store information in countries other than your own. Where required, we use appropriate safeguards for those transfers.'] },
       { h: 'Changes to this policy', p: ['We may update this policy. We will change the date above and, for material changes, notify account holders. If we add live calling, recording or email and SMS sending, we will update this policy before those features launch.'] },
       { h: 'Contact us', p: [`${E} · ${MAIL}`] },
@@ -206,6 +208,46 @@ export const LEGAL_DOCS: LegalDoc[] = [
       ] },
       { h: 'Not a credit or eligibility report', p: ["Vortex One is not a consumer reporting agency. Its data and scores must not be used to decide a person's eligibility for credit, insurance, employment, housing or any other purpose covered by consumer reporting laws."] },
       { h: 'Contact', p: [`${E} · ${MAIL}`] },
+    ],
+  },
+  {
+    slug: 'dpa',
+    navLabel: 'Data processing addendum',
+    title: 'Data processing addendum',
+    updated: LEGAL_UPDATED,
+    intro: 'Baseline processor/service-provider terms for customer-controlled personal data.',
+    sections: [
+      { h: 'Scope and roles', p: [`This DPA applies when a customer uses Vortex One to process personal data on the customer’s behalf. For customer-controlled data, the customer is generally the controller/business and ${E} is the processor/service provider. For account administration, security, legal compliance and similar purposes, ${E} may act as an independent controller/business.`] },
+      { h: 'Processing instructions', p: ['We will process customer-controlled personal data only to provide, secure, maintain and support Vortex One, follow documented customer instructions, and comply with law. The customer is responsible for the legality of its instructions, notices and permissions.'] },
+      { h: 'Subprocessors', p: ['We may use subprocessors necessary to provide the service, subject to contractual protections. We will maintain a list of material subprocessors and provide notice of material additions or replacements where required by applicable law or agreement.'] },
+      { h: 'Security and incidents', p: ['We maintain reasonable technical and organizational safeguards appropriate to the service. We will notify customers of confirmed personal-data security incidents affecting customer-controlled data as required by applicable law or agreement.'] },
+      { h: 'Requests, deletion and transfers', p: ['Where we receive a request relating to customer-controlled data, we will reasonably assist the customer, subject to verification and legal restrictions. On termination or request, we will delete or return data subject to legal holds and backup cycles. Where cross-border transfer restrictions apply, the parties will use legally recognized safeguards.'] },
+      { h: 'Contact', p: [`${E} · ${PRIVACY}`] },
+    ],
+  },
+  {
+    slug: 'subprocessors',
+    navLabel: 'Subprocessors',
+    title: 'Subprocessors',
+    updated: LEGAL_UPDATED,
+    intro: 'Material third-party providers that may process information for Vortex One.',
+    sections: [
+      { h: 'Early-access disclosure', p: ['Vortex One may use hosting, authentication, database, AI-model and integration providers to operate the service. Before commercial launch or material expansion of processing, this page will identify each material provider, its purpose, categories of data processed and relevant processing location.'] },
+      { h: 'Customer notice', p: ['Where a contract or law requires notice of a material subprocessor change, we will provide that notice through the service, this page or another agreed channel.'] },
+      { h: 'Contact', p: [`Questions about subprocessors: ${PRIVACY}.`] },
+    ],
+  },
+  {
+    slug: 'security',
+    navLabel: 'Security and privacy',
+    title: 'Security and privacy',
+    updated: LEGAL_UPDATED,
+    sections: [
+      { h: 'Security approach', p: ['Vortex One uses layered controls intended to protect account and workspace data, including authentication safeguards, HTTP-only sessions, access controls, tenant isolation, rate limiting, logging and security monitoring.'] },
+      { h: 'Data minimization', p: ['Customers should avoid uploading sensitive information that is not needed for a legitimate business purpose.'] },
+      { h: 'Incident response', p: ['Security incidents are investigated and contained using operational procedures. Where notification is legally required, affected parties will be informed as required by law.'] },
+      { h: 'Vulnerability reporting', p: [`Report suspected vulnerabilities or security issues to ${PRIVACY}. Do not include passwords, authentication tokens or unnecessary personal data.`] },
+      { h: 'Contact', p: [`${E} · ${PRIVACY}`] },
     ],
   },
   {
