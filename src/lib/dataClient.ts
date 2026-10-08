@@ -1,200 +1,153 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { 
-  getFirestore, 
-  collection as firestoreCollection, 
-  doc as firestoreDoc, 
-  query as firestoreQuery, 
-  orderBy as firestoreOrderBy, 
-  limit as firestoreLimit, 
-  where as firestoreWhere, 
-  getDocs as firestoreGetDocs, 
-  getDoc as firestoreGetDoc, 
-  onSnapshot as firestoreOnSnapshot, 
-  addDoc as firestoreAddDoc, 
-  updateDoc as firestoreUpdateDoc, 
-  deleteDoc as firestoreDeleteDoc,
-  serverTimestamp as firestoreServerTimestamp
-} from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+// Client for the tenant-scoped portal records API (/api/portal/:collection).
+// Exposes the small document-style surface the legacy portal components were written against.
 
-// Initialize Firebase SDK
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId || 'ai-studio-propflow-e7772a74-4cce-4f55-8de0-069d13286eb6');
-export const auth = getAuth(app);
-
-// Secure rules error diagnostic throwing as required by instructions
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  };
-}
-
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
-// Compatibility adapters to seamlessly translate the legacy query format to Firestore
 type Constraint = { type: 'orderBy' | 'limit' | 'where'; field?: string; direction?: 'asc' | 'desc'; value?: unknown };
-type QueryRef = { collection: string; constraints?: Constraint[] };
+type CollectionRef = { collection: string };
+type DocRef = { collection: string; id: string };
+type QueryRef = CollectionRef & { constraints?: Constraint[] };
 
-export const collection = (_db: unknown, name: string) => ({ collection: name });
-export const doc = (_db: unknown, name: string, id: string) => ({ collection: name, id });
-export const query = (ref: any, ...constraints: Constraint[]) => ({ ...ref, constraints });
+const POLL_INTERVAL_MS = 5000;
+const TIMESTAMP_FIELDS = ['createdAt', 'updatedAt'];
+const SERVER_TIMESTAMP = Symbol('serverTimestamp');
+
+/** Placeholder the server replaces; timestamps are always assigned server-side. */
+export const serverTimestamp = () => SERVER_TIMESTAMP;
+
+export const db = {};
+export const collection = (_db: unknown, name: string): CollectionRef => ({ collection: name });
+export const doc = (_db: unknown, name: string, id: string): DocRef => ({ collection: name, id });
+export const query = (ref: CollectionRef, ...constraints: Constraint[]): QueryRef => ({ ...ref, constraints });
 export const orderBy = (field: string, direction: 'asc' | 'desc' = 'asc'): Constraint => ({ type: 'orderBy', field, direction });
 export const limit = (value: number): Constraint => ({ type: 'limit', value });
 export const where = (field: string, _operator: '==' = '==', value?: unknown): Constraint => ({ type: 'where', field, value });
-export const serverTimestamp = () => firestoreServerTimestamp();
 
-const buildFirestoreQuery = (ref: QueryRef) => {
-  const colRef = firestoreCollection(db, ref.collection);
-  const queryConstraints: any[] = [];
-  for (const c of ref.constraints || []) {
-    if (c.type === 'orderBy' && c.field) {
-      queryConstraints.push(firestoreOrderBy(c.field, c.direction || 'asc'));
-    }
-    if (c.type === 'limit' && c.value != null) {
-      queryConstraints.push(firestoreLimit(Number(c.value)));
-    }
-    if (c.type === 'where' && c.field) {
-      queryConstraints.push(firestoreWhere(c.field, '==', c.value));
+type RawRecord = Record<string, any> & { id: string };
+
+// Components call `createdAt.toDate()`; wrap server ISO strings so that keeps working.
+const withDates = (record: RawRecord): RawRecord => {
+  const out: RawRecord = { ...record };
+  for (const field of TIMESTAMP_FIELDS) {
+    const value = out[field];
+    if (typeof value === 'string') {
+      const date = new Date(value);
+      out[field] = { toDate: () => date, toMillis: () => date.getTime(), seconds: Math.floor(date.getTime() / 1000) };
     }
   }
-  return firestoreQuery(colRef, ...queryConstraints);
+  return out;
+};
+
+const toSnapshot = (records: RawRecord[]) => {
+  const docs = records.map((record) => {
+    const data = withDates(record);
+    const { id, ...rest } = data;
+    return { id, data: () => rest };
+  });
+  return { docs, metadata: { hasPendingWrites: false }, forEach: (callback: (d: (typeof docs)[number]) => void) => docs.forEach(callback) };
+};
+
+// createdAt/updatedAt are assigned by the server, so they are dropped; any other field that used
+// serverTimestamp() (e.g. lastTriggered) is stored with the current time.
+const resolveSentinels = (data: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(data)
+      .filter(([key, value]) => !(value === SERVER_TIMESTAMP && TIMESTAMP_FIELDS.includes(key)))
+      .map(([key, value]) => [key, value === SERVER_TIMESTAMP ? new Date().toISOString() : value]),
+  );
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`/api/portal/${path}`, {
+    method,
+    credentials: 'include',
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    const error = new Error(detail?.error || `Request failed (${response.status})`);
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
+  }
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+}
+
+const queryString = (ref: QueryRef) => {
+  const params = new URLSearchParams();
+  for (const constraint of ref.constraints || []) {
+    if (constraint.type === 'orderBy' && constraint.field) {
+      params.set('orderBy', constraint.field);
+      params.set('direction', constraint.direction || 'asc');
+    } else if (constraint.type === 'limit' && constraint.value != null) {
+      params.set('limit', String(constraint.value));
+    } else if (constraint.type === 'where' && constraint.field) {
+      params.set(`where.${constraint.field}`, String(constraint.value));
+    }
+  }
+  const text = params.toString();
+  return text ? `?${text}` : '';
 };
 
 export const getDocs = async (ref: QueryRef) => {
-  try {
-    const q = buildFirestoreQuery(ref);
-    const snapshot = await firestoreGetDocs(q);
-    const docs = snapshot.docs.map(d => ({ id: d.id, data: () => d.data() }));
-    return {
-      docs,
-      metadata: { hasPendingWrites: snapshot.metadata.hasPendingWrites },
-      forEach: (callback: any) => docs.forEach(callback)
-    };
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, ref.collection);
-  }
+  const { records } = await request<{ records: RawRecord[] }>('GET', `${ref.collection}${queryString(ref)}`);
+  return toSnapshot(records);
 };
 
+/** Polls the API; pauses while the tab is hidden. Returns an unsubscribe function. */
 export const onSnapshot = (
   ref: QueryRef,
   optionsOrCallback: any,
   callbackOrOnError?: any,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
 ) => {
   const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : callbackOrOnError;
   const errHandler = typeof optionsOrCallback === 'function' ? callbackOrOnError : onError;
+  let active = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
-  try {
-    const q = buildFirestoreQuery(ref);
-    return firestoreOnSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, data: () => d.data() }));
-      const snap = {
-        docs,
-        metadata: { hasPendingWrites: snapshot.metadata.hasPendingWrites },
-        forEach: (cb: any) => docs.forEach(cb)
-      };
-      if (callback) callback(snap);
-    }, (error) => {
-      if (errHandler) {
-        errHandler(error);
-      } else {
-        handleFirestoreError(error, OperationType.GET, ref.collection);
+  const tick = async () => {
+    if (!active) return;
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') {
+      try {
+        const snapshot = await getDocs(ref);
+        if (active && callback) callback(snapshot);
+      } catch (error) {
+        if (active && errHandler) errHandler(error as Error);
+        else if (active) console.error('Portal data error:', error);
       }
-    });
-  } catch (error) {
-    if (errHandler) {
-      errHandler(error as Error);
-    } else {
-      handleFirestoreError(error, OperationType.GET, ref.collection);
     }
-    return () => {};
-  }
+    if (active) timer = setTimeout(tick, POLL_INTERVAL_MS);
+  };
+  void tick();
+
+  return () => {
+    active = false;
+    if (timer) clearTimeout(timer);
+  };
 };
 
-export const addDoc = async (ref: { collection: string }, data: Record<string, any>) => {
-  try {
-    const colRef = firestoreCollection(db, ref.collection);
-    return await firestoreAddDoc(colRef, {
-      ...data,
-      createdAt: data.createdAt || firestoreServerTimestamp()
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, ref.collection);
-  }
+export const addDoc = async (ref: CollectionRef, data: Record<string, any>) => {
+  const { record } = await request<{ record: RawRecord }>('POST', ref.collection, resolveSentinels(data));
+  return { id: record.id };
 };
 
-export const updateDoc = async (ref: { collection: string; id: string }, data: Record<string, any>) => {
-  try {
-    const docRef = firestoreDoc(db, ref.collection, ref.id);
-    await firestoreUpdateDoc(docRef, {
-      ...data,
-      updatedAt: firestoreServerTimestamp()
-    });
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `${ref.collection}/${ref.id}`);
-  }
+export const updateDoc = async (ref: DocRef, data: Record<string, any>) => {
+  await request('PATCH', `${ref.collection}/${encodeURIComponent(ref.id)}`, resolveSentinels(data));
 };
 
-export const deleteDoc = async (ref: { collection: string; id: string }) => {
-  try {
-    const docRef = firestoreDoc(db, ref.collection, ref.id);
-    await firestoreDeleteDoc(docRef);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `${ref.collection}/${ref.id}`);
-  }
+export const deleteDoc = async (ref: DocRef) => {
+  await request('DELETE', `${ref.collection}/${encodeURIComponent(ref.id)}`);
 };
 
-export const getDoc = async (ref: { collection: string; id: string }) => {
+export const getDoc = async (ref: DocRef) => {
   try {
-    const docRef = firestoreDoc(db, ref.collection, ref.id);
-    const docSnap = await firestoreGetDoc(docRef);
-    return {
-      exists: () => docSnap.exists(),
-      id: docSnap.id,
-      data: () => docSnap.data() || {}
-    };
+    const { record } = await request<{ record: RawRecord }>('GET', `${ref.collection}/${encodeURIComponent(ref.id)}`);
+    const { id, ...rest } = withDates(record);
+    return { exists: () => true, id, data: () => rest };
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, `${ref.collection}/${ref.id}`);
+    // Only a 404 means "no such document"; auth, server and network failures must surface.
+    if ((error as { status?: number }).status === 404) {
+      return { exists: () => false, id: ref.id, data: () => ({}) };
+    }
+    throw error;
   }
 };
 

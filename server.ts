@@ -11,6 +11,7 @@ import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { apiRouter } from "./src/server/index.js";
 import { blockInDemo, startDemoSession } from "./src/server/demo.js";
 import { permissionsFor } from "./src/server/core.js";
+import { portalRouter } from "./src/server/portal.js";
 import { z } from "zod";
 import { type AuthRequest, clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
@@ -166,7 +167,7 @@ export function createApp() {
   const PORT = 3000;
 
   app.disable('x-powered-by');
-  // Behind Firebase Hosting / Cloud Functions the client IP comes from X-Forwarded-For.
+  // Behind a reverse proxy (Vercel, Cloudflare, Render) the client IP comes from X-Forwarded-For.
   // Set TRUST_PROXY_HOPS to the number of trusted proxies in front of the app (default 1).
   app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
 
@@ -175,7 +176,7 @@ export function createApp() {
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-    if (process.env.NODE_ENV === "production" || process.env.FIREBASE_CONFIG) {
+    if (process.env.NODE_ENV === "production") {
       res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     }
     next();
@@ -739,6 +740,9 @@ export function createApp() {
   });
 
 
+  // Tenant-scoped records for the legacy portals (legacy portal collections).
+  app.use("/api/portal", portalRouter(pool));
+
   // File storage is intentionally not implemented through the database.
   // The canonical platform uses Supabase Storage with its own RLS policies.
   app.post("/api/storage", requireAuth, async (_req, res) => {
@@ -964,7 +968,7 @@ const isDirectRun = process.argv[1] && (
   process.argv[1] === "server.cjs"
 );
 
-if (!process.env.FIREBASE_CONFIG && isDirectRun) {
+if (isDirectRun) {
   const start = async () => {
     try {
       await ensureDatabaseReady();

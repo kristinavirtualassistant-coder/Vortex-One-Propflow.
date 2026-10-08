@@ -68,7 +68,7 @@ export default function RecurringUpkeep() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
 
-  // Load schedules from firestore
+  // Load schedules
   useEffect(() => {
     const q = query(
       collection(db, 'recurring_upkeep_schedules'),
@@ -213,7 +213,7 @@ export default function RecurringUpkeep() {
       // 2. Calculate next calendar date
       const nextRunDate = calculateNextDate(schedule.nextOccurrence, schedule.frequency);
 
-      // 3. Update the schedule meta in Firestore
+      // 3. Update the schedule meta in the portal store
       await updateDoc(doc(db, 'recurring_upkeep_schedules', schedule.id), {
         nextOccurrence: nextRunDate,
         lastTriggered: serverTimestamp()

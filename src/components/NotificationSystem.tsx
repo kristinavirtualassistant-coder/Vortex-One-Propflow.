@@ -116,7 +116,7 @@ export default function NotificationSystem() {
         prevRequestsRef.current[id] = req.status;
       });
     }, (error) => {
-      console.warn('Notification system Firestore subscription error:', error);
+      console.warn('Notification subscription error:', error);
     });
 
     return () => unsubscribe();

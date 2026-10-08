@@ -5,6 +5,7 @@ import { evaluateCondition, evaluateConditions, interpolate, actionSchema, condi
 import { canTransition, isTerminal, simulatedPlan, getTelephony, simulatedProvider } from '../src/server/dialer.ts';
 import { CAMPAIGN_TRANSITIONS } from '../src/server/campaigns.ts';
 import { can, permissionsFor } from '../src/server/core.ts';
+import { accessFor } from '../src/server/portal.ts';
 
 test('scoring: factors add up, are capped and classified', () => {
   const none = scoreProperty({});
@@ -81,4 +82,15 @@ test('rbac matrix', () => {
   assert.ok(can('landlord', 'crm:read') && !can('landlord', 'crm:write'));
   assert.deepEqual(permissionsFor('tenant'), []);
   assert.deepEqual(permissionsFor('unknown-role'), []);
+});
+
+test('portal access: staff by CRM permission, tenants only their own maintenance requests', () => {
+  assert.deepEqual(accessFor('property_manager', 'vendors', 'delete'), { ownOnly: false });
+  assert.deepEqual(accessFor('landlord', 'vendors', 'read'), { ownOnly: false });
+  assert.equal(accessFor('landlord', 'vendors', 'write'), null);
+  assert.deepEqual(accessFor('tenant', 'maintenance_requests', 'read'), { ownOnly: true });
+  assert.deepEqual(accessFor('technician', 'maintenance_requests', 'write'), { ownOnly: true });
+  assert.equal(accessFor('tenant', 'maintenance_requests', 'delete'), null);
+  assert.equal(accessFor('tenant', 'lease_documents', 'read'), null);
+  assert.equal(accessFor('unknown-role', 'vendors', 'read'), null);
 });

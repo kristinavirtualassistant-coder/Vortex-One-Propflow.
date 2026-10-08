@@ -68,11 +68,11 @@ Details, data ownership, the permission matrix and the API list are in [docs/ARC
 | Gemini assistant (`/api/gemini/chat`) | Real when `GEMINI_API_KEY` is set; blocked in demo mode |
 | GIS Cloud sync | Real only with the Supabase Edge Function deployed and its secrets set; blocked in demo mode |
 | Password reset / email verification | **Not implemented** (needs an email provider) |
-| Tenant & technician portals | Legacy, Firestore-backed UI from before the Postgres migration; **not verified** (see docs/REPOSITORY_CLEANUP.md) |
+| Tenant & technician portals | Legacy UI backed by PostgreSQL `portal_records` via `/api/portal/*`; **not verified** (see docs/REPOSITORY_CLEANUP.md) |
 
 ## Configuration
 
-Copy `.env.example`. Required in production: `DATABASE_URL`, `APP_URL`, `AUTH_SESSION_PEPPER`/`SOCIAL_AUTH_PEPPER` (OAuth state signing). Optional: `GEMINI_API_KEY`, OAuth client ids/secrets, 3Min secrets, GIS Cloud settings, `DEMO_MODE_ENABLED` (default `true`), `TRUST_PROXY_HOPS`. Secrets are server-side only; nothing but `firebase-applet-config.json` (public web config used by the legacy portals) ships to the browser.
+Copy `.env.example`. Required in production: `DATABASE_URL`, `APP_URL`, `AUTH_SESSION_PEPPER`/`SOCIAL_AUTH_PEPPER` (OAuth state signing). Optional: `GEMINI_API_KEY`, OAuth client ids/secrets, 3Min secrets, GIS Cloud settings, `DEMO_MODE_ENABLED` (default `true`), `TRUST_PROXY_HOPS`. Secrets are server-side only.
 
 ## Database
 
@@ -80,7 +80,7 @@ The app verifies required tables at startup and never runs DDL at runtime. **App
 
 ## Deployment
 
-Firebase Hosting (static `public/`) + Firebase Function `api` (`functions/`) in front of Supabase PostgreSQL — see `docs/FIREBASE_DEPLOYMENT.md`. `server.ts` also runs standalone (`npm run build && npm start`).
+Vercel (static `public/` + serverless Express API `api/index.ts`) in front of Supabase PostgreSQL — see `docs/VERCEL_DEPLOYMENT.md`. `server.ts` also runs standalone (`npm run build && npm start`).
 
 ## Security notes
 

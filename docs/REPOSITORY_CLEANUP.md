@@ -65,10 +65,9 @@ Applied evidence-based fixes without changing the database or authentication arc
 
 ## Deployment architecture — 2026-09-30
 
-- Vercel deployment configuration and repository references are intentionally not part of the active deployment architecture.
-- Firebase Hosting and Firebase Functions are the repository deployment path.
+- Vercel (serverless Express API + static frontend) is the repository deployment path; see `docs/VERCEL_DEPLOYMENT.md`.
 - Supabase PostgreSQL remains the production application database.
-- Deployment credentials must remain in GitHub/Firebase secret storage and must not be committed to the repository.
+- Deployment credentials must remain in GitHub and Vercel secret storage and must not be committed to the repository.
 
 
 ## Audit and build-out — 2026-10-05
@@ -91,4 +90,4 @@ Findings and what was done:
 
 Removed files were verified unreachable from the application entry points; git history retains them.
 
-Still open (not addressed here): see "Known limitations" in `docs/ARCHITECTURE.md`; the legacy tenant/technician portals still depend on Firestore and were not re-verified; `db/migrations/*` remains an unreconciled older schema generation.
+Still open (not addressed here): see "Known limitations" in `docs/ARCHITECTURE.md`; the legacy tenant/technician portals now read and write PostgreSQL (`portal_records`) and were not re-verified; `db/migrations/*` remains an unreconciled older schema generation.
