@@ -1,6 +1,6 @@
 {
-  "name": "Propflow.",
-  "description": "An all-in-one property management platform featuring maintenance tracking, role-based portals, and real-time analytics.",
+  "name": "Vortex One",
+  "description": "Real-estate operations platform: CRM, dialer, campaigns, property and owner intelligence, workflows and AI agents.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

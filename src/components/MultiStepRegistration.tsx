@@ -89,12 +89,12 @@ export default function MultiStepRegistration({ onSuccess, onCancel }: MultiStep
 
     // Property Manager exclusive
     propertyTypes: 'Residential',
-    managementFee: '8%',
+    managementFee: '',
 
     // Technician exclusive
     tradeSpecialty: 'Plumbing',
-    hourlyRate: '$75',
-    serviceRadius: '15 miles',
+    hourlyRate: '',
+    serviceRadius: '',
     emergencyDispatch: 'no'
   });
 

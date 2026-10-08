@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Archive, ArrowLeft, Bot, Database, Plus, RotateCcw, Search, Target } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { api, errorMessage } from './api';
 import { fullName, money, num, titleCase } from './format';
 import { ActivityTimeline, CallsTable, Facts, NotesPanel, RecordLink, Section, TasksPanel } from './shared';
@@ -145,7 +146,7 @@ function PublicRecordsPanel() {
   };
 
   return (
-    <div className="mb-5 rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/20 p-4">
+    <div className="mb-5 rounded-2xl border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/20 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-semibold"><Database className="h-4 w-4" /> California public records</div>
@@ -192,6 +193,7 @@ function PublicRecordsPanel() {
 
 export default function Properties() {
   const nav = useNavigate();
+  const { isDemoMode } = useAuth();
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const list = useList<any>('properties', { archived: showArchived ? 'true' : undefined });
@@ -208,7 +210,7 @@ export default function Properties() {
 
   return (
     <div>
-      <PageHeader title="Properties" subtitle="Property intelligence: records, ownership and motivation signals. Demo data is fictional."
+      <PageHeader title="Properties" subtitle={isDemoMode ? "Property intelligence: records, ownership and motivation signals. Demo data is fictional." : "Property intelligence: records, ownership and motivation signals."}
         actions={<Button variant="primary" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> New property</Button>} />
       <PublicRecordsPanel />
       <div className="flex flex-wrap gap-3 mb-4">
@@ -269,7 +271,7 @@ export function PropertyDetail() {
           <Button onClick={() => setArchiveOpen(true)}>{archived ? <><RotateCcw className="h-4 w-4" /> Restore</> : <><Archive className="h-4 w-4" /> Archive</>}</Button>
         </>} />
       {error && <ErrorBanner message={error} onRetry={reload} />}
-      {brief && <div role="status" className="rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-900 p-4 text-sm text-cyan-900 dark:text-cyan-100 space-y-2">
+      {brief && <div role="status" className="rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900 p-4 text-sm text-sky-900 dark:text-sky-100 space-y-2">
         <p>{brief.summary}</p>{brief.dataGaps.length > 0 && <p><b>Data gaps:</b> {brief.dataGaps.join('; ')}.</p>}<p className="text-xs opacity-70">Rule-based summary of stored records (no external model). Score {brief.score} ({brief.classification}).</p></div>}
       <div className="grid lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">

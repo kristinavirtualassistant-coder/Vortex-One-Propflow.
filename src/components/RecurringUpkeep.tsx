@@ -204,7 +204,7 @@ export default function RecurringUpkeep() {
         status: 'pending',
         assignedTo: schedule.assignedVendor,
         userId: user?.uid || 'system',
-        userEmail: user?.email || 'landlord@propertyflow.app',
+        userEmail: user?.email || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         source: 'Automated Upkeep Engine'

@@ -22,7 +22,7 @@ export default function CommandCenter() {
   return (
     <div className="space-y-5">
       <PageHeader title="Command Center" subtitle="Live view of your pipeline, outreach and automation." />
-      {isDemo && <div role="note" className="rounded-2xl border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/40 px-4 py-3 text-sm text-violet-900 dark:text-violet-100">
+      {isDemo && <div role="note" className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/40 px-4 py-3 text-sm text-indigo-900 dark:text-indigo-100">
         <b>Demo workspace.</b> Everything here is fictional and fully interactive. Calls are simulated. Use <button type="button" className="underline font-semibold" onClick={() => nav('/dashboard/team')}>Team & workspace → Reset demo data</button> to start over.</div>}
       {error && <ErrorBanner message={error} onRetry={reload} />}
       {empty && <Card><EmptyState title="Your workspace is empty" hint="Add your first property or contact to see metrics here." action={<div className="flex gap-2"><Button variant="primary" onClick={() => nav('/dashboard/properties')}>Add a property</Button><Button onClick={() => nav('/dashboard/contacts')}>Add a contact</Button></div>} /></Card>}

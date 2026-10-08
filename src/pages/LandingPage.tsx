@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, CheckCircle2, Menu, X, Moon, Sun, ArrowRight, Loader2 } from 'lucide-react';
+import logo from '../assets/logo-horizontal.webp';
+import { CheckCircle2, Menu, X, Moon, Sun, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth, UserRole } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import MultiStepRegistration from '../components/MultiStepRegistration';
@@ -90,16 +91,12 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-40 border-b border-white/50 dark:border-white/10 bg-white/70 dark:bg-slate-950/70 backdrop-blur-2xl shadow-[0_12px_40px_rgba(15,23,42,.06)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative overflow-hidden bg-gradient-to-br from-violet-500 via-indigo-500 to-cyan-400 p-2.5 rounded-2xl text-white shadow-[0_12px_35px_rgba(124,92,255,.28)] premium-shimmer"><Building2 className="h-6 w-6" /></div>
-            <div>
-              <div className="font-extrabold tracking-tight">Vortex One PropFlow</div>
-              <div className="text-[10px] text-slate-500">Property operations platform</div>
-            </div>
+            <img src={logo} alt="Vortex One" width={176} height={40} className="h-10 w-auto dark:brightness-0 dark:invert" />
           </div>
           <div className="hidden md:flex items-center gap-5">
             <a href="#capabilities" className="text-sm font-medium hover:text-primary-600">Capabilities</a>
             <button onClick={toggleTheme} className="p-2 rounded-lg text-slate-500" aria-label="Toggle theme">{isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
-            <button onClick={handleDemo} disabled={demoLoading} className="text-sm font-semibold px-3 py-2 text-violet-700 dark:text-violet-300 disabled:opacity-50">{demoLoading ? 'Starting demo…' : 'Try the demo'}</button>
+            <button onClick={handleDemo} disabled={demoLoading} className="text-sm font-semibold px-3 py-2 text-indigo-700 dark:text-indigo-300 disabled:opacity-50">{demoLoading ? 'Starting demo…' : 'Try the demo'}</button>
             <button onClick={openLogin} className="text-sm font-semibold px-3 py-2">Log In</button>
             <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="bg-primary-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">Create Account</button>
           </div>
@@ -118,12 +115,12 @@ export default function LandingPage() {
       </nav>
       <main>
         <section className="relative max-w-6xl mx-auto px-4 py-28 sm:py-32 text-center animate-float-in">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-200/60 dark:border-violet-400/10 bg-white/70 dark:bg-white/[.04] text-violet-700 dark:text-violet-200 text-xs font-bold shadow-sm backdrop-blur">Vortex One</div>
-          <h1 className="mt-7 text-5xl sm:text-7xl font-black tracking-[-.04em] leading-[.98] bg-gradient-to-r from-slate-950 via-violet-700 to-cyan-600 dark:from-white dark:via-violet-200 dark:to-cyan-200 bg-clip-text text-transparent">One platform for modern property operations.</h1>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-200/60 dark:border-indigo-400/10 bg-white/70 dark:bg-white/[.04] text-indigo-700 dark:text-indigo-200 text-xs font-bold shadow-sm backdrop-blur">Vortex One</div>
+          <h1 className="mt-7 text-5xl sm:text-7xl font-black tracking-[-.04em] leading-[.98] bg-gradient-to-r from-slate-950 via-indigo-700 to-sky-600 dark:from-white dark:via-indigo-200 dark:to-sky-200 bg-clip-text text-transparent">One platform for modern property operations.</h1>
           <p className="mt-7 text-lg sm:text-xl leading-8 text-slate-600 dark:text-slate-400 max-w-3xl mx-auto">CRM, dialer, campaigns, property and owner intelligence, workflows and AI agents in one connected workspace.</p>
           <div className="mt-9 flex flex-col sm:flex-row justify-center gap-4">
-            <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="group inline-flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-7 py-3.5 rounded-2xl font-bold shadow-[0_16px_35px_rgba(109,74,255,.28)] hover:shadow-[0_20px_45px_rgba(109,74,255,.36)]">Create your account <ArrowRight className="h-4 w-4" /></button>
-            <button onClick={handleDemo} disabled={demoLoading} className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl border border-violet-300 dark:border-violet-400/30 bg-white/60 dark:bg-white/[.04] font-semibold text-violet-700 dark:text-violet-200 backdrop-blur hover:bg-white/90 dark:hover:bg-white/[.08] disabled:opacity-60">{demoLoading && <Loader2 className="h-4 w-4 animate-spin" />}{demoLoading ? 'Preparing your demo…' : 'Try the live demo'}</button>
+            <button onClick={() => { setIsSignupOpen(true); resetError(); }} className="group inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-600 text-white px-7 py-3.5 rounded-2xl font-bold shadow-[0_16px_35px_rgba(79,70,229,.28)] hover:shadow-[0_20px_45px_rgba(79,70,229,.36)]">Create your account <ArrowRight className="h-4 w-4" /></button>
+            <button onClick={handleDemo} disabled={demoLoading} className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-2xl border border-indigo-300 dark:border-indigo-400/30 bg-white/60 dark:bg-white/[.04] font-semibold text-indigo-700 dark:text-indigo-200 backdrop-blur hover:bg-white/90 dark:hover:bg-white/[.08] disabled:opacity-60">{demoLoading && <Loader2 className="h-4 w-4 animate-spin" />}{demoLoading ? 'Preparing your demo…' : 'Try the live demo'}</button>
             <button onClick={openLogin} className="px-7 py-3.5 rounded-2xl border border-slate-300/80 dark:border-white/10 bg-white/60 dark:bg-white/[.04] font-semibold backdrop-blur hover:bg-white/90 dark:hover:bg-white/[.08]">Sign in</button>
           </div>
           {demoError && <p role="alert" className="mt-4 text-sm font-medium text-red-600">{demoError}</p>}
@@ -152,7 +149,7 @@ export default function LandingPage() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-7 max-w-md w-full relative border border-slate-100 dark:border-slate-800 shadow-2xl">
             <button onClick={() => setIsLoginOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" aria-label="Close"><X /></button>
             <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Sign In</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Use your Vortex One PropFlow credentials to log in.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Use your Vortex One credentials to log in.</p>
             {authError && <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm font-medium">{authError}</div>}
             
             <form onSubmit={handleEmailLogin} className="space-y-3 mt-4">

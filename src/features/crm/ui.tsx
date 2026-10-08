@@ -102,7 +102,7 @@ const TONES: Record<string, string> = {
   red: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
   amber: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
   blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  violet: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300',
+  violet: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
 };
 export function Badge({ children, tone = 'slate' }: { children: React.ReactNode; tone?: keyof typeof TONES }) {
   return <span className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', TONES[tone])}>{children}</span>;

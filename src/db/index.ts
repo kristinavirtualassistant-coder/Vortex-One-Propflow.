@@ -46,9 +46,17 @@ const poolMax = () => {
   return Number.isInteger(configured) && configured > 0 ? configured : 10;
 };
 
+// DATABASE_URL wins when set (local dev, CI and tests all set it). When it is absent, fall back to the
+// Supabase transaction pooler URL, which is what serverless hosting such as Vercel should use. This does
+// not depend on platform variables like VERCEL, which are only present when the host exposes them.
+const databaseUrlSource = () =>
+  !process.env.DATABASE_URL && process.env.SUPABASE_TRANSACTION_POOLER_DATABASE_URL
+    ? 'SUPABASE_TRANSACTION_POOLER_DATABASE_URL'
+    : 'DATABASE_URL';
+
 export const createPool = () => {
   if (!global._postgresPool) {
-    const rawConnectionString = process.env.DATABASE_URL;
+    const rawConnectionString = process.env[databaseUrlSource()];
     let connectionString = rawConnectionString ? rawConnectionString.replace(/:\s+/, ':').replace(/\s+@/, '@') : rawConnectionString;
     let loopbackHost = false;
 
@@ -134,10 +142,11 @@ export const pool = new Proxy({} as pg.Pool, {
 });
 
 try {
-  const raw = process.env.DATABASE_URL;
+  const source = databaseUrlSource();
+  const raw = process.env[source];
   const target = raw ? new URL(raw) : null;
   console.log('PostgreSQL runtime target:', {
-    source: raw ? 'DATABASE_URL' : 'SQL_*',
+    source: raw ? source : 'SQL_*',
     host: target?.hostname || process.env.SQL_HOST || null,
     database: target?.pathname?.replace(/^\//, '') || process.env.SQL_DB_NAME || null,
   });

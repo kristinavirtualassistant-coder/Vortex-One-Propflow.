@@ -123,7 +123,7 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
         categories: categories.length > 0 ? categories : ['General Repairs'],
         status: 'pending',
         userId: user?.uid || 'anonymous',
-        userEmail: user?.email || 'tenant@propertyflow.app',
+        userEmail: user?.email || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         source: 'Dashboard Maintenance Module'
@@ -493,7 +493,7 @@ export default function MaintenanceRequest({ onClose, defaultTab = 'track' }: { 
                             ).map((catName: string, idx: number) => (
                               <span
                                 key={idx}
-                                className="px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-[9px] uppercase font-bold tracking-wider text-violet-700 dark:text-violet-300 border border-violet-200/50 dark:border-violet-700/40"
+                                className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-[9px] uppercase font-bold tracking-wider text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-700/40"
                               >
                                 {catName}
                               </span>
