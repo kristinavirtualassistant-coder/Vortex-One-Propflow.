@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import type { Pool } from 'pg';
 import { blockInDemo } from './demo.js';
 import { requireAuth, type AuthRequest } from '../middleware/auth.js';
+import { can } from './core.js';
 
 export const PORTAL_COLLECTIONS = [
   'maintenance_requests',
@@ -20,6 +21,20 @@ const MAX_BODY_FIELDS = 100;
 const RESERVED = new Set(['id', 'createdAt', 'updatedAt', 'organizationId']);
 // Only these top-level fields may be used to order or filter, to keep SQL injection-proof and indexable.
 const FIELD_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+
+type Action = 'read' | 'write' | 'delete';
+
+/**
+ * Staff roles are gated by the CRM permissions in core.ts. Roles without them (tenant, technician)
+ * may only create and work with their own maintenance requests; every other collection is staff-only.
+ * Returns null when the action is not allowed, otherwise whether results are limited to the caller's own records.
+ */
+export const accessFor = (role: string, collection: PortalCollection, action: Action): { ownOnly: boolean } | null => {
+  const permission = action === 'read' ? 'crm:read' : action === 'write' ? 'crm:write' : 'crm:delete';
+  if (can(role, permission)) return { ownOnly: false };
+  if (collection === 'maintenance_requests' && action !== 'delete') return { ownOnly: true };
+  return null;
+};
 
 const collectionOf = (req: Request): PortalCollection | null => {
   const name = String(req.params.collection);
@@ -51,10 +66,17 @@ export function portalRouter(pool: Pool) {
   router.get('/:collection', async (req: Request, res: Response) => {
     const collection = collectionOf(req);
     if (!collection) return res.status(404).json({ error: 'Unknown collection' });
-    const orgId = (req as AuthRequest).user!.organizationId;
+    const user = (req as AuthRequest).user!;
+    const orgId = user.organizationId;
+    const access = accessFor(user.role, collection, 'read');
+    if (!access) return res.status(403).json({ error: 'Forbidden' });
 
     const params: unknown[] = [orgId, collection];
     const where: string[] = ['organization_id = $1', 'collection = $2'];
+    if (access.ownOnly) {
+      params.push(user.id);
+      where.push(`created_by = $${params.length}`);
+    }
 
     // Equality filters: ?where.field=value
     for (const [key, value] of Object.entries(req.query)) {
@@ -96,11 +118,15 @@ export function portalRouter(pool: Pool) {
   router.get('/:collection/:id', async (req: Request, res: Response) => {
     const collection = collectionOf(req);
     if (!collection) return res.status(404).json({ error: 'Unknown collection' });
+    const user = (req as AuthRequest).user!;
+    const access = accessFor(user.role, collection, 'read');
+    if (!access) return res.status(403).json({ error: 'Forbidden' });
     try {
       const { rows } = await pool.query(
         `SELECT id, data, created_at, updated_at FROM portal_records
-          WHERE organization_id = $1 AND collection = $2 AND id = $3`,
-        [(req as AuthRequest).user!.organizationId, collection, req.params.id],
+          WHERE organization_id = $1 AND collection = $2 AND id = $3
+            AND ($4::text IS NULL OR created_by = $4)`,
+        [user.organizationId, collection, req.params.id, access.ownOnly ? user.id : null],
       );
       if (!rows[0]) return res.status(404).json({ error: 'Not found' });
       return res.json({ record: toRecord(rows[0]) });
@@ -116,6 +142,7 @@ export function portalRouter(pool: Pool) {
     const data = cleanBody(req.body);
     if (!data) return res.status(400).json({ error: 'Invalid body' });
     const user = (req as AuthRequest).user!;
+    if (!accessFor(user.role, collection, 'write')) return res.status(403).json({ error: 'Forbidden' });
     try {
       const { rows } = await pool.query(
         `INSERT INTO portal_records (id, organization_id, collection, data, created_by)
@@ -135,13 +162,17 @@ export function portalRouter(pool: Pool) {
     if (!collection) return res.status(404).json({ error: 'Unknown collection' });
     const data = cleanBody(req.body);
     if (!data) return res.status(400).json({ error: 'Invalid body' });
+    const user = (req as AuthRequest).user!;
+    const access = accessFor(user.role, collection, 'write');
+    if (!access) return res.status(403).json({ error: 'Forbidden' });
     try {
       const { rows } = await pool.query(
         `UPDATE portal_records
             SET data = data || $4::jsonb, updated_at = CURRENT_TIMESTAMP
           WHERE organization_id = $1 AND collection = $2 AND id = $3
+            AND ($5::text IS NULL OR created_by = $5)
           RETURNING id, data, created_at, updated_at`,
-        [(req as AuthRequest).user!.organizationId, collection, req.params.id, JSON.stringify(data)],
+        [user.organizationId, collection, req.params.id, JSON.stringify(data), access.ownOnly ? user.id : null],
       );
       if (!rows[0]) return res.status(404).json({ error: 'Not found' });
       return res.json({ record: toRecord(rows[0]) });
@@ -154,10 +185,12 @@ export function portalRouter(pool: Pool) {
   router.delete('/:collection/:id', blockInDemo, async (req: Request, res: Response) => {
     const collection = collectionOf(req);
     if (!collection) return res.status(404).json({ error: 'Unknown collection' });
+    const user = (req as AuthRequest).user!;
+    if (!accessFor(user.role, collection, 'delete')) return res.status(403).json({ error: 'Forbidden' });
     try {
       const result = await pool.query(
         `DELETE FROM portal_records WHERE organization_id = $1 AND collection = $2 AND id = $3`,
-        [(req as AuthRequest).user!.organizationId, collection, req.params.id],
+        [user.organizationId, collection, req.params.id],
       );
       if (!result.rowCount) return res.status(404).json({ error: 'Not found' });
       return res.status(204).end();

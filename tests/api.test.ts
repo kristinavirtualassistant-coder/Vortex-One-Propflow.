@@ -682,3 +682,54 @@ test('API hygiene: JSON 404, security headers, no stack traces', { skip }, async
   assert.ok([400, 401].includes(bad.status));
   assert.doesNotMatch(await bad.text(), /at .*\.ts/);
 });
+
+describe('portal records', { skip }, () => {
+  test('staff CRUD, tenant isolation across organizations, unauthenticated access', async () => {
+    const a = await signup(api, 'property_manager', 'portal-a');
+    const b = await signup(api, 'property_manager', 'portal-b');
+
+    const created = await a.client.post('/api/portal/vendors', { companyName: 'Acme Plumbing', id: 'spoofed', createdAt: 'x' });
+    assert.equal(created.status, 201);
+    const id = created.body.record.id;
+    assert.notEqual(id, 'spoofed');
+    assert.equal(created.body.record.companyName, 'Acme Plumbing');
+
+    const list = await a.client.get('/api/portal/vendors?orderBy=companyName&direction=asc');
+    assert.equal(list.status, 200);
+    assert.ok(list.body.records.some((r: any) => r.id === id));
+
+    const patched = await a.client.patch(`/api/portal/vendors/${id}`, { phone: '555-0100' });
+    assert.equal(patched.body.record.phone, '555-0100');
+    assert.equal(patched.body.record.companyName, 'Acme Plumbing');
+
+    // Another organization cannot see, change or delete it
+    assert.equal((await b.client.get(`/api/portal/vendors/${id}`)).status, 404);
+    assert.equal((await b.client.patch(`/api/portal/vendors/${id}`, { phone: 'x' })).status, 404);
+    assert.equal((await b.client.del(`/api/portal/vendors/${id}`)).status, 404);
+    assert.ok(!(await b.client.get('/api/portal/vendors')).body.records.some((r: any) => r.id === id));
+
+    assert.equal((await a.client.del(`/api/portal/vendors/${id}`)).status, 204);
+    assert.equal((await a.client.get(`/api/portal/vendors/${id}`)).status, 404);
+
+    // Unknown collection and bad filters are rejected
+    assert.equal((await a.client.get('/api/portal/users')).status, 404);
+    assert.equal((await a.client.get('/api/portal/vendors?orderBy=name;drop')).status, 400);
+
+    const anon = new (a.client.constructor as any)(api.base);
+    assert.equal((await anon.get('/api/portal/vendors')).status, 401);
+  });
+
+  test('tenants may only use their own maintenance requests', async () => {
+    const t = await signup(api, 'tenant', 'portal-tenant');
+    assert.equal((await t.client.get('/api/portal/vendors')).status, 403);
+    assert.equal((await t.client.get('/api/portal/lease_documents')).status, 403);
+    assert.equal((await t.client.post('/api/portal/utility_bills', { amount: 1 })).status, 403);
+
+    const req = await t.client.post('/api/portal/maintenance_requests', { title: 'Leaky tap' });
+    assert.equal(req.status, 201);
+    const mine = await t.client.get('/api/portal/maintenance_requests');
+    assert.equal(mine.status, 200);
+    assert.ok(mine.body.records.some((r: any) => r.id === req.body.record.id));
+    assert.equal((await t.client.del(`/api/portal/maintenance_requests/${req.body.record.id}`)).status, 403);
+  });
+});

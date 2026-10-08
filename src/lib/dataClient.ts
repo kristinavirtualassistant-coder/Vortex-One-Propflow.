@@ -45,8 +45,14 @@ const toSnapshot = (records: RawRecord[]) => {
   return { docs, metadata: { hasPendingWrites: false }, forEach: (callback: (d: (typeof docs)[number]) => void) => docs.forEach(callback) };
 };
 
-const stripSentinels = (data: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(data).filter(([, value]) => value !== SERVER_TIMESTAMP));
+// createdAt/updatedAt are assigned by the server, so they are dropped; any other field that used
+// serverTimestamp() (e.g. lastTriggered) is stored with the current time.
+const resolveSentinels = (data: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(data)
+      .filter(([key, value]) => !(value === SERVER_TIMESTAMP && TIMESTAMP_FIELDS.includes(key)))
+      .map(([key, value]) => [key, value === SERVER_TIMESTAMP ? new Date().toISOString() : value]),
+  );
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/portal/${path}`, {
@@ -57,7 +63,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(detail?.error || `Request failed (${response.status})`);
+    const error = new Error(detail?.error || `Request failed (${response.status})`);
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
   }
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
@@ -117,12 +125,12 @@ export const onSnapshot = (
 };
 
 export const addDoc = async (ref: CollectionRef, data: Record<string, any>) => {
-  const { record } = await request<{ record: RawRecord }>('POST', ref.collection, stripSentinels(data));
+  const { record } = await request<{ record: RawRecord }>('POST', ref.collection, resolveSentinels(data));
   return { id: record.id };
 };
 
 export const updateDoc = async (ref: DocRef, data: Record<string, any>) => {
-  await request('PATCH', `${ref.collection}/${encodeURIComponent(ref.id)}`, stripSentinels(data));
+  await request('PATCH', `${ref.collection}/${encodeURIComponent(ref.id)}`, resolveSentinels(data));
 };
 
 export const deleteDoc = async (ref: DocRef) => {
@@ -134,8 +142,12 @@ export const getDoc = async (ref: DocRef) => {
     const { record } = await request<{ record: RawRecord }>('GET', `${ref.collection}/${encodeURIComponent(ref.id)}`);
     const { id, ...rest } = withDates(record);
     return { exists: () => true, id, data: () => rest };
-  } catch {
-    return { exists: () => false, id: ref.id, data: () => ({}) };
+  } catch (error) {
+    // Only a 404 means "no such document"; auth, server and network failures must surface.
+    if ((error as { status?: number }).status === 404) {
+      return { exists: () => false, id: ref.id, data: () => ({}) };
+    }
+    throw error;
   }
 };
 
