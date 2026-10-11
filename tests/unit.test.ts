@@ -91,6 +91,7 @@ test('portal access: staff by CRM permission, tenants only their own maintenance
   assert.deepEqual(accessFor('tenant', 'maintenance_requests', 'read'), { ownOnly: true });
   assert.deepEqual(accessFor('technician', 'maintenance_requests', 'write'), { ownOnly: true });
   assert.equal(accessFor('tenant', 'maintenance_requests', 'delete'), null);
-  assert.equal(accessFor('tenant', 'lease_documents', 'read'), null);
+  assert.deepEqual(accessFor('tenant', 'lease_documents', 'read'), { ownOnly: false });
+  assert.equal(accessFor('tenant', 'lease_documents', 'write'), null);
   assert.equal(accessFor('unknown-role', 'vendors', 'read'), null);
 });
