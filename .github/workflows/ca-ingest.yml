@@ -34,7 +34,7 @@ jobs:
       SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install -r requirements.txt
       - run: sudo apt-get install -y -qq postgresql-client
