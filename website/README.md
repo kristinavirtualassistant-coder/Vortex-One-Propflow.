@@ -22,8 +22,8 @@ npm run preview      # serve the build on http://localhost:4173
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VITE_APP_URL` | `https://vortexone-propflow.vercel.app` | Where sign in, sign up and the live demo live |
-| `VITE_SITE_URL` | `https://vortex-one-website.vercel.app` | This site's public origin, used for the absolute Open Graph image URL (`og-image.jpg`). Set it when the domain changes |
+| `VITE_APP_URL` | `https://vortex1-unified.vercel.app` | Where sign in, sign up and the live demo live |
+| `VITE_SITE_URL` | `https://vortexone.vercel.app` | This site's public origin, used for the absolute Open Graph image URL (`og-image.jpg`). Set it when the domain changes |
 
 Legal entity, contact email, year and "last updated" date are in `src/config.ts`.
 
