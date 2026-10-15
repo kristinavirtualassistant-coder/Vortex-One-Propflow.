@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-const DEFAULT_SITE_URL = 'https://vortex-one-website.vercel.app';
+const DEFAULT_SITE_URL = 'https://vortexone.vercel.app';
 
 // `static/` (not `public/`) because the repo .gitignore excludes any directory named public.
 export default defineConfig(({ mode }) => {
