@@ -12,6 +12,9 @@ class CompleteRefreshTests(unittest.TestCase):
     def test_limited_load_is_partial(self):
         self.assertFalse(is_complete_refresh(limit=5000))
 
+    def test_missing_source_keys_make_refresh_incomplete(self):
+        self.assertFalse(is_complete_refresh(skipped_keys=1))
+
     def test_explicit_filter_override_is_partial(self):
         self.assertFalse(is_complete_refresh(where="SitusCity LIKE 'MALIBU%'"))
 
