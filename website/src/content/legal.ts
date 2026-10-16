@@ -19,7 +19,6 @@ const E = LEGAL_ENTITY;
 const MAIL = CONTACT_EMAIL;
 const PRIVACY = PRIVACY_CONTACT_EMAIL;
 const ADDRESS = BUSINESS_ADDRESS;
-const ADDRESS = BUSINESS_ADDRESS;
 
 /*
  * Drafts reflecting how the product works today (simulated dialer, rule-based agents,

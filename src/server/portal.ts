@@ -33,6 +33,8 @@ export const accessFor = (role: string, collection: PortalCollection, action: Ac
   const permission = action === 'read' ? 'crm:read' : action === 'write' ? 'crm:write' : 'crm:delete';
   if (can(role, permission)) return { ownOnly: false };
   if (collection === 'maintenance_requests' && action !== 'delete') return { ownOnly: true };
+  // Lease documents are read-only for everyone else in the org (the tenant chatbot answers from them).
+  if (collection === 'lease_documents' && action === 'read') return { ownOnly: false };
   return null;
 };
 
@@ -100,15 +102,17 @@ export function portalRouter(pool: Pool) {
     }
 
     const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? MAX_LIMIT), 10) || MAX_LIMIT, 1), MAX_LIMIT);
-    params.push(limit);
+    const offset = Math.max(parseInt(String(req.query.offset ?? 0), 10) || 0, 0);
+    // Fetch one extra row so the client knows whether another page exists.
+    params.push(limit + 1, offset);
 
     try {
       const { rows } = await pool.query(
         `SELECT id, data, created_at, updated_at FROM portal_records
-          WHERE ${where.join(' AND ')} ORDER BY ${orderSql} LIMIT $${params.length}`,
+          WHERE ${where.join(' AND ')} ORDER BY ${orderSql} LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params,
       );
-      return res.json({ records: rows.map(toRecord) });
+      return res.json({ records: rows.slice(0, limit).map(toRecord), hasMore: rows.length > limit });
     } catch (error) {
       console.error('portal list failed:', error);
       return res.status(500).json({ error: 'Failed to load records' });
