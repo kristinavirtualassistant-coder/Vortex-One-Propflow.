@@ -97,6 +97,11 @@ def report_freshness(stale_days=None):
 
 
 def load(source_id, limit=None, where=None):
+    """Upsert source records and record whether the refresh is complete.
+
+    Limits, explicit filters, or skipped source keys make a run partial.
+    Only complete runs reconcile last_seen and advance source freshness.
+    """
     if not DB_URL:
         sys.exit("DATABASE_URL not set")
     cfg = dict(SOURCES[source_id])

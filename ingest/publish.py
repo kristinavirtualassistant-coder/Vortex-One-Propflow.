@@ -68,6 +68,12 @@ def _mb(b):
 
 
 def publish(county=None, confirm=False, budget_mb=400):
+    """Plan or publish staging parcels, signals, and complete-refresh metadata.
+
+    Optionally scope rows to a county and abort if the projected target size
+    exceeds budget_mb. Write only when confirm is true; source timestamps
+    come from staging rather than the publish time.
+    """
     src_url, dst_url = os.getenv("DATABASE_URL"), os.getenv("SUPABASE_DATABASE_URL")
     if not src_url or not dst_url:
         sys.exit("DATABASE_URL (staging) and SUPABASE_DATABASE_URL (target) must both be set")
