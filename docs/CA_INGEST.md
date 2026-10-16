@@ -41,6 +41,15 @@ SELECT signal_type, count(*) FROM core.signals GROUP BY 1;
 SELECT count(*) FROM core.parcels WHERE NOT ST_IsValid(geom);   -- expect 0
 ```
 
+## Refresh safety
+
+Loads that use `--limit` or an explicit `--where` override are recorded with
+`status='partial'`. They do not reconcile `raw.records.last_seen` or update
+`core.sources.last_run_at/last_count`. This prevents a sample or county/city
+subset from being mistaken for a complete refresh and prevents unseen records
+outside the requested subset from being marked as seen. A full refresh means
+the configured source scope was fetched without an explicit limit or query override.
+
 ## Known gaps
 - **Owner name / mailing address** are not in these open datasets. Sources: CPRA request
   to each Assessor (cost-of-duplication), or paid (PropertyRadar/ATTOM/Regrid).
