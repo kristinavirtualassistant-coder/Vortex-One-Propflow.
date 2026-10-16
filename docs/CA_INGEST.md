@@ -26,16 +26,20 @@ scope only when the target storage budget and publication path have been reviewe
 
 ## Run
 ```bash
-python -m ingest.run inspect sf_roll          # 1. confirm field names
-python -m ingest.run inspect la_parcels
-#   -> fix key_field in ingest/sources.py and keys in sql/002_normalize.sql if needed
-python -m ingest.run load sf_roll --limit 5000   # 2. smoke test
-python -m ingest.run load la_parcels --limit 5000
-python -m ingest.run normalize                   # 3. raw -> core + signals
-python -m ingest.run load la_parcels             # 4. full loads
-python -m ingest.run load sf_roll
-python -m ingest.run normalize
+python -m ingest.run inspect la_parcels         # confirm upstream field names
+python -m ingest.run inspect sf_roll
+python -m ingest.run load la_parcels --limit 5000  # sample only; freshness remains unchanged
+python -m ingest.run load sf_roll --limit 5000    # sample only; freshness remains unchanged
+python -m ingest.run load la_parcels              # complete configured Malibu-area scope only
+python -m ingest.run load sf_roll                 # configured secured rolls from 2022 onward
+python -m ingest.run normalize                    # raw -> core + signals
+python -m ingest.run freshness                    # report scope and latest complete refresh
 ```
+
+For the production workflow, open **Actions → ca-ingest → Run workflow**. Leave `la_where`
+blank to use the configured Malibu-area scope; set `publish=true` only when the dry-run
+budget output is acceptable. The default remains dry-run. A city filter override or row
+limit is treated as partial and cannot advance source freshness.
 
 ## Verify
 ```sql
