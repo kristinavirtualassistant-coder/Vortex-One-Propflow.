@@ -1,6 +1,9 @@
 name: ca-ingest
-# Manual only. Re-add a schedule after the staged rollout is approved.
+# Weekly complete refresh of the configured LA subset and SF roll.
+# Publication remains behind the 400 MB projected-size guard.
 on:
+  schedule:
+    - cron: "0 8 * * 0"
   workflow_dispatch:
     inputs:
       la_where:
@@ -34,7 +37,7 @@ jobs:
       SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
       # Keep workflow inputs in the environment; do not interpolate user-controlled text into shell source.
       LA_INGEST_WHERE: ${{ inputs.la_where }}
-      INGEST_BUDGET_MB: ${{ inputs.budget_mb }}
+      INGEST_BUDGET_MB: ${{ inputs.budget_mb || '400' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v7
@@ -43,12 +46,13 @@ jobs:
       - run: sudo apt-get install -y -qq postgresql-client
       - run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/001_schema.sql -f sql/004_hazards.sql
       - name: Load configured LA source scope
-        if: ${{ inputs.la_where == '' }}
+        if: ${{ github.event_name == 'schedule' || inputs.la_where == '' }}
         run: python -m ingest.run load la_parcels
       - name: Load LA source filter override
-        if: ${{ inputs.la_where != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.la_where != '' }}
         run: python -m ingest.run load la_parcels --where "$LA_INGEST_WHERE"
-      - if: ${{ inputs.sf }}
+      - name: Load SF source
+        if: ${{ github.event_name == 'schedule' || inputs.sf }}
         run: python -m ingest.run load sf_roll
       - run: python -m ingest.run normalize
       - run: python -m ingest.run load-hazard fhsz_sra
@@ -56,6 +60,6 @@ jobs:
       - run: python -m ingest.run assign-hazards
       - name: Publish plan (dry run)
         run: python -m ingest.run publish --budget-mb "$INGEST_BUDGET_MB"
-      - if: ${{ inputs.publish }}
-        name: Publish to Supabase
+      - name: Publish to Supabase
+        if: ${{ github.event_name == 'schedule' || inputs.publish }}
         run: python -m ingest.run publish --confirm --budget-mb "$INGEST_BUDGET_MB"
