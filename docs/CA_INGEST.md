@@ -49,7 +49,7 @@ Configured source thresholds are in `ingest/sources.py`: 14 days for the LA Coun
 DATABASE_URL="$SUPABASE_DATABASE_URL" python -m ingest.run freshness
 ```
 
-The report exits nonzero if any configured source has no recorded complete refresh, is stale, or has a timestamp unexpectedly far in the future. The GitHub Actions workflow `.github/workflows/source-freshness.yml` checks weekly and can also be run manually. It requires the repository secret `SUPABASE_DATABASE_URL`; the workflow only reads source metadata and does not publish or modify records.
+The report exits nonzero if any configured source has no recorded complete refresh, is stale, or has a timestamp unexpectedly far in the future. The GitHub Actions workflow `.github/workflows/source-freshness.yml` checks weekly, can be run manually, runs after a successful `ca-ingest` workflow, and reruns when ingestion code/workflow changes are pushed to `main`. It requires the repository secret `SUPABASE_DATABASE_URL`; the workflow only reads source metadata and does not publish or modify records.
 
 A publish to Supabase carries forward only source timestamps from successful complete runs in staging. The generic publish timestamp is not treated as evidence of a source refresh. Partial `--limit` / `--where` loads do not advance the staging source timestamp.
 
