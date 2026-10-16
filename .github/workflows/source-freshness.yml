@@ -1,0 +1,38 @@
+name: Source freshness check
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Check database connection secret
+        shell: bash
+        run: |
+          if [[ -z "${DATABASE_URL:-}" ]]; then
+            echo "::error::Repository secret SUPABASE_DATABASE_URL is not configured. Add the Supabase connection string before the freshness check can run."
+            exit 1
+          fi
+
+      - name: Install ingestion dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check source freshness
+        run: python -m ingest.run freshness

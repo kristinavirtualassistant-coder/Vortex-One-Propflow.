@@ -41,6 +41,28 @@ SELECT signal_type, count(*) FROM core.signals GROUP BY 1;
 SELECT count(*) FROM core.parcels WHERE NOT ST_IsValid(geom);   -- expect 0
 ```
 
+## Source freshness monitoring
+
+Configured source thresholds are in `ingest/sources.py`: 14 days for the LA County weekly-cache layer and 400 days for the annual San Francisco secured roll (including publication lag). Check a staging or production-compatible connection with:
+
+```bash
+DATABASE_URL="$SUPABASE_DATABASE_URL" python -m ingest.run freshness
+```
+
+The report exits nonzero if any configured source has no recorded complete refresh, is stale, or has a timestamp unexpectedly far in the future. The GitHub Actions workflow `.github/workflows/source-freshness.yml` checks weekly and can also be run manually. It requires the repository secret `SUPABASE_DATABASE_URL`; the workflow only reads source metadata and does not publish or modify records.
+
+A publish to Supabase carries forward only source timestamps from successful complete runs in staging. The generic publish timestamp is not treated as evidence of a source refresh. Partial `--limit` / `--where` loads do not advance the staging source timestamp.
+
+## Refresh safety
+
+Loads that use `--limit`, an explicit `--where` override, or skip records because the
+configured source key is missing are recorded with `status='partial'`. They do not
+reconcile `raw.records.last_seen` or update `core.sources.last_run_at/last_count`.
+This prevents a sample, county/city subset, or malformed upstream result from being
+mistaken for a complete refresh and prevents unseen records from being marked as seen.
+A full refresh means the configured source scope was fetched without an explicit
+limit/query override and without records skipped for missing source keys.
+
 ## Known gaps
 - **Owner name / mailing address** are not in these open datasets. Sources: CPRA request
   to each Assessor (cost-of-duplication), or paid (PropertyRadar/ATTOM/Regrid).

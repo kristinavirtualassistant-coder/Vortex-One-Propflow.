@@ -32,6 +32,9 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/staging
       SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
       SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
+      # Keep workflow inputs in the environment; do not interpolate user-controlled text into shell source.
+      LA_INGEST_WHERE: ${{ inputs.la_where }}
+      INGEST_BUDGET_MB: ${{ inputs.budget_mb }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v7
@@ -40,7 +43,7 @@ jobs:
       - run: sudo apt-get install -y -qq postgresql-client
       - run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/001_schema.sql -f sql/004_hazards.sql
       - if: ${{ inputs.la_where != '' }}
-        run: python -m ingest.run load la_parcels --where "${{ inputs.la_where }}"
+        run: python -m ingest.run load la_parcels --where "$LA_INGEST_WHERE"
       - if: ${{ inputs.sf }}
         run: python -m ingest.run load sf_roll
       - run: python -m ingest.run normalize
@@ -48,7 +51,7 @@ jobs:
       - run: python -m ingest.run load-hazard fhsz_lra
       - run: python -m ingest.run assign-hazards
       - name: Publish plan (dry run)
-        run: python -m ingest.run publish --budget-mb ${{ inputs.budget_mb }}
+        run: python -m ingest.run publish --budget-mb "$INGEST_BUDGET_MB"
       - if: ${{ inputs.publish }}
         name: Publish to Supabase
-        run: python -m ingest.run publish --confirm --budget-mb ${{ inputs.budget_mb }}
+        run: python -m ingest.run publish --confirm --budget-mb "$INGEST_BUDGET_MB"
