@@ -18,6 +18,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Compile ingestion Python modules
+        run: python -m compileall -q ingest tests_py
+
       - name: Test ingestion freshness guards
         run: python -m unittest discover -s tests_py -p 'test_*.py' -v
 
