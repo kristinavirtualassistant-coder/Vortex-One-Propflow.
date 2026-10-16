@@ -76,7 +76,7 @@ def report_freshness(stale_days=None):
     print("Source freshness report")
     for source_id, cfg in SOURCES.items():
         row = by_id.get(source_id)
-        county_fips = row[1] if row else cfg.get("county_fips", "unknown")
+        county_fips = row[1].strip() if row else cfg.get("county_fips", "unknown")
         last_run_at = row[2] if row else None
         last_count = row[3] if row else None
         threshold = stale_days or cfg.get("freshness_max_age_days", 14)
