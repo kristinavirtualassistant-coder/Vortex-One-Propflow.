@@ -293,6 +293,110 @@ propertiesRouter.get('/public-records/status', route('crm:read', async () => {
   };
 }));
 
+// Report the freshness of the published snapshot separately from upstream source-fetch history.
+const PUBLIC_RECORDS_STALE_AFTER_DAYS = 35;
+
+propertiesRouter.get('/public-records/status', route('crm:read', async () => {
+  const db = getDb();
+  const [countyRows, sourceRows, publishRows] = await Promise.all([
+    db.query(`
+      SELECT county_fips,
+             count(*)::int AS parcel_count,
+             count(*) FILTER (WHERE NULLIF(btrim(situs_address), '') IS NOT NULL)::int AS situs_address_count,
+             count(*) FILTER (WHERE NULLIF(btrim(owner_name), '') IS NOT NULL)::int AS owner_name_count,
+             count(*) FILTER (WHERE NULLIF(btrim(mail_address), '') IS NOT NULL)::int AS mailing_address_count,
+             max(updated_at) AS latest_record_updated_at
+        FROM core.parcels
+       GROUP BY county_fips
+       ORDER BY county_fips
+    `),
+    db.query(`
+      SELECT s.id AS source_id, s.county_fips, s.url, s.kind, s.last_run_at, s.last_count,
+             latest.started_at AS last_attempt_at, latest.status AS last_attempt_status,
+             last_success.finished_at AS last_successful_run_at
+        FROM core.sources s
+        LEFT JOIN LATERAL (
+          SELECT started_at, status FROM core.ingest_runs r
+           WHERE r.source_id = s.id ORDER BY started_at DESC LIMIT 1
+        ) latest ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT finished_at FROM core.ingest_runs r
+           WHERE r.source_id = s.id AND r.status = 'ok' AND r.finished_at IS NOT NULL
+           ORDER BY finished_at DESC LIMIT 1
+        ) last_success ON TRUE
+       ORDER BY s.county_fips, s.id
+    `),
+    db.query(`
+      SELECT max(finished_at) FILTER (WHERE status = 'ok') AS last_successful_publish_at,
+             max(started_at) AS last_attempt_at,
+             (array_agg(status ORDER BY started_at DESC))[1] AS last_attempt_status
+        FROM core.ingest_runs
+       WHERE source_id LIKE 'publish:%'
+    `),
+  ]);
+
+  const coverage = countyRows.rows.reduce((sum: any, row: any) => ({
+    parcelCount: sum.parcelCount + Number(row.parcel_count || 0),
+    situsAddressCount: sum.situsAddressCount + Number(row.situs_address_count || 0),
+    ownerNameCount: sum.ownerNameCount + Number(row.owner_name_count || 0),
+    mailingAddressCount: sum.mailingAddressCount + Number(row.mailing_address_count || 0),
+  }), { parcelCount: 0, situsAddressCount: 0, ownerNameCount: 0, mailingAddressCount: 0 });
+
+  const latestRecordUpdatedAt = countyRows.rows.reduce((latest: string | Date | null, row: any) => {
+    const candidate = row.latest_record_updated_at;
+    if (!candidate) return latest;
+    if (!latest || new Date(candidate).getTime() > new Date(latest).getTime()) return candidate;
+    return latest;
+  }, null);
+
+  const publish = publishRows.rows[0] ?? {};
+  const lastSuccessfulPublishAt = publish.last_successful_publish_at ?? null;
+  const publishedAtMs = lastSuccessfulPublishAt ? new Date(lastSuccessfulPublishAt).getTime() : NaN;
+  const ageDays = Number.isFinite(publishedAtMs)
+    ? Math.max(0, Math.floor((Date.now() - publishedAtMs) / (24 * 60 * 60 * 1000)))
+    : null;
+  const snapshotStatus = ageDays === null
+    ? 'unknown'
+    : ageDays > PUBLIC_RECORDS_STALE_AFTER_DAYS ? 'stale' : 'current';
+
+  return {
+    checkedAt: new Date().toISOString(),
+    staleAfterDays: PUBLIC_RECORDS_STALE_AFTER_DAYS,
+    snapshot: {
+      status: snapshotStatus,
+      ageDays,
+      lastSuccessfulPublishAt,
+      lastAttemptAt: publish.last_attempt_at ?? null,
+      lastAttemptStatus: publish.last_attempt_status ?? null,
+    },
+    coverage: {
+      ...coverage,
+      latestRecordUpdatedAt,
+      counties: countyRows.rows.map((row: any) => ({
+        countyFips: row.county_fips,
+        countyName: PUBLIC_RECORD_COUNTIES[row.county_fips] ?? row.county_fips,
+        parcelCount: Number(row.parcel_count || 0),
+        situsAddressCount: Number(row.situs_address_count || 0),
+        ownerNameCount: Number(row.owner_name_count || 0),
+        mailingAddressCount: Number(row.mailing_address_count || 0),
+        latestRecordUpdatedAt: row.latest_record_updated_at,
+      })),
+    },
+    sources: sourceRows.rows.map((row: any) => ({
+      sourceId: row.source_id,
+      countyFips: row.county_fips,
+      countyName: PUBLIC_RECORD_COUNTIES[row.county_fips] ?? row.county_fips,
+      url: row.url,
+      kind: row.kind,
+      lastSourceRunAt: row.last_run_at,
+      lastSourceRunCount: row.last_count === null ? null : Number(row.last_count),
+      lastAttemptAt: row.last_attempt_at,
+      lastAttemptStatus: row.last_attempt_status,
+      lastSuccessfulRunAt: row.last_successful_run_at,
+    })),
+  };
+}));
+
 propertiesRouter.get('/properties', route('crm:read', async (req, _res, ctx) => {
   const q = req.query as Record<string, string>;
   const w = propertyFilters(ctx, q);
