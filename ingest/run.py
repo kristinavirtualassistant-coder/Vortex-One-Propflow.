@@ -21,7 +21,7 @@ from psycopg.types.json import Jsonb
 
 from .fetchers import FETCHERS, arcgis_layer_info
 from .publish import publish
-from .guards import is_complete_refresh
+from .guards import is_complete_refresh, positive_int
 from .sources import HAZARD_SOURCES, SOURCES
 
 DB_URL = os.getenv("DATABASE_URL")
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("cmd", choices=["inspect", "load", "normalize", "load-hazard", "assign-hazards", "publish"])
     p.add_argument("source", nargs="?")
-    p.add_argument("--limit", type=int)
+    p.add_argument("--limit", type=positive_int)
     p.add_argument("--where")
     p.add_argument("--county", help="publish scope, e.g. 06037")
     p.add_argument("--confirm", action="store_true", help="publish: actually write")
