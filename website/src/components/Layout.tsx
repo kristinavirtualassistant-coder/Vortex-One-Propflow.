@@ -58,7 +58,7 @@ export function Footer() {
           ))}
         </nav>
         <p className="text-xs">
-          © {YEAR} {LEGAL_ENTITY} ·{' '}
+          © {YEAR} Vortex One by {LEGAL_ENTITY} ·{' '}
           <a className="underline hover:text-white" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         </p>
       </div>
