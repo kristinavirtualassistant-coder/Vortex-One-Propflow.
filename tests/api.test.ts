@@ -775,7 +775,10 @@ describe('portal records', { skip }, () => {
   test('tenants may only use their own maintenance requests', async () => {
     const t = await signup(api, 'tenant', 'portal-tenant');
     assert.equal((await t.client.get('/api/portal/vendors')).status, 403);
-    assert.equal((await t.client.get('/api/portal/lease_documents')).status, 403);
+    // Lease documents are readable by tenants but never writable
+    assert.equal((await t.client.get('/api/portal/lease_documents')).status, 200);
+    assert.equal((await t.client.post('/api/portal/lease_documents', { name: 'x' })).status, 403);
+    assert.equal((await t.client.get('/api/portal/uploaded_documents')).status, 403);
     assert.equal((await t.client.post('/api/portal/utility_bills', { amount: 1 })).status, 403);
 
     const req = await t.client.post('/api/portal/maintenance_requests', { title: 'Leaky tap' });
