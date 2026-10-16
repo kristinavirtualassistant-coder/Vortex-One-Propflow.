@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       la_where:
-        description: "LA stage filter (ArcGIS where). Empty = skip LA."
-        default: "SitusCity LIKE 'MALIBU%'"
+        description: "Optional LA filter override. Leave blank to use the configured Malibu-area subset (not countywide). Overrides are recorded as partial refreshes."
+        default: ""
       sf:
         description: "Load SF roll (2022+)?"
         type: boolean
@@ -42,7 +42,11 @@ jobs:
       - run: pip install -r requirements.txt
       - run: sudo apt-get install -y -qq postgresql-client
       - run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f sql/001_schema.sql -f sql/004_hazards.sql
-      - if: ${{ inputs.la_where != '' }}
+      - name: Load configured LA source scope
+        if: ${{ inputs.la_where == '' }}
+        run: python -m ingest.run load la_parcels
+      - name: Load LA source filter override
+        if: ${{ inputs.la_where != '' }}
         run: python -m ingest.run load la_parcels --where "$LA_INGEST_WHERE"
       - if: ${{ inputs.sf }}
         run: python -m ingest.run load sf_roll
