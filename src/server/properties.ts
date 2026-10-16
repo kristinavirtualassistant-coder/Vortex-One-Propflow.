@@ -131,9 +131,17 @@ const propertyFilters = (ctx: Ctx, q: Record<string, string>) => {
 
 export const propertiesRouter = Router();
 
-const PUBLIC_RECORD_COUNTIES: Record<string, string> = {
-  '06037': 'Los Angeles',
-  '06075': 'San Francisco',
+const PUBLIC_RECORD_SOURCES: Record<string, { countyName: string; sourceId: string; coverageScope: string }> = {
+  '06037': {
+    countyName: 'Los Angeles',
+    sourceId: 'la_parcels',
+    coverageScope: 'Malibu-area parcel subset only; not countywide Los Angeles coverage.',
+  },
+  '06075': {
+    countyName: 'San Francisco',
+    sourceId: 'sf_roll',
+    coverageScope: 'San Francisco Assessor secured property-tax rolls from 2022 onward.',
+  },
 };
 
 propertiesRouter.get('/public-records', route('crm:read', async (req, _res, _ctx) => {
@@ -160,6 +168,11 @@ propertiesRouter.get('/public-records', route('crm:read', async (req, _res, _ctx
   const db = getDb();
 
   const total = await db.query('SELECT count(*)::int AS n FROM core.parcels p' + whereSql, values);
+  const selectedSource = q.countyFips ? PUBLIC_RECORD_SOURCES[q.countyFips] : undefined;
+  const sourceMetadata = selectedSource
+    ? await db.query('SELECT last_run_at, last_count FROM core.sources WHERE id=$1', [selectedSource.sourceId])
+    : { rows: [] as any[] };
+  const sourceRow = sourceMetadata.rows[0];
   const rows = await db.query(
     'SELECT p.*, ' +
     'CASE WHEN p.geom IS NULL THEN NULL ELSE ST_Y(ST_PointOnSurface(p.geom)) END AS latitude, ' +
@@ -174,12 +187,17 @@ propertiesRouter.get('/public-records', route('crm:read', async (req, _res, _ctx
   return {
     items: rows.rows.map((r: any) => ({
       ...camel(r),
-      countyName: PUBLIC_RECORD_COUNTIES[r.county_fips] ?? r.county_fips,
+      countyName: PUBLIC_RECORD_SOURCES[r.county_fips]?.countyName ?? r.county_fips,
       source: 'california_public_records',
     })),
     total: total.rows[0].n,
     limit,
     offset,
+    coverage: selectedSource ? {
+      scope: selectedSource.coverageScope,
+      lastScopeRefreshAt: sourceRow?.last_run_at ?? null,
+      lastScopeRefreshCount: sourceRow?.last_count ?? null,
+    } : null,
   };
 }));
 
