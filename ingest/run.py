@@ -21,6 +21,7 @@ from psycopg.types.json import Jsonb
 
 from .fetchers import FETCHERS, arcgis_layer_info
 from .publish import publish
+from .guards import is_complete_refresh
 from .sources import HAZARD_SOURCES, SOURCES
 
 DB_URL = os.getenv("DATABASE_URL")
@@ -64,6 +65,9 @@ def load(source_id, limit=None, where=None):
     cfg = dict(SOURCES[source_id])
     if where:
         cfg["where"] = where
+    # A limited sample or explicit query override is not a complete source refresh.
+    # Never use partial runs to age out records or advance the source freshness clock.
+    complete_refresh = is_complete_refresh(limit=limit, where=where)
     with psycopg.connect(DB_URL) as conn:
         run_id = conn.execute(
             "INSERT INTO core.ingest_runs (source_id) VALUES (%s) RETURNING id, started_at",
@@ -95,11 +99,15 @@ def load(source_id, limit=None, where=None):
                     flush()
             if batch:
                 flush()
-            conn.execute(TOUCH, (source_id, run_id[1]))
+            if complete_refresh:
+                # Reconcile last_seen only when we fetched the complete configured source scope.
+                conn.execute(TOUCH, (source_id, run_id[1]))
+            status = 'ok' if complete_refresh else 'partial'
             conn.execute("""UPDATE core.ingest_runs SET finished_at=now(), fetched=%s,
-                            changed=%s, status='ok' WHERE id=%s""", (fetched, changed, run_id[0]))
-            conn.execute("UPDATE core.sources SET last_run_at=now(), last_count=%s WHERE id=%s",
-                         (fetched, source_id))
+                            changed=%s, status=%s WHERE id=%s""", (fetched, changed, status, run_id[0]))
+            if complete_refresh:
+                conn.execute("UPDATE core.sources SET last_run_at=now(), last_count=%s WHERE id=%s",
+                             (fetched, source_id))
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -107,7 +115,8 @@ def load(source_id, limit=None, where=None):
                          "WHERE id=%s", (str(e)[:2000], run_id[0]))
             conn.commit()
             raise
-    print(f"{source_id}: fetched={fetched} new_or_changed={changed}")
+    status_label = "complete" if complete_refresh else "partial (freshness unchanged)"
+    print(f"{source_id}: status={status_label} fetched={fetched} new_or_changed={changed}")
 
 
 HAZ_UPSERT = """
