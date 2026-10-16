@@ -4,9 +4,12 @@ SOURCES = {
         "county_fips": "06037",
         "kind": "arcgis",
         "url": "https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0",
-        "key_field": "AIN",          # verify with `inspect`
+        "key_field": "AIN",
         "roll_year_field": None,
         "page_size": 1000,           # clamped to layer maxRecordCount
+        # This is an intentionally bounded subset for the current storage budget, not the whole county.
+        "where": "SitusCity LIKE 'MALIBU%'",
+        "coverage_scope": "Malibu-area subset only; not countywide Los Angeles coverage",
         "freshness_max_age_days": 14, # weekly cache: allow a two-week freshness window
     },
     "sf_roll": {
