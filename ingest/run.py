@@ -102,15 +102,15 @@ def load(source_id, limit=None, where=None):
     cfg = dict(SOURCES[source_id])
     if where:
         cfg["where"] = where
-    # A limited sample or explicit query override is not a complete source refresh.
+    # A limited sample, explicit query override, or skipped source key is not a complete refresh.
     # Never use partial runs to age out records or advance the source freshness clock.
-    complete_refresh = is_complete_refresh(limit=limit, where=where)
     with psycopg.connect(DB_URL) as conn:
         run_id = conn.execute(
             "INSERT INTO core.ingest_runs (source_id) VALUES (%s) RETURNING id, started_at",
             (source_id,)).fetchone()
         conn.commit()
         fetched = changed = 0
+        skipped_missing_key = 0
         batch = []
         try:
             def flush():
@@ -125,6 +125,7 @@ def load(source_id, limit=None, where=None):
             for attrs, geom in FETCHERS[cfg["kind"]](cfg, limit=limit):
                 key = attrs.get(cfg["key_field"])
                 if not key:
+                    skipped_missing_key += 1
                     continue
                 year = _year(attrs.get(cfg["roll_year_field"])) if cfg.get("roll_year_field") else 0
                 payload = json.dumps(attrs, sort_keys=True, default=str)
@@ -136,6 +137,11 @@ def load(source_id, limit=None, where=None):
                     flush()
             if batch:
                 flush()
+            complete_refresh = is_complete_refresh(
+                limit=limit, where=where, skipped_keys=skipped_missing_key
+            )
+            if skipped_missing_key:
+                print(f"WARNING: skipped {skipped_missing_key} records without the configured source key; freshness was not advanced.")
             if complete_refresh:
                 # Reconcile last_seen only when we fetched the complete configured source scope.
                 conn.execute(TOUCH, (source_id, run_id[1]))
@@ -153,7 +159,7 @@ def load(source_id, limit=None, where=None):
             conn.commit()
             raise
     status_label = "complete" if complete_refresh else "partial (freshness unchanged)"
-    print(f"{source_id}: status={status_label} fetched={fetched} new_or_changed={changed}")
+    print(f"{source_id}: status={status_label} fetched={fetched} new_or_changed={changed} skipped_missing_key={skipped_missing_key}")
 
 
 HAZ_UPSERT = """
