@@ -31,6 +31,13 @@ SELECT_SIGNALS = """
 SELECT county_fips, apn, signal_type, source_id, observed_on, value::text
 FROM core.signals WHERE (%(county)s::text IS NULL OR county_fips = %(county)s)
 """
+SELECT_COMPLETE_SOURCES = """
+SELECT id, county_fips, last_run_at, last_count, schema_hash
+FROM core.sources
+WHERE last_run_at IS NOT NULL
+  AND (%(county)s::text IS NULL OR county_fips = %(county)s)
+ORDER BY id
+"""
 
 STAGE_DDL = f"""
 CREATE TEMP TABLE stage_parcels (LIKE core.parcels INCLUDING DEFAULTS) ON COMMIT DROP;
@@ -75,6 +82,9 @@ def publish(county=None, confirm=False, budget_mb=400):
         n_signals = src.execute(
             "SELECT count(*) FROM core.signals WHERE (%(county)s::text IS NULL OR county_fips=%(county)s)",
             params).fetchone()[0]
+        # Only complete source runs advance core.sources.last_run_at. Partial/sampled loads
+        # are intentionally excluded by ingest.run and therefore cannot refresh target freshness.
+        complete_sources = src.execute(SELECT_COMPLETE_SOURCES, params).fetchall()
         target_now = dst.execute("SELECT pg_database_size(current_database())").fetchone()[0]
         already = dst.execute(
             "SELECT count(*) FROM core.parcels WHERE (%(county)s::text IS NULL OR county_fips=%(county)s)",
@@ -85,6 +95,7 @@ def publish(county=None, confirm=False, budget_mb=400):
 
         print(f"scope:        county={county or 'ALL'}")
         print(f"staging:      {n_parcels:,} parcels, {n_signals:,} signals")
+        print(f"source stamps:{len(complete_sources):>4} complete source refresh metadata row(s) eligible")
         print(f"target now:   {_mb(target_now)} MB ({already:,} parcels in scope already)")
         print(f"projected:    +{_mb(added)} MB -> {_mb(projected)} MB (budget {budget_mb} MB)")
 
@@ -113,5 +124,28 @@ def publish(county=None, confirm=False, budget_mb=400):
             dst.execute("""INSERT INTO core.ingest_runs (source_id, finished_at, fetched, changed, status)
                            VALUES (%s, now(), %s, %s, 'ok')""",
                         (f"publish:{county or 'ALL'}", n_parcels, up))
+
+            # Carry through only the staging source's latest successful full-refresh
+            # stamp. Never use the publish timestamp as evidence that source data was refreshed.
+            for source_id, county_fips, last_run_at, last_count, schema_hash in complete_sources:
+                updated = dst.execute(
+                    """UPDATE core.sources
+                          SET last_run_at = %s, last_count = %s,
+                              schema_hash = COALESCE(%s, schema_hash)
+                        WHERE id = %s AND county_fips = %s
+                          AND (last_run_at IS NULL OR last_run_at < %s)
+                        RETURNING id""",
+                    (last_run_at, last_count, schema_hash, source_id, county_fips, last_run_at),
+                ).fetchone()
+                if updated is None:
+                    exists = dst.execute(
+                        "SELECT 1 FROM core.sources WHERE id = %s AND county_fips = %s",
+                        (source_id, county_fips),
+                    ).fetchone()
+                    if exists is None:
+                        raise RuntimeError(
+                            f"Target is missing core.sources row for {source_id} ({county_fips}); "
+                            "refusing to publish data without matching source metadata."
+                        )
         final = dst.execute("SELECT pg_database_size(current_database())").fetchone()[0]
         print(f"PUBLISHED:    {up:,} parcels new/changed, {sig:,} new signals; target now {_mb(final)} MB")
