@@ -8,6 +8,14 @@
 
 Alternate bulk: LA annual roll CSVs ("Assessor Parcel Data Rolls 2006–present") on data.lacounty.gov.
 
+## Source refresh cadence, provenance, and stale-data warning
+
+- The [Los Angeles County Assessor Open Data portal](https://data.lacounty.gov/pages/52dc6710edfa4dabb47db8a8e6b79432) states annual roll datasets accumulate after roll closure (usually July–August), while Assessor Parcel Change and Publicly Owned Parcel datasets refresh monthly. The current ArcGIS parcel layer is a useful spatial/reference source, but it is not a substitute for the complete annual assessment roll.
+- The [LA County parcel MapServer](https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0) provides a parcel feature layer with a maximum query batch of 1,000 records. The [DataSF Assessor Historical Secured Property Tax Roll](https://data.sfgov.org/Property-and-Land/Assessor-Historical-Secured-Property-Tax-Rolls/wv5m-vpq2) is a separate annual source; record its roll year when communicating freshness.
+- The CRM endpoint `GET /api/public-records/status` reports parcel coverage, owner/mail-field coverage, source-specific successful fetch timestamps, and the latest successful `publish:%` timestamp. The UI warns when the published app snapshot is more than 35 days old.
+- Keep these timestamps distinct: parcel `updated_at` means the normalized row was written; `core.sources.last_run_at` and successful source runs in `core.ingest_runs` mean an upstream fetch completed; a `publish:%` run means the application dataset was published. A recent publish alone does not prove that government data was refreshed.
+- The ingest workflow remains manual and defaults to a Malibu-only staging sample with production publishing disabled. Do not enable scheduled full refresh or production publish until a county-scoped refresh passes field validation, idempotency checks, runtime/storage-budget checks, and an explicit rollout review.
+
 ## Setup
 ```bash
 python -m venv .venv && source .venv/bin/activate
