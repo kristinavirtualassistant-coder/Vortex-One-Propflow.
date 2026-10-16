@@ -1,6 +1,7 @@
 """Source definitions. Add a county = add one entry."""
 SOURCES = {
     "la_parcels": {
+        "county_fips": "06037",
         "kind": "arcgis",
         "url": "https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0",
         "key_field": "AIN",          # verify with `inspect`
@@ -9,6 +10,7 @@ SOURCES = {
         "freshness_max_age_days": 14, # weekly cache: allow a two-week freshness window
     },
     "sf_roll": {
+        "county_fips": "06075",
         "kind": "socrata",
         "url": "https://data.sfgov.org/resource/wv5m-vpq2.json",
         "key_field": "parcel_number",
