@@ -6,6 +6,7 @@ SOURCES = {
         "key_field": "AIN",          # verify with `inspect`
         "roll_year_field": None,
         "page_size": 1000,           # clamped to layer maxRecordCount
+        "freshness_max_age_days": 14, # weekly cache: allow a two-week freshness window
     },
     "sf_roll": {
         "kind": "socrata",
@@ -16,6 +17,7 @@ SOURCES = {
         "page_size": 50000,
         # Pull only recent rolls by default (full history is ~3M rows)
         "where": "closed_roll_year >= '2022'",
+        "freshness_max_age_days": 400, # annual secured roll: one-year window plus publication lag
     },
 }
 
