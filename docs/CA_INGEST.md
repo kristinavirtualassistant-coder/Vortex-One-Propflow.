@@ -3,7 +3,7 @@
 ## Verified sources (Oct 2026)
 | id | Source | Notes |
 |---|---|---|
-| la_parcels | LA County Assessor parcel MapServer (`public.gis.lacounty.gov/.../LACounty_Parcel/MapServer/0`) | ~2.4M parcels; weekly cache. Monthly FGDB/SHP on data.lacounty.gov (2nd of month) |
+| la_parcels | LA County Assessor parcel MapServer (`public.gis.lacounty.gov/.../LACounty_Parcel/MapServer/0`) | Official layer has ~2.4M parcels; app coverage is limited to the Malibu-area subset (`SitusCity LIKE 'MALIBU%'`), not countywide. Weekly cache; monthly FGDB/SHP on data.lacounty.gov (2nd of month) |
 | sf_roll | DataSF Assessor Historical Secured Property Tax Rolls (`wv5m-vpq2`) | Rolls 2007–2024, annual update ~Aug. PDDL license |
 
 Alternate bulk: LA annual roll CSVs ("Assessor Parcel Data Rolls 2006–present") on data.lacounty.gov.
@@ -16,7 +16,13 @@ cp .env.example .env && export $(grep -v '^#' .env | xargs)
 psql "$DATABASE_URL" -f sql/001_schema.sql
 ```
 DB: Supabase or Neon (PostGIS enabled). LA full load is ~2–4 GB with geometry —
-Neon/Supabase free tiers (≈0.5 GB) are too small; use a paid tier or self-hosted Postgres.
+the slim full-county publish is estimated at ~1–2 GB. The workflow's default 400 MB target
+budget intentionally prevents a full LA County publish into the current small database.
+
+The current configured LA scope is `SitusCity LIKE 'MALIBU%'` (the 7,752-record snapshot is
+Malibu-area only). A successful refresh marks that configured subset as current; it must
+never be described as complete coverage of all Los Angeles County parcels. Expand the
+scope only when the target storage budget and publication path have been reviewed.
 
 ## Run
 ```bash
@@ -61,7 +67,10 @@ reconcile `raw.records.last_seen` or update `core.sources.last_run_at/last_count
 This prevents a sample, county/city subset, or malformed upstream result from being
 mistaken for a complete refresh and prevents unseen records from being marked as seen.
 A full refresh means the configured source scope was fetched without an explicit
-limit/query override and without records skipped for missing source keys.
+limit/query override and without records skipped for missing source keys. For LA, that
+configured scope is currently the Malibu-area subset—not all Los Angeles County. The
+source-freshness report prints the configured scope beside the status to prevent this
+subset from being mistaken for countywide coverage.
 
 ## Known gaps
 - **Owner name / mailing address** are not in these open datasets. Sources: CPRA request
