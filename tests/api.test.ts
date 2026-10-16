@@ -210,6 +210,42 @@ describe('CRM, properties, owners', { skip }, () => {
     }
   });
 
+  test('public-record status reports snapshot freshness, coverage, and source refresh history', async () => {
+    const { client } = await signup(api, 'property_manager', 'publicstatus');
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    const apn = 'TEST-STATUS-' + Date.now();
+    const publishId = 'publish:TEST-STATUS-' + Date.now();
+    try {
+      await pool.query(
+        `INSERT INTO core.parcels
+          (county_fips, apn, situs_address, situs_city, situs_zip, updated_at)
+         VALUES ('06037', $1, '123 STATUS TEST ST LOS ANGELES CA 90012', 'LOS ANGELES', '90012', now())`,
+        [apn],
+      );
+      await pool.query(
+        `INSERT INTO core.ingest_runs (source_id, started_at, finished_at, fetched, changed, status)
+         VALUES ($1, now(), now(), 1, 1, 'ok')`,
+        [publishId],
+      );
+
+      const response = await client.get('/api/public-records/status');
+      assert.equal(response.status, 200);
+      assert.equal(response.body.snapshot.status, 'current');
+      assert.equal(response.body.snapshot.lastAttemptStatus, 'ok');
+      assert.equal(typeof response.body.snapshot.lastSuccessfulPublishAt, 'string');
+      assert.equal(response.body.staleAfterDays, 35);
+      assert.ok(response.body.coverage.parcelCount >= 1);
+      assert.ok(response.body.coverage.counties.some((county: any) => county.countyFips === '06037'));
+      assert.ok(Array.isArray(response.body.sources));
+      assert.ok(response.body.sources.some((source: any) => source.sourceId === 'la_parcels'));
+      assert.ok(response.body.coverage.latestRecordUpdatedAt);
+    } finally {
+      await pool.query('DELETE FROM core.ingest_runs WHERE source_id = $1', [publishId]);
+      await pool.query("DELETE FROM core.parcels WHERE apn = $1 AND county_fips = '06037'", [apn]);
+      await pool.end();
+    }
+  });
+
   test('property → owner → contact → lead relationships stay consistent', async () => {
     const { client, user } = await signup(api, 'property_manager', 'crm');
     const owner = (await client.post('/api/owners', { name: 'Olive Owner LLC', entityType: 'llc', mailingState: 'fl', phoneNumbers: ['(305) 555-0172'], emailAddresses: ['o@example.com'] })).body.owner;
