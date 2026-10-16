@@ -4,12 +4,8 @@ on:
   schedule:
     - cron: "0 14 * * 1"
   workflow_dispatch:
-  push:
-    branches: ["main"]
-    paths:
-      - ".github/workflows/source-freshness.yml"
-      - ".github/workflows/ca-ingest.yml"
-      - "ingest/**"
+  # Source freshness is checked after successful ingestion, not on the same push
+  # that starts ingestion (which would race the write and report stale metadata).
   workflow_run:
     workflows: ["ca-ingest"]
     types: [completed]
