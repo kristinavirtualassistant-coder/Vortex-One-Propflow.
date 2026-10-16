@@ -4,12 +4,24 @@ on:
   schedule:
     - cron: "0 14 * * 1"
   workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/source-freshness.yml"
+      - ".github/workflows/ca-ingest.yml"
+      - "ingest/**"
+  workflow_run:
+    workflows: ["ca-ingest"]
+    types: [completed]
+    branches: ["main"]
 
 permissions:
   contents: read
 
 jobs:
   freshness:
+    # Recheck after a successful ingest; do not report a second failure when ingestion itself failed.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
