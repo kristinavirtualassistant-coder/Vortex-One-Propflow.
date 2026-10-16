@@ -79,14 +79,15 @@ def report_freshness(stale_days=None):
         county_fips = row[1].strip() if row else cfg.get("county_fips", "unknown")
         last_run_at = row[2] if row else None
         last_count = row[3] if row else None
-        threshold = stale_days or cfg.get("freshness_max_age_days", 14)
+        threshold = stale_days if stale_days is not None else cfg.get("freshness_max_age_days", 14)
+        scope = cfg.get("coverage_scope", "Coverage scope not documented")
         state = freshness_state(last_run_at, threshold)
         age_days = freshness_age_days(last_run_at)
         age_label = "unknown" if age_days is None else f"{age_days:.1f} days"
         run_label = last_run_at.isoformat() if last_run_at else "never recorded"
         count_label = "unknown" if last_count is None else str(last_count)
-        print(f"- {source_id} county={county_fips} state={state} age={age_label} "
-              f"max_age={threshold} days last_full_refresh={run_label} last_count={count_label}")
+        print(f"- {source_id} county={county_fips} scope={scope} state={state} age={age_label} "
+              f"max_age={threshold} days last_scope_refresh={run_label} last_count={count_label}")
         if state != "fresh":
             healthy = False
     if not healthy:

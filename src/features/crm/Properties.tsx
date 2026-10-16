@@ -150,7 +150,15 @@ function PublicRecordsPanel() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-semibold"><Database className="h-4 w-4" /> California public records</div>
-          <div className="text-xs text-slate-500 mt-1">Search ingested California parcel records without copying the statewide dataset into every organization. Current open datasets do not provide verified owner names or mailing addresses; imported records will not invent them.</div>
+          <div className="text-xs text-slate-500 mt-1">
+            {records.data?.coverage?.scope ?? (countyFips === '06037'
+              ? 'Current coverage is the Malibu-area subset only, not all of Los Angeles County.'
+              : 'The San Francisco source is configured for 2022+ assessor rolls; records have not been verified as loaded yet.')}
+            {records.data?.coverage?.lastScopeRefreshAt
+              ? ` Last complete refresh of this scope: ${new Date(records.data.coverage.lastScopeRefreshAt).toLocaleDateString()}.`
+              : ' No successful complete-source refresh is recorded for this scope.'}
+            {' '}Current open datasets do not provide verified owner names or mailing addresses; imported records will not invent them.
+          </div>
         </div>
         <Button onClick={() => setOpen((v) => !v)}>{open ? 'Hide search' : 'Search CA records'}</Button>
       </div>
