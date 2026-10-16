@@ -12,6 +12,13 @@ import {
 
 const PROPERTY_TYPES = ['Single Family', 'Multi-Family', 'Condo', 'Townhouse', 'Commercial', 'Land', 'Mobile Home', 'Other'];
 const ENTITY_TYPES = ['individual', 'llc', 'corporation', 'trust', 'partnership', 'other'];
+const formatDataTimestamp = (value?: string | null) => {
+  if (!value) return 'Not recorded';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unavailable';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+};
+
 
 const propertyFields: FieldDef[] = [
   { name: 'address', label: 'Street address', required: true, span: 2 },
@@ -76,6 +83,7 @@ const Signals = ({ p }: { p: any }) => (
 
 function PublicRecordsPanel() {
   const toast = useToast();
+  const status = useFetch<any>(() => api.get('/public-records/status'), []);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [countyFips, setCountyFips] = useState('06037');
@@ -154,6 +162,55 @@ function PublicRecordsPanel() {
         </div>
         <Button onClick={() => setOpen((v) => !v)}>{open ? 'Hide search' : 'Search CA records'}</Button>
       </div>
+      {status.loading && <div className="mt-3 text-xs text-slate-500" role="status">Checking public-record dataset freshness…</div>}
+      {status.error && <div className="mt-3"><ErrorBanner message={status.error} onRetry={status.reload} /></div>}
+      {status.data && (
+        <section aria-label="Public-record data status" className={`mt-3 rounded-xl border p-3 ${status.data.snapshot.status === 'stale' ? 'border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20' : 'border-slate-200 bg-white/70 dark:border-slate-800 dark:bg-slate-950/30'}`}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <strong className="text-sm">{Number(status.data.coverage.parcelCount || 0).toLocaleString()} shared parcel records</strong>
+            <Badge tone={status.data.snapshot.status === 'current' ? 'green' : status.data.snapshot.status === 'stale' ? 'red' : 'amber'}>
+              {status.data.snapshot.status === 'current' ? 'Published snapshot recent' : status.data.snapshot.status === 'stale' ? 'Published snapshot stale' : 'Snapshot freshness unverified'}
+            </Badge>
+            <span className="text-xs text-slate-500">Last successful publish: {formatDataTimestamp(status.data.snapshot.lastSuccessfulPublishAt)}</span>
+          </div>
+          <div className="mt-2 grid gap-1 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+            <div>Latest parcel-row update: {formatDataTimestamp(status.data.coverage.latestRecordUpdatedAt)}</div>
+            <div>Staleness threshold: {status.data.staleAfterDays} days after last successful publish</div>
+            <div>Owner names present: {Number(status.data.coverage.ownerNameCount || 0).toLocaleString()}</div>
+            <div>Mailing addresses present: {Number(status.data.coverage.mailingAddressCount || 0).toLocaleString()}</div>
+          </div>
+          {status.data.snapshot.status === 'stale' && (
+            <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-200" role="alert">
+              The application snapshot is older than the configured freshness window. Refresh and validate the upstream source before treating these records as current.
+            </p>
+          )}
+          {status.data.snapshot.status === 'unknown' && (
+            <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-200" role="status">
+              No successful publish run is recorded; freshness cannot be confirmed.
+            </p>
+          )}
+          {status.data.snapshot.lastAttemptStatus && status.data.snapshot.lastAttemptStatus !== 'ok' && (
+            <p className="mt-2 text-xs font-medium text-red-700 dark:text-red-300" role="alert">
+              The latest publish attempt did not complete successfully ({status.data.snapshot.lastAttemptStatus}).
+            </p>
+          )}
+          <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">Upstream source refresh history</div>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              {status.data.sources.map((source: any) => (
+                <span key={source.sourceId}>
+                  {source.countyName}: {formatDataTimestamp(source.lastSuccessfulRunAt)} · <a className="underline" href={source.url} target="_blank" rel="noreferrer">official data source</a>
+                </span>
+              ))}
+            </div>
+            {status.data.sources.some((source: any) => !source.lastSuccessfulRunAt) && (
+              <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                Source-specific fetch timestamps are missing for one or more counties. A recent publish does not prove the government source itself was refreshed.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
       {open && (
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap gap-2">
