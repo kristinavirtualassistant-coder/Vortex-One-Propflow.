@@ -22,6 +22,7 @@ SOURCES = {
         "page_size": 50000,
         # Pull only recent rolls by default (full history is ~3M rows)
         "where": "closed_roll_year >= '2022'",
+        "coverage_scope": "San Francisco Assessor secured property-tax rolls from 2022 onward",
         "freshness_max_age_days": 400, # annual secured roll: one-year window plus publication lag
     },
 }
