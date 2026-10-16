@@ -150,14 +150,14 @@ function PublicRecordsPanel() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-semibold"><Database className="h-4 w-4" /> California public records</div>
-          <div className="text-xs text-slate-500 mt-1">Search ingested California parcel records without copying the statewide dataset into every organization.</div>
+          <div className="text-xs text-slate-500 mt-1">Search ingested California parcel records without copying the statewide dataset into every organization. Current open datasets do not provide verified owner names or mailing addresses; imported records will not invent them.</div>
         </div>
         <Button onClick={() => setOpen((v) => !v)}>{open ? 'Hide search' : 'Search CA records'}</Button>
       </div>
       {open && (
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap gap-2">
-            <Input className="flex-1 min-w-[240px]" aria-label="Public-record search" placeholder="Address, city, ZIP, APN or owner" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <Input className="flex-1 min-w-[240px]" aria-label="Public-record search" placeholder="Address, city, ZIP or APN" value={query} onChange={(e) => setQuery(e.target.value)} />
             <Select aria-label="California county" className="w-52" value={countyFips} onChange={(e) => setCountyFips(e.target.value)}>
               <option value="06037">Los Angeles County</option>
               <option value="06075">San Francisco County</option>
@@ -175,7 +175,7 @@ function PublicRecordsPanel() {
                 <tbody>{records.data.items.map((r: any) => (
                   <tr key={r.countyFips + ':' + r.apn} className="border-b last:border-0 border-slate-100 dark:border-slate-900">
                     <td className="px-3 py-3"><div className="font-medium">{r.situsAddress || 'No situs address'}</div><div className="text-xs text-slate-500">{r.situsCity || r.countyName}, CA {r.situsZip || ''}</div></td>
-                    <td className="px-3 py-3">{r.ownerName || '—'}</td>
+                    <td className="px-3 py-3">{r.ownerName || 'Not provided by source'}</td>
                     <td className="px-3 py-3 font-mono text-xs">{r.apn}</td>
                     <td className="px-3 py-3">{r.yearBuilt || '—'}</td>
                     <td className="px-3 py-3 text-right"><Button variant="primary" loading={importing === r.apn} disabled={!r.situsAddress || !r.situsZip} onClick={() => importRecord(r)}>Import</Button></td>
