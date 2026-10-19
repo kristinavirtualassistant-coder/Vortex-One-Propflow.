@@ -9,7 +9,7 @@
     "start": "tsx server.ts",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/unit.test.ts tests/api.test.ts",
+    "test": "tsx --test tests/unit.test.ts tests/api.test.ts tests/sameOrigin.test.ts",
     "test:unit": "tsx --test tests/unit.test.ts",
     "db:migrate:local": "bash scripts/apply-migrations.sh"
   },

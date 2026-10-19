@@ -13,6 +13,7 @@ import { blockInDemo, startDemoSession } from "./src/server/demo.js";
 import { permissionsFor } from "./src/server/core.js";
 import { portalRouter } from "./src/server/portal.js";
 import { z } from "zod";
+import { sameOriginGuard } from "./src/middleware/sameOrigin.js";
 import { type AuthRequest, clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
@@ -239,6 +240,7 @@ export function createApp() {
     keyGenerator: (req) => ((req as AuthRequest).user?.id ? `user:${(req as AuthRequest).user!.id}` : ipKey(req)),
     message: { error: "AI request limit reached. Please wait a minute and try again." },
   });
+  app.use("/api", sameOriginGuard);
   app.use((req, res, next) => {
     if (req.path === "/api/integrations/3min/webhook" && req.is("application/json")) return next();
     return express.json({ limit: "1mb" })(req, res, next);
