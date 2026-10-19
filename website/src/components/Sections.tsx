@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { APP_URL, CONTACT_EMAIL } from '../config';
 import { Badge, Card, Eyebrow, SectionHeading, btnPrimary, btnSecondary } from './ui';
+import { WaitlistForm } from './WaitlistForm';
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -159,12 +160,12 @@ export function FinalCta() {
     <section id="cta" className="px-6 pb-24">
       <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 text-center">
         <Eyebrow>Next step</Eyebrow>
-        <h2 className="m-0 text-4xl font-black leading-10 tracking-tight">Open your Vortex One workspace</h2>
-        <p className="m-0 text-base leading-6 text-ink-2">Create a free account, or start the live demo to explore a seeded sandbox first.</p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <a className={btnPrimary} href={APP_URL}>Start free</a>
-          <a className={btnSecondary} href={APP_URL}>Sign in</a>
-        </div>
+        <h2 className="m-0 text-4xl font-black leading-10 tracking-tight">Join the Vortex One waitlist</h2>
+        <p className="m-0 text-base leading-6 text-ink-2">Leave your email and we'll let you know when your workspace is ready.</p>
+        <WaitlistForm />
+        <p className="m-0 text-sm text-ink-2">
+          Already have an account? <a href={APP_URL}>Sign in</a>
+        </p>
       </div>
     </section>
   );
