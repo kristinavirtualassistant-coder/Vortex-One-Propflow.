@@ -14,7 +14,7 @@ import { permissionsFor } from "./src/server/core.js";
 import { portalRouter } from "./src/server/portal.js";
 import { z } from "zod";
 import { sameOriginGuard } from "./src/middleware/sameOrigin.js";
-import { type AuthRequest, clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, setSessionCookie } from "./src/middleware/auth.js";
+import { type AuthRequest, clearSessionCookie, createSession, deleteSession, getSessionToken, requireAuth, SESSION_TTL_MS, setSessionCookie } from "./src/middleware/auth.js";
 
 const ai = process.env.GEMINI_API_KEY
   ? new GoogleGenAI({
@@ -581,22 +581,36 @@ export function createApp() {
         body.emergencyDispatch ? String(body.emergencyDispatch).trim() : null,
       ];
 
+      // Create the account, organization, and first session atomically. If session
+      // creation fails, the transaction rolls back so the user is not left with an
+      // account that exists but cannot be signed in immediately after registration.
+      const sessionToken = crypto.randomBytes(32).toString('hex');
+      const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS);
       const created = await withTransaction(async (client) => {
         await client.query(
           'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
-          [organizationId, `${String(name).trim()} Organization`, `vortex-${userId.slice(0,8)}`]
+          [organizationId, \`${String(name).trim()} Organization\`, \`vortex-\${userId.slice(0,8)}\`]
         );
-        return client.query(
-          `INSERT INTO users
+        const createdUser = await client.query(
+          \`INSERT INTO users
             (id,organization_id,uid,email,password_hash,name,role,phone,company_name,portfolio_size,primary_market,current_address,monthly_income,employment_status,move_in_date,occupants_count,has_pets,trade_specialty,hourly_rate,property_types,management_fee,service_radius,emergency_dispatch)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
-           RETURNING ${userColumns}`,
+           RETURNING \${userColumns}\`,
           userValues
         );
+        await client.query(
+          'INSERT INTO auth_sessions (id, user_id, token_hash, expires_at, last_seen_at) VALUES ($1,$2,$3,$4,now())',
+          [
+            crypto.randomUUID(),
+            userId,
+            crypto.createHash('sha256').update(sessionToken).digest('hex'),
+            sessionExpiresAt,
+          ]
+        );
+        return createdUser;
       });
       const user = toUser(created.rows[0]);
-      const session = await createSession(user.id);
-      setSessionCookie(res, session.id, session.expiresAt);
+      setSessionCookie(res, sessionToken, sessionExpiresAt);
       return res.status(201).json({ user });
     } catch (error: any) {
       console.error("Signup error:", error);
