@@ -5,13 +5,13 @@ import { LEGAL_DOCS } from '../content/legal';
 
 export function Wordmark() {
   return (
-    <span className="text-xl uppercase leading-none tracking-wide text-white">
+    <span className="text-xl uppercase leading-none tracking-wide text-ink">
       <span className="font-extrabold">Vortex</span> <span className="font-light text-sky">One</span>
     </span>
   );
 }
 
-const navLink = 'rounded px-2 py-3 text-sm font-medium text-white/70 transition hover:text-white';
+const navLink = 'rounded px-2 py-3 text-sm font-semibold text-ink-2 transition hover:text-ink';
 
 /** Full-width white top bar carrying the horizontal logo in its true colours. */
 export function Nav() {
@@ -19,7 +19,7 @@ export function Nav() {
   const home = pathname === '/';
   const anchor = (id: string) => (home ? `#${id}` : `/#${id}`);
   return (
-    <div className="border-b border-white/10 bg-navy px-6 text-white">
+    <div className="border-b border-line bg-canvas px-6 text-ink">
       <nav aria-label="Main" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 py-4">
         <Link to="/" aria-label="Vortex One home" className="flex min-h-11 items-center">
           <img src="/logo-horizontal-sm.webp" alt="" width={176} height={40} className="h-10 w-auto" />

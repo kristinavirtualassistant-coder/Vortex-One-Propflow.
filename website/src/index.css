@@ -3,7 +3,7 @@
 /* Vortex One semantic color system: graphite surfaces, electric orange actions, quiet neutrals. */
 @theme {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --color-canvas: #f4f5f3;
+  --color-canvas: #fffaf7;
   --color-panel: #ffffff;
   --color-inset: #f7f8f6;
   --color-track: #e8ebe7;
