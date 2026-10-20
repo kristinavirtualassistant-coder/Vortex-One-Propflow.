@@ -11,7 +11,7 @@ export function Wordmark() {
   );
 }
 
-const navLink = 'rounded px-2 py-3 text-sm font-medium text-ink-2 hover:text-ink';
+const navLink = 'rounded px-2 py-3 text-sm font-medium text-white/70 transition hover:text-white';
 
 /** Full-width white top bar carrying the horizontal logo in its true colours. */
 export function Nav() {
@@ -19,8 +19,8 @@ export function Nav() {
   const home = pathname === '/';
   const anchor = (id: string) => (home ? `#${id}` : `/#${id}`);
   return (
-    <div className="border-b border-line bg-white px-6">
-      <nav aria-label="Main" className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
+    <div className="border-b border-white/10 bg-navy px-6 text-white">
+      <nav aria-label="Main" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 py-4">
         <Link to="/" aria-label="Vortex One home" className="flex min-h-11 items-center">
           <img src="/logo-horizontal-sm.webp" alt="" width={176} height={40} className="h-10 w-auto" />
         </Link>
@@ -32,7 +32,7 @@ export function Nav() {
           <a className={navLink} href={APP_URL}>Sign in</a>
           <a
             href={APP_URL}
-            className="inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-medium text-white shadow-sm hover:bg-accent-hover"
+            className="inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-bold text-white shadow-sm transition hover:bg-accent-hover"
           >
             Start free
           </a>
