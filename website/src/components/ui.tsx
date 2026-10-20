@@ -55,8 +55,8 @@ export function ScoreMeter({ score }: { score: number }) {
 }
 
 export const btnPrimary =
-  'inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-white shadow-sm hover:bg-accent-hover';
+  'btn-primary inline-flex min-h-11 items-center justify-center rounded-xl bg-accent px-5 text-sm font-bold text-white shadow-sm hover:bg-accent-hover';
 export const btnSecondary =
-  'inline-flex min-h-11 items-center justify-center rounded-lg border border-line-strong bg-panel px-4 text-sm font-medium text-ink hover:bg-inset';
+  'btn-secondary inline-flex min-h-11 items-center justify-center rounded-lg border border-line-strong bg-panel px-4 text-sm font-medium text-ink hover:bg-inset';
 export const labelCls = 'mb-2 block text-xs font-bold uppercase tracking-wider text-ink-2';
 export const inputCls = 'min-h-11 w-full rounded-xl border border-line bg-inset px-4 text-sm text-ink';

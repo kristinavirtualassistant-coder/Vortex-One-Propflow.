@@ -69,6 +69,49 @@ input[type='range'] {
   50% { opacity: 1; transform: scale(1.25); }
 }
 
+.btn-primary,
+.btn-secondary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+}
+
+.btn-primary::after,
+.btn-secondary::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -120%;
+  width: 70%;
+  transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent);
+  transition: left .55s ease;
+  pointer-events: none;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 12px 24px rgba(36, 87, 255, .22);
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 18px rgba(23, 35, 31, .08);
+}
+
+.btn-primary:hover::after,
+.btn-secondary:hover::after { left: 130%; }
+
+.btn-primary:active,
+.btn-secondary:active {
+  transform: translateY(1px) scale(.98);
+  transition-duration: .08s;
+}
+
 .hero-copy { animation: vortex-rise .75s cubic-bezier(.22, 1, .36, 1) both; }
 .hero-preview { animation: vortex-rise .85s .12s cubic-bezier(.22, 1, .36, 1) both; }
 .hero-card { animation: vortex-float 7s ease-in-out 1s infinite; }
@@ -85,6 +128,17 @@ input[type='range'] {
   .hero-card .bg-success {
     animation: none;
   }
+
+  .btn-primary,
+  .btn-secondary {
+    transition: none;
+  }
+
+  .btn-primary::after,
+  .btn-secondary::after {
+    display: none;
+  }
+}
 
   html {
     scroll-behavior: auto;

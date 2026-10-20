@@ -32,7 +32,7 @@ export function Nav() {
           <a className={navLink} href={APP_URL}>Sign in</a>
           <a
             href={APP_URL}
-            className="inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-bold text-white shadow-sm transition hover:bg-accent-hover"
+            className="btn-primary inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-bold text-white shadow-sm hover:bg-accent-hover"
           >
             Start free
           </a>
