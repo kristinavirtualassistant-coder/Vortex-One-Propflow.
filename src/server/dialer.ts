@@ -14,6 +14,7 @@ import {
   Where, pageParams, type Ctx, type Db,
 } from './core.js';
 import { createTask } from './tasks.js';
+import { assertCallable } from './dnc.js';
 
 // ------------------------------------------------------------------ state machine
 export const CALL_STATUSES = ['dialing', 'ringing', 'connected', 'completed', 'failed', 'no_answer', 'busy', 'canceled'] as const;
@@ -128,9 +129,8 @@ export const startCall = async (ctx: Ctx, input: { contactId: string; campaignId
   const call = await withTx(async (db) => {
     const c = (await db.query('SELECT * FROM contacts WHERE id=$1 AND organization_id=$2 FOR UPDATE', [input.contactId, ctx.orgId])).rows[0];
     if (!c) throw badRequest('Unknown contact reference');
-    if (c.archived_at) throw new HttpError(422, 'This contact is archived', 'contact_archived');
-    if (c.do_not_call) throw new HttpError(422, 'This contact is on the Do Not Call list', 'do_not_call');
-    if (!c.phone) throw new HttpError(422, 'This contact has no phone number', 'no_phone');
+    // Single Do Not Call gate (by contact and by number); runs on the locked row, before any provider call.
+    await assertCallable(db, ctx.orgId, c);
 
     await assertRef(db, ctx.orgId, 'leads', input.leadId, 'lead');
     await assertRef(db, ctx.orgId, 'properties', input.propertyId, 'property');

@@ -18,6 +18,7 @@ import {
 } from './core.js';
 import { LEAD_STAGES, createLead, getLead, updateLead } from './leads.js';
 import { createTask } from './tasks.js';
+import { checkCallable } from './dnc.js';
 import { createContact } from './contacts.js';
 import { runAgent } from './agents.js';
 
@@ -182,7 +183,8 @@ const executeAction = async (db: Db, ctx: Ctx, action: Action, state: RunState):
       const camp = (await db.query('SELECT status, name FROM campaigns WHERE id=$1 AND organization_id=$2', [action.params.campaignId, ctx.orgId])).rows[0];
       if (['completed', 'archived'].includes(camp.status)) throw new HttpError(409, `Campaign is ${camp.status}`);
       const ct = (await db.query('SELECT phone, do_not_call, archived_at FROM contacts WHERE id=$1 AND organization_id=$2', [refs.contactId, ctx.orgId])).rows[0];
-      if (!ct?.phone || ct.do_not_call || ct.archived_at) return { added: false, reason: 'Contact is not callable (no phone, Do Not Call, or archived)' };
+      const blocked = ct ? await checkCallable(db, ctx.orgId, { id: refs.contactId, ...ct }) : { code: 'no_phone' };
+      if (blocked) return { added: false, reason: 'Contact is not callable (no phone, Do Not Call, or archived)' };
       const ins = await db.query(
         `INSERT INTO campaign_contacts (id, organization_id, campaign_id, contact_id, lead_id) VALUES ($1,$2,$3,$4,$5)
          ON CONFLICT (campaign_id, contact_id) DO NOTHING RETURNING id`, [newId(), ctx.orgId, action.params.campaignId, refs.contactId, refs.leadId]);

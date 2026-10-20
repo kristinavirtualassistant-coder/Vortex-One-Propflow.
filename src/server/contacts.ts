@@ -136,6 +136,8 @@ contactsRouter.patch('/contacts/:id', route('crm:write', async (req, _res, ctx) 
     sets.push(`${col}=$${params.length}${k === 'tags' ? '::jsonb' : ''}`);
   }
   if (!sets.length) throw badRequest('No fields to update');
+  const before = input.doNotCall === undefined ? null
+    : (await db.query('SELECT do_not_call FROM contacts WHERE id=$1 AND organization_id=$2', [id, ctx.orgId])).rows[0];
   params.push(id, ctx.orgId);
   const r = await db.query(
     `UPDATE contacts SET ${sets.join(',')}, updated_at=now() WHERE id=$${params.length - 1} AND organization_id=$${params.length} RETURNING *`, params);
@@ -143,6 +145,12 @@ contactsRouter.patch('/contacts/:id', route('crm:write', async (req, _res, ctx) 
   const contact = camel<any>(r.rows[0])!;
   await logActivity(db, ctx, 'contact.updated', `Contact ${contact.firstName} ${contact.lastName}`.trim() + ' updated',
     { contactId: id, ownerId: contact.propertyOwnerId }, { fields: Object.keys(input) });
+  // Do Not Call changes are compliance events: record who set or cleared the flag, separately from the generic update.
+  if (before && Boolean(before.do_not_call) !== contact.doNotCall) {
+    await logActivity(db, ctx, contact.doNotCall ? 'contact.do_not_call_set' : 'contact.do_not_call_cleared',
+      `Do Not Call ${contact.doNotCall ? 'set on' : 'cleared for'} ${contact.firstName} ${contact.lastName}`.trim(),
+      { contactId: id, ownerId: contact.propertyOwnerId }, { doNotCall: contact.doNotCall });
+  }
   return { contact };
 }));
 

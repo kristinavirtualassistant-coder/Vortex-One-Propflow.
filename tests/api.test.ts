@@ -490,6 +490,71 @@ describe('dialer and campaigns', { skip }, () => {
     assert.equal((await client.get(`/api/campaigns/${campaign.id}`)).body.metrics.contacts.do_not_call, 1);
   });
 
+  test('Do Not Call is enforced by number at every dial and queue entry point', async () => {
+    const { client, campaign } = await setup();
+    const mk = async (firstName: string, phone: string, extra: object = {}) =>
+      (await client.post('/api/contacts', { firstName, phone, ...extra })).body.contact;
+    // B and E are queued first; A (same number as B, different formatting) opts out afterwards.
+    const dupe = await mk('Dupe', '+1 555-555-0104');
+    const other = await mk('Other', '(555) 555-0105');
+    await client.post(`/api/campaigns/${campaign.id}/contacts`, { contactIds: [dupe.id, other.id] });
+    assert.equal((await client.post(`/api/campaigns/${campaign.id}/status`, { action: 'activate' })).status, 200);
+    assert.equal((await client.post(`/api/campaigns/${campaign.id}/next`)).body.next.contact.id, dupe.id, 'callable before the opt-out');
+
+    const optedOut = await mk('Optout', '(555) 555-0104', { doNotCall: true });
+
+    // 1. start call: both the flagged record and the unflagged duplicate of the same number are refused.
+    for (const c of [optedOut, dupe]) {
+      const res = await client.post('/api/calls', { contactId: c.id });
+      assert.equal(res.status, 422, c.firstName);
+      assert.equal(res.body.code, 'do_not_call', c.firstName);
+    }
+    assert.equal((await client.post('/api/calls', { contactId: dupe.id, campaignId: campaign.id })).status, 422);
+
+    // 2. power dialer queue skips the duplicate and serves the next callable contact.
+    assert.equal((await client.post(`/api/campaigns/${campaign.id}/next`)).body.next.contact.id, other.id);
+
+    // 3. adding to a campaign reports the reason.
+    const second = (await client.post('/api/campaigns', { name: 'Second' })).body.campaign;
+    const added = (await client.post(`/api/campaigns/${second.id}/contacts`, { contactIds: [dupe.id, optedOut.id, other.id] })).body;
+    assert.equal(added.added, 1);
+    assert.equal(added.skipped.filter((s: any) => /Do Not Call/.test(s.reason)).length, 2);
+
+    // 4. call-assistant agent reports the contact as not ready.
+    const agent = (await client.post('/api/agents/call_assistant/run', { input: { contactId: dupe.id } })).body;
+    assert.equal(agent.status, 'completed');
+    assert.equal(agent.output.ready, false);
+    assert.ok(agent.output.issues.some((i: string) => /Do Not Call/.test(i)));
+
+    // 5. workflow add_to_campaign does not queue the duplicate.
+    const property = (await client.post('/api/properties', prop(`DNC-${Date.now()}`))).body.property;
+    const lead = (await client.post('/api/leads', { propertyId: property.id, contactId: dupe.id })).body.lead;
+    const wf = (await client.post('/api/workflows', {
+      name: 'Queue', triggerType: 'manual', conditions: [], actions: [{ type: 'add_to_campaign', params: { campaignId: second.id } }],
+    })).body.workflow;
+    const run = (await client.post(`/api/workflows/${wf.id}/run`, { leadId: lead.id })).body;
+    assert.equal(run.steps[0].output.added, false);
+    assert.match(run.steps[0].output.reason, /not callable/);
+    const members = (await client.get(`/api/campaigns/${second.id}`)).body.members;
+    assert.ok(!members.some((m: any) => m.contactId === dupe.id));
+
+    // Different numbers, and other organizations, are unaffected.
+    assert.equal((await client.post('/api/calls', { contactId: other.id })).status, 201);
+    const { client: stranger } = await signup(api, 'property_manager', 'dncorg');
+    const same = (await stranger.post('/api/contacts', { firstName: 'Same', phone: '(555) 555-0104' })).body.contact;
+    assert.equal((await stranger.post('/api/calls', { contactId: same.id })).status, 201, 'another organization has its own list');
+  });
+
+  test('setting and clearing Do Not Call is recorded as its own activity', async () => {
+    const { client, contact } = await setup();
+    assert.equal((await client.patch(`/api/contacts/${contact.id}`, { doNotCall: true })).status, 200);
+    assert.equal((await client.patch(`/api/contacts/${contact.id}`, { doNotCall: true })).status, 200, 'no change, no event');
+    assert.equal((await client.patch(`/api/contacts/${contact.id}`, { doNotCall: false })).status, 200);
+    const types = (await client.get(`/api/contacts/${contact.id}`)).body.activity.map((a: any) => a.type);
+    assert.equal(types.filter((t: string) => t === 'contact.do_not_call_set').length, 1);
+    assert.equal(types.filter((t: string) => t === 'contact.do_not_call_cleared').length, 1);
+  });
+
   test('callback outcome auto-creates a follow-up task', async () => {
     const { client, contact } = await setup();
     const id = (await client.post('/api/calls', { contactId: contact.id })).body.call.id;
