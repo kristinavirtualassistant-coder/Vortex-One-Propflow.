@@ -49,7 +49,43 @@ input[type='range'] {
   accent-color: var(--color-accent);
 }
 
+@keyframes vortex-rise {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vortex-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -12px, 0) rotate(1deg); }
+}
+
+@keyframes vortex-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-18px, 12px, 0) scale(1.05); }
+}
+
+@keyframes vortex-pulse {
+  0%, 100% { opacity: .45; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+.hero-copy { animation: vortex-rise .75s cubic-bezier(.22, 1, .36, 1) both; }
+.hero-preview { animation: vortex-rise .85s .12s cubic-bezier(.22, 1, .36, 1) both; }
+.hero-card { animation: vortex-float 7s ease-in-out 1s infinite; }
+.hero-orb-left { animation: vortex-drift 11s ease-in-out infinite; }
+.hero-orb-right { animation: vortex-drift 13s ease-in-out -3s infinite reverse; }
+.hero-card .bg-success { animation: vortex-pulse 2.8s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
+  .hero-copy,
+  .hero-preview,
+  .hero-card,
+  .hero-orb-left,
+  .hero-orb-right,
+  .hero-card .bg-success {
+    animation: none;
+  }
+
   html {
     scroll-behavior: auto;
   }
