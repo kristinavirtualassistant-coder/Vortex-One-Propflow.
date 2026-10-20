@@ -589,13 +589,13 @@ export function createApp() {
       const created = await withTransaction(async (client) => {
         await client.query(
           'INSERT INTO organizations (id,name,slug) VALUES ($1,$2,$3)',
-          [organizationId, \`${String(name).trim()} Organization\`, \`vortex-\${userId.slice(0,8)}\`]
+          [organizationId, `${String(name).trim()} Organization`, `vortex-${userId.slice(0,8)}`]
         );
         const createdUser = await client.query(
-          \`INSERT INTO users
+          `INSERT INTO users
             (id,organization_id,uid,email,password_hash,name,role,phone,company_name,portfolio_size,primary_market,current_address,monthly_income,employment_status,move_in_date,occupants_count,has_pets,trade_specialty,hourly_rate,property_types,management_fee,service_radius,emergency_dispatch)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
-           RETURNING \${userColumns}\`,
+           RETURNING ${userColumns}`,
           userValues
         );
         await client.query(
