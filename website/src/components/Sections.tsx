@@ -99,7 +99,7 @@ export function HowItWorks() {
 export function Trust() {
   return (
     <section id="trust" className="px-6 pb-20">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-8 rounded-3xl bg-[#35254b] p-8 text-white shadow-[0_20px_50px_rgba(53,37,75,0.18)] md:p-12">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-8 rounded-3xl bg-[#2457ff] p-8 text-white shadow-[0_20px_50px_rgba(36,87,255,0.18)] md:p-12">
         <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-3">
           <Eyebrow tone="sky">Built to be honest</Eyebrow>
           <h2 className="m-0 text-3xl font-bold leading-9 tracking-tight">We label what is simulated, and we commit to how live AI calling will behave</h2>
