@@ -17,6 +17,7 @@ import { getLead, updateLead } from './leads.js';
 import { createTask } from './tasks.js';
 import { scoreProperty } from './scoring.js';
 import { getTelephony } from './dialer.js';
+import { checkCallable } from './dnc.js';
 
 export interface AgentDefinition<I = any, O = any> {
   key: string;
@@ -156,9 +157,8 @@ const callAssistant: AgentDefinition = {
     const property = lead?.primaryPropertyId ? camel<any>((await db.query('SELECT * FROM properties WHERE id=$1 AND organization_id=$2', [lead.primaryPropertyId, ctx.orgId])).rows[0]) : null;
     const lastCalls = camelRows<any>((await db.query('SELECT outcome, status, started_at FROM calls WHERE organization_id=$1 AND contact_id=$2 ORDER BY started_at DESC LIMIT 3', [ctx.orgId, contactId])).rows);
     const issues: string[] = [];
-    if (c.doNotCall) issues.push('Contact is on the Do Not Call list');
-    if (c.archivedAt) issues.push('Contact is archived');
-    if (!c.phone) issues.push('Contact has no phone number');
+    const callable = await checkCallable(db, ctx.orgId, { id: c.id, phone: c.phone, do_not_call: c.doNotCall, archived_at: c.archivedAt });
+    if (callable) issues.push(callable.message);
     const talking: string[] = [];
     if (property) {
       talking.push(`Confirm they are the owner of ${property.address}, ${property.city}.`);

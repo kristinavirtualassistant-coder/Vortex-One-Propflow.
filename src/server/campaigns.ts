@@ -5,6 +5,7 @@ import {
   pageParams, route, withTx, type Ctx, type Db,
 } from './core.js';
 import { MAX_ATTEMPTS } from './dialer.js';
+import { checkCallable, notOnDncNumberSql } from './dnc.js';
 
 export const CAMPAIGN_STATUSES = ['draft', 'active', 'paused', 'completed', 'archived'] as const;
 const ACTIONS = ['activate', 'pause', 'resume', 'complete', 'archive', 'restore'] as const;
@@ -168,9 +169,8 @@ campaignsRouter.post('/campaigns/:id/contacts', route('campaigns:manage', async 
     for (const [contactId, leadId] of pairs) {
       const ct = (await db.query('SELECT * FROM contacts WHERE id=$1 AND organization_id=$2', [contactId, ctx.orgId])).rows[0];
       if (!ct) { skipped.push({ id: contactId, reason: 'Contact not found' }); continue; }
-      if (ct.archived_at) { skipped.push({ id: contactId, reason: 'Contact is archived' }); continue; }
-      if (!ct.phone) { skipped.push({ id: contactId, reason: 'Contact has no phone number' }); continue; }
-      if (ct.do_not_call) { skipped.push({ id: contactId, reason: 'Contact is on the Do Not Call list' }); continue; }
+      const callable = await checkCallable(db, ctx.orgId, ct);
+      if (callable) { skipped.push({ id: contactId, reason: callable.message }); continue; }
       const ins = await db.query(
         `INSERT INTO campaign_contacts (id, organization_id, campaign_id, contact_id, lead_id)
          VALUES ($1,$2,$3,$4,$5) ON CONFLICT (campaign_id, contact_id) DO NOTHING RETURNING id`,
@@ -207,6 +207,7 @@ campaignsRouter.post('/campaigns/:id/next', route('dialer:use', async (req, _res
        FROM campaign_contacts cc JOIN contacts ct ON ct.id=cc.contact_id
       WHERE cc.organization_id=$1 AND cc.campaign_id=$2 AND cc.status='pending'
         AND ct.do_not_call=false AND ct.archived_at IS NULL AND ct.phone IS NOT NULL
+        AND ${notOnDncNumberSql('ct', '$1')}
         AND NOT EXISTS (SELECT 1 FROM calls k WHERE k.contact_id=ct.id AND k.status IN ('dialing','ringing','connected') AND k.started_at > now() - interval '10 minutes')
       ORDER BY cc.attempts, cc.created_at LIMIT 1`, [ctx.orgId, id]);
   if (!r.rows.length) return { next: null, message: 'No callable contacts remain in this campaign' };
