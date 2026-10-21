@@ -18,7 +18,8 @@ for f in \
   supabase/migrations/20261005000300_properties_updated_at_trigger.sql \
   supabase/migrations/20261006000000_crm_dialer_workflows.sql \
   supabase/migrations/20261006010000_ca_ingest_core.sql \
-  supabase/migrations/20261007000000_portal_records.sql; do
+  supabase/migrations/20261007000000_portal_records.sql \
+  supabase/migrations/20261021000000_property_field_provenance.sql; do
   echo "applying $f"
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
 done
