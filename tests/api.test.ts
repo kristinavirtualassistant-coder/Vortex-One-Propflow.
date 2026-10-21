@@ -287,6 +287,40 @@ describe('CRM, properties, owners', { skip }, () => {
     assert.ok(detail.activity.some((a: any) => a.type === 'note.added'));
   });
 
+  test('enrichment records source, time and confidence per field and never downgrades a better value', async () => {
+    const { client } = await signup(api, 'property_manager', 'enrich');
+    const other = (await signup(api, 'property_manager', 'enrich2')).client;
+    const p = (await client.post('/api/properties', prop('ENRICH-1', { estimatedValue: 1 }))).body.property;
+    const url = `/api/properties/${p.id}/enrich`;
+
+    const first = await client.post(url, { source: 'avm_a', confidence: 0.6, retrievedAt: '2026-10-01T00:00:00.000Z', fields: { squareFeet: 1800, yearBuilt: 1975 } });
+    assert.equal(first.status, 200);
+    assert.deepEqual(first.body.applied.sort(), ['squareFeet', 'yearBuilt']);
+    assert.deepEqual(first.body.property.fieldProvenance.squareFeet, { source: 'avm_a', confidence: 0.6, retrievedAt: '2026-10-01T00:00:00.000Z' });
+
+    // A lower-confidence source cannot overwrite; a higher one can.
+    const low = await client.post(url, { source: 'scrape_b', confidence: 0.3, fields: { squareFeet: 999 } });
+    assert.deepEqual(low.body.applied, []);
+    assert.equal(low.body.skipped[0].field, 'squareFeet');
+    const high = await client.post(url, { source: 'county_roll', confidence: 0.95, fields: { squareFeet: 1850 } });
+    assert.deepEqual(high.body.applied, ['squareFeet']);
+    assert.equal(high.body.property.squareFeet, 1850);
+    assert.equal(high.body.property.fieldProvenance.squareFeet.source, 'county_roll');
+    assert.equal(high.body.property.fieldProvenance.yearBuilt.source, 'avm_a', 'other fields keep their stamp');
+
+    // A manual edit stamps manual/1 and then outranks every source.
+    await client.patch(`/api/properties/${p.id}`, { squareFeet: 1900 });
+    const afterManual = await client.post(url, { source: 'county_roll', confidence: 0.99, fields: { squareFeet: 1 } });
+    assert.deepEqual(afterManual.body.applied, []);
+    assert.equal((await client.get(`/api/properties/${p.id}`)).body.property.fieldProvenance.squareFeet.source, 'manual');
+
+    // Validation and isolation.
+    assert.equal((await client.post(url, { source: 'x', confidence: 2, fields: { yearBuilt: 1 } })).status, 400);
+    assert.equal((await client.post(url, { source: 'x', confidence: 0.5, fields: { address: 'Nope' } })).status, 400, 'identity fields are not enrichable');
+    assert.equal((await client.post(url, { source: 'x', confidence: 0.5, fields: {} })).status, 400);
+    assert.equal((await other.post(url, { source: 'x', confidence: 0.5, fields: { yearBuilt: 2000 } })).status, 404);
+  });
+
   test('partial updates never reset fields that were not sent (schema defaults)', async () => {
     const { client } = await signup(api, 'property_manager', 'patch');
     const c = (await client.post('/api/contacts', { firstName: 'Pat', lastName: 'Chen', contactType: 'owner', doNotCall: true, tags: ['keep'] })).body.contact;

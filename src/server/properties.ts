@@ -72,6 +72,23 @@ export const propertyCreate = z.object({
 });
 export const propertyUpdate = propertyCreate.partial();
 
+/** Fields an external source may fill in. Identity and workflow fields (address, apn, owner, notes, tags) are never enrichable. */
+const ENRICHABLE = [
+  'propertyType', 'unitsCount', 'squareFeet', 'yearBuilt', 'bedrooms', 'bathrooms', 'lotSizeSqft', 'latitude', 'longitude',
+  'estimatedValue', 'assessedTaxValue', 'estimatedEquity', 'mortgageBalance', 'isAbsenteeOwner', 'isCorporateOwned',
+  'taxDelinquent', 'lastSaleDate', 'lastSalePrice',
+] as const;
+
+export const enrichInput = z.object({
+  source: z.string().trim().min(1).max(80),
+  confidence: z.coerce.number().min(0).max(1),
+  retrievedAt: z.string().datetime().optional(),
+  overrideHigherConfidence: z.boolean().default(false),
+  fields: propertyCreate.pick(Object.fromEntries(ENRICHABLE.map((k) => [k, true])) as any).partial().strict(),
+});
+
+type FieldStamp = { source: string; confidence: number; retrievedAt: string };
+
 const PROPERTY_COLS: Record<string, string> = {
   address: 'address', city: 'city', state: 'state', zip: 'zip', county: 'county', apn: 'apn',
   propertyType: 'property_type', unitsCount: 'units_count', squareFeet: 'square_feet', yearBuilt: 'year_built',
@@ -265,6 +282,11 @@ propertiesRouter.patch('/properties/:id', route('crm:write', async (req, _res, c
     sets.push(`${col}=$${params.length}${k === 'tags' ? '::jsonb' : ''}`);
   }
   if (!sets.length) throw badRequest('No fields to update');
+  const manual: Record<string, FieldStamp> = {};
+  const now = new Date().toISOString();
+  for (const k of Object.keys(input)) if ((ENRICHABLE as readonly string[]).includes(k)) manual[k] = { source: 'manual', confidence: 1, retrievedAt: now };
+  params.push(JSON.stringify(manual));
+  sets.push(`field_provenance=field_provenance || $${params.length}::jsonb`);
   params.push(id, ctx.orgId);
   let r;
   try {
@@ -278,6 +300,40 @@ propertiesRouter.patch('/properties/:id', route('crm:write', async (req, _res, c
   await logActivity(db, ctx, 'property.updated', `Property ${property.address} updated`,
     { propertyId: id, ownerId: property.ownerId }, { fields: Object.keys(input) });
   return { property };
+}));
+
+propertiesRouter.post('/properties/:id/enrich', route('crm:write', async (req, _res, ctx) => {
+  const id = String(req.params.id);
+  const input = enrichInput.parse(req.body);
+  const incoming = Object.entries(presentOnly(input.fields, req.body.fields)).filter(([, v]) => v !== undefined);
+  if (!incoming.length) throw badRequest('No fields to enrich');
+  const stamp: FieldStamp = { source: input.source, confidence: input.confidence, retrievedAt: input.retrievedAt ?? new Date().toISOString() };
+  const result = await withTx(async (client) => {
+    const cur = await client.query('SELECT field_provenance FROM properties WHERE id=$1 AND organization_id=$2 FOR UPDATE', [id, ctx.orgId]);
+    if (!cur.rows.length) throw notFound('Property');
+    const existing: Record<string, FieldStamp> = cur.rows[0].field_provenance ?? {};
+    const applied: string[] = []; const skipped: { field: string; reason: string }[] = [];
+    const sets: string[] = []; const params: unknown[] = [];
+    const stamps: Record<string, FieldStamp> = {};
+    for (const [k, v] of incoming) {
+      const prev = existing[k];
+      if (!input.overrideHigherConfidence && prev && Number(prev.confidence) > input.confidence) {
+        skipped.push({ field: k, reason: `Existing value from ${prev.source} has higher confidence (${prev.confidence})` });
+        continue;
+      }
+      params.push(v); sets.push(`${PROPERTY_COLS[k]}=$${params.length}`);
+      stamps[k] = stamp; applied.push(k);
+    }
+    if (!applied.length) return { applied, skipped, property: null };
+    params.push(JSON.stringify(stamps)); sets.push(`field_provenance=field_provenance || $${params.length}::jsonb`);
+    params.push(id, ctx.orgId);
+    const r = await client.query(`UPDATE properties SET ${sets.join(',')} WHERE id=$${params.length - 1} AND organization_id=$${params.length} RETURNING *`, params);
+    const property = camel<any>(r.rows[0])!;
+    await logActivity(client, ctx, 'property.enriched', `Property ${property.address} enriched from ${input.source}`,
+      { propertyId: id, ownerId: property.ownerId }, { source: input.source, confidence: input.confidence, fields: applied, skipped: skipped.map((x) => x.field) });
+    return { applied, skipped, property };
+  });
+  return result;
 }));
 
 propertiesRouter.post('/properties/:id/archive', route('crm:write', async (req, _res, ctx) => {
