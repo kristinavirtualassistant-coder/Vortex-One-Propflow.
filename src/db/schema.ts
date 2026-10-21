@@ -84,6 +84,7 @@ export const properties = pgTable('properties', {
   lastSaleDate: date('last_sale_date'),
   lastSalePrice: numeric('last_sale_price'),
   provenance: jsonb('provenance').notNull().default({}),
+  fieldProvenance: jsonb('field_provenance').notNull().default({}),
   bedrooms: numeric('bedrooms'),
   bathrooms: numeric('bathrooms'),
   lotSizeSqft: integer('lot_size_sqft'),
