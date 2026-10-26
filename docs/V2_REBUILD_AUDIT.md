@@ -191,7 +191,7 @@ docs/*                       Architecture, deployment, integration matrix, clean
 |---|---|---|---|---|
 | D1 | Medium | **VERIFIED** | The GitHub repository is named `Vortex-One-Propflow.` (trailing period), not `Vortex-One-Propflow`. It works with git and Vercel, but breaks tooling that normalizes names (this session's GitHub API access was denied because of it). Renaming is a decision for you; GitHub redirects old URLs, but Vercel's Git link and Actions secrets must be re-checked after. | `git remote -v`; Vercel deployment meta `githubRepo: "Vortex-One-Propflow."` |
 | D2 | — | **VERIFIED** | Platform: Vercel project `vortex1-unified` has production domain `vortex1-unified.vercel.app` (verified); latest production deployment is READY at `main` `4e169e9` (= audited commit). Root `vercel.json`: build `npm run build`, output `public`, `/api/*` → `api/index`. Password/SSO protection disabled (needed for the 3Min webhook). | Vercel API `list_project_domains`, `list_deployments` |
-| D3 | Medium | **UNVERIFIED** | Website: a Vercel project `vortexone` exists in the same team, but project details returned 404 and deployments 403 to this session. Domain `vortexone.vercel.app`, root directory (`website/` required) and build settings could not be confirmed. | Vercel API errors |
+| D3 | Medium | **PARTIAL** | Website: Vercel project `vortexone` exists in the same team and builds from root directory `website` (VERIFIED: Vercel GitHub-bot metadata on PR #72; its preview build for this branch reached Ready). Project details returned 404 and deployments 403 to this session, so the production domain `vortexone.vercel.app` and its production deployment remain UNVERIFIED. | Vercel API errors; Vercel bot comment on PR #72 |
 | D4 | Low | **VERIFIED** | Node mismatch: CI Node 20, Vercel Node 24.x. | `ci.yml`, Vercel project |
 | D5 | Low | **VERIFIED** | Stale config: `.env.example` `APP_URL` is a Firebase `web.app` URL; `.firebaserc` remains after Firebase removal; `website/README.md` says "No forms and no backend" but `website/api/waitlist.ts` exists. | those files |
 | D6 | Medium | **UNVERIFIED** | Production environment variables (DATABASE_URL pooler, `DATABASE_SSL_CA`, `DATABASE_POOL_MAX`, OAuth, `GEMINI_API_KEY`) — not inspected, by design. | — |
@@ -359,7 +359,7 @@ Major uncertainties: which database is production and what it contains (B3/B4); 
 | S8 | Vercel → Project → Settings → Environment Variables: check `DATABASE_URL` scope (Production vs Preview) |
 | D1 | `git remote -v` |
 | D2 | Vercel → `vortex1-unified` → Deployments: production = `4e169e9` |
-| D3 | Vercel → `vortexone` → Settings → General: Root Directory = `website`, Output = `dist`; Domains: `vortexone.vercel.app` |
+| D3 | Root directory `website` is confirmed by the Vercel bot comment on PR #72. Still check Vercel → `vortexone` → Settings → General: Output = `dist`; Domains: `vortexone.vercel.app`; production deployment = current `main` |
 | E6 | `npm run build` warnings |
 
 ### Commands actually executed in this audit
