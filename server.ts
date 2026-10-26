@@ -10,7 +10,7 @@ import { gisCloudConfig, syncPropertyFeatureViaEdge, type GisCloudProperty } fro
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { apiRouter } from "./src/server/index.js";
 import { blockInDemo, startDemoSession } from "./src/server/demo.js";
-import { permissionsFor } from "./src/server/core.js";
+import { permissionsFor, requirePermission } from "./src/server/core.js";
 import { portalRouter } from "./src/server/portal.js";
 import { z } from "zod";
 import { sameOriginGuard } from "./src/middleware/sameOrigin.js";
@@ -248,7 +248,7 @@ export function createApp() {
 
 
 
-  app.get("/api/integrations/3min/status", requireAuth, async (_req, res) => {
+  app.get("/api/integrations/3min/status", requireAuth, requirePermission("integrations:manage"), async (_req, res) => {
     const secretConfigured = Boolean(String(process.env.THREEMIN_WEBHOOK_SECRET || "").trim());
     const tokenConfigured = Boolean(String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim());
     const allowUnauthenticated = String(process.env.THREEMIN_WEBHOOK_ALLOW_UNAUTHENTICATED || "false").toLowerCase() === "true";
@@ -263,7 +263,7 @@ export function createApp() {
     });
   });
 
-  app.post("/api/integrations/3min/test", requireAuth, blockInDemo, async (req, res) => {
+  app.post("/api/integrations/3min/test", requireAuth, requirePermission("integrations:manage"), blockInDemo, async (req, res) => {
     const token = String(process.env.THREEMIN_WEBHOOK_TOKEN || "").trim();
     if (!token) return res.status(503).json({ error: "3Min webhook token is not configured" });
     const webhookId = `vortex-test-${crypto.randomUUID()}`;
@@ -353,7 +353,7 @@ export function createApp() {
     }
   });
 
-  app.get("/api/integrations/gis-cloud/maps", requireAuth, blockInDemo, async (_req, res) => {
+  app.get("/api/integrations/gis-cloud/maps", requireAuth, requirePermission("crm:read"), blockInDemo, async (_req, res) => {
     try {
       const token = String(process.env.GIS_CLOUD_ACCESS_TOKEN || "").trim();
       const baseUrl = String(process.env.GIS_CLOUD_API_BASE_URL || "https://api.giscloud.com").replace(/\/$/, "");
@@ -774,12 +774,12 @@ export function createApp() {
   });
 
   // GIS Cloud integration
-  app.get("/api/integrations/gis-cloud/status", requireAuth, async (_req, res) => {
+  app.get("/api/integrations/gis-cloud/status", requireAuth, requirePermission("crm:read"), async (_req, res) => {
     const config = gisCloudConfig();
     return res.json({ configured: config.configured, mapId: config.mapId, layerId: config.layerId });
   });
 
-  app.post("/api/integrations/gis-cloud/properties/:id/sync", requireAuth, blockInDemo, async (req, res) => {
+  app.post("/api/integrations/gis-cloud/properties/:id/sync", requireAuth, requirePermission("crm:write"), blockInDemo, async (req, res) => {
     try {
       await ensureDatabaseReady();
       const propertyId = String(req.params.id || "");

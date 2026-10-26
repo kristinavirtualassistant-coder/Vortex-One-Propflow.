@@ -94,6 +94,46 @@ describe('authorization (RBAC) and tenant isolation', { skip }, () => {
     assert.equal((await landlord.post('/api/agents/lead_qualification/run', { input: {} })).status, 403);
   });
 
+  test('integration routes enforce permissions (3Min, GIS Cloud)', async () => {
+    const roles = ['tenant', 'technician', 'landlord', 'sales', 'property_manager'] as const;
+    const selfSignup = ['tenant', 'technician', 'landlord', 'property_manager'] as const;
+    const clients = Object.fromEntries(
+      await Promise.all(selfSignup.map(async (r) => [r, (await signup(api, r, `integ-${r}`)).client] as const)),
+    ) as Record<(typeof roles)[number], Client>;
+    // 'sales' cannot self-register (signup maps it to property_manager); a manager adds it.
+    const salesEmail = `integ-sales-${Date.now()}@example.com`;
+    assert.equal((await clients.property_manager.post('/api/org/members', { name: 'Integ Sales', email: salesEmail, role: 'sales', password: 'long-enough-pw-1' })).status, 201);
+    clients.sales = new Client(api.base);
+    assert.equal((await clients.sales.post('/api/auth/login', { email: salesEmail, password: 'long-enough-pw-1' })).status, 200);
+    assert.equal((await clients.sales.get('/api/auth/me')).body.user.role, 'sales');
+
+    // [method, path, roles allowed past the permission check]
+    const cases: Array<['get' | 'post', string, string[]]> = [
+      ['get', '/api/integrations/3min/status', ['property_manager']],
+      ['post', '/api/integrations/3min/test', ['property_manager']],
+      ['get', '/api/integrations/gis-cloud/maps', ['landlord', 'sales', 'property_manager']],
+      ['get', '/api/integrations/gis-cloud/status', ['landlord', 'sales', 'property_manager']],
+      ['post', '/api/integrations/gis-cloud/properties/any-id/sync', ['sales', 'property_manager']],
+    ];
+    for (const [method, path, allowed] of cases) {
+      for (const role of roles) {
+        const res = method === 'get' ? await clients[role].get(path) : await clients[role].post(path, {});
+        if (allowed.includes(role)) {
+          // Past RBAC; may still be 200/404/503 because integrations are not configured in tests.
+          assert.notEqual(res.status, 403, `${role} ${method.toUpperCase()} ${path} should pass the permission check`);
+          assert.notEqual(res.status, 401, `${role} ${method.toUpperCase()} ${path} should be authenticated`);
+        } else {
+          assert.equal(res.status, 403, `${role} ${method.toUpperCase()} ${path} must be forbidden`);
+          assert.equal(res.body.code, 'forbidden');
+        }
+      }
+    }
+
+    // integrations:manage is exposed to the UI only for managers.
+    assert.ok((await clients.property_manager.get('/api/auth/me')).body.user.permissions.includes('integrations:manage'));
+    assert.ok(!(await clients.sales.get('/api/auth/me')).body.user.permissions.includes('integrations:manage'));
+  });
+
   test('organizations cannot read or reference each other’s records (IDOR)', async () => {
     const a = (await signup(api, 'property_manager', 'orgA')).client;
     const b = (await signup(api, 'property_manager', 'orgB')).client;
