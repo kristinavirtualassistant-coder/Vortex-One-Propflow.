@@ -61,11 +61,13 @@ export type Permission =
   | 'workflows:manage' | 'workflows:run'
   | 'agents:run'
   | 'members:read' | 'members:manage'
+  | 'integrations:manage'
   | 'demo:reset';
 
 const ALL: Permission[] = [
   'crm:read', 'crm:write', 'crm:delete', 'campaigns:manage', 'dialer:use',
-  'workflows:manage', 'workflows:run', 'agents:run', 'members:read', 'members:manage', 'demo:reset',
+  'workflows:manage', 'workflows:run', 'agents:run', 'members:read', 'members:manage',
+  'integrations:manage', 'demo:reset',
 ];
 
 export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
@@ -87,6 +89,18 @@ export const assertCan = (ctx: Pick<Ctx, 'role'>, permission: Permission) => {
 // Express glue
 // --------------------------------------------------------------------------------------
 type Handler = (req: AuthRequest, res: Response, ctx: Ctx) => Promise<unknown> | unknown;
+
+/**
+ * Middleware form of the RBAC check, for routes not written with route().
+ * Place it after requireAuth. Responds 403 with the same body route() uses.
+ */
+export const requirePermission = (permission: Permission) =>
+  (req: Request, res: Response, next: NextFunction) => {
+    const role = (req as AuthRequest).user?.role;
+    if (role && can(role, permission)) return next();
+    const err = forbidden();
+    return res.status(err.status).json({ error: err.message, code: err.code });
+  };
 
 /** Wraps a handler: permission check, ready DB, ctx construction, uniform error mapping. */
 export const route = (permission: Permission | null, handler: Handler) =>
