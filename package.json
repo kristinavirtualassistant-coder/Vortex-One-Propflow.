@@ -16,6 +16,7 @@
   "dependencies": {
     "@google/genai": "^2.29.1",
     "@tailwindcss/vite": "^4.1.14",
+    "@vercel/analytics": "^2.0.1",
     "@vitejs/plugin-react": "^6.1.2",
     "date-fns": "^4.4.0",
     "dotenv": "^18.0.7",
