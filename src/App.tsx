@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -36,6 +37,7 @@ export default function App() {
             />
           </Routes>
         </BrowserRouter>
+        <Analytics />
       </AuthProvider>
     </ThemeProvider>
   );
