@@ -85,3 +85,5 @@ Vercel (static `public/` + serverless Express API `api/index.ts`) in front of Su
 ## Security notes
 
 HttpOnly SameSite=Lax session cookie (`__Host-` prefixed in production), scrypt password hashing, in-memory rate limits (per instance), JSON-only bodies with a 1 MB cap, security headers, zod validation on every CRM route, parameterized SQL, demo orgs cannot reach paid/external routes. Known gaps are listed in docs/ARCHITECTURE.md → *Known limitations*.
+
+Deployment recovery verification checkpoint — November 9, 2026.
